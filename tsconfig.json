@@ -1,0 +1,46 @@
+{
+  "compilerOptions": {
+    "target": "ES2020",
+    "lib": ["ES2020", "DOM", "DOM.Iterable"],
+    "module": "ESNext",
+    "moduleResolution": "bundler",
+    "jsx": "react-jsx",
+    "strict": true,
+    "noEmit": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "forceConsistentCasingInFileNames": true,
+    "resolveJsonModule": true,
+    "isolatedModules": true,
+    "declaration": true,
+    "declarationMap": true,
+    "sourceMap": true,
+    "baseUrl": ".",
+    "paths": {
+      "@3sc/types": ["packages/types/src"],
+      "@3sc/ui": ["packages/ui/src"],
+      "@3sc/api": ["packages/api/src"],
+      "@3sc/auth": ["packages/auth/src"],
+      "@3sc/permissions": ["packages/permissions/src"],
+      "@3sc/realtime": ["packages/realtime/src"],
+      "@3sc/hooks": ["packages/hooks/src"],
+      "@3sc/utils": ["packages/utils/src"],
+      "@3sc/theme": ["packages/theme/src"],
+      "@3sc/config": ["packages/config/src"]
+    }
+  },
+  "references": [
+    { "path": "./packages/types" },
+    { "path": "./packages/utils" },
+    { "path": "./packages/config" },
+    { "path": "./packages/theme" },
+    { "path": "./packages/permissions" },
+    { "path": "./packages/auth" },
+    { "path": "./packages/api" },
+    { "path": "./packages/realtime" },
+    { "path": "./packages/hooks" },
+    { "path": "./packages/ui" },
+    { "path": "./apps/customer-portal" },
+    { "path": "./apps/internal-console" }
+  ]
+}

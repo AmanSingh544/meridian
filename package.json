@@ -1,0 +1,36 @@
+{
+  "name": "3sc-platform",
+  "private": true,
+  "version": "1.0.0",
+  "description": "AI-Powered Customer Support & Issue Management Platform",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "dev:portal": "npm -w apps/customer-portal run dev",
+    "dev:console": "npm -w apps/internal-console run dev",
+    "dev": "concurrently \"npm run dev:portal\" \"npm run dev:console\"",
+    "build:portal": "npm -w apps/customer-portal run build",
+    "build:console": "npm -w apps/internal-console run build",
+    "build": "npm run build:packages && npm run build:portal && npm run build:console",
+    "build:packages": "npm -w packages/types run build && npm -w packages/utils run build && npm -w packages/config run build && npm -w packages/theme run build && npm -w packages/permissions run build && npm -w packages/auth run build && npm -w packages/api run build && npm -w packages/realtime run build && npm -w packages/hooks run build && npm -w packages/ui run build",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "lint": "eslint . --ext .ts,.tsx",
+    "typecheck": "tsc --noEmit"
+  },
+  "devDependencies": {
+    "@types/react": "^18.2.43",
+    "@types/react-dom": "^18.2.17",
+    "@vitejs/plugin-react": "^4.2.1",
+    "concurrently": "^8.2.2",
+    "eslint": "^8.55.0",
+    "typescript": "^5.3.3",
+    "vite": "^5.0.8",
+    "vitest": "^1.1.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

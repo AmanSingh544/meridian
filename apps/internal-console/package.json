@@ -1,0 +1,28 @@
+{
+  "name": "@3sc/internal-console",
+  "private": true,
+  "version": "1.0.0",
+  "type": "module",
+  "scripts": {
+    "dev": "vite --port 3001",
+    "build": "tsc && vite build",
+    "preview": "vite preview"
+  },
+  "dependencies": {
+    "@3sc/api": "*",
+    "@3sc/auth": "*",
+    "@3sc/config": "*",
+    "@3sc/hooks": "*",
+    "@3sc/permissions": "*",
+    "@3sc/realtime": "*",
+    "@3sc/theme": "*",
+    "@3sc/types": "*",
+    "@3sc/ui": "*",
+    "@3sc/utils": "*",
+    "@reduxjs/toolkit": "^2.0.1",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "react-redux": "^9.0.4",
+    "react-router-dom": "^6.21.1"
+  }
+}
