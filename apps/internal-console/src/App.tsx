@@ -39,7 +39,11 @@ const PageLoader: React.FC = () => (
 
 const SessionInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useDispatch<AppDispatch>();
-  useEffect(() => { dispatch(checkSession()); }, [dispatch]);
+  useEffect(() => {
+    const tenantId = sessionStorage.getItem('tenant_id');
+    if (tenantId) dispatch(checkSession(tenantId));
+    else dispatch({ type: 'auth/checkSession/rejected' });
+  }, [dispatch]);
   return <>{children}</>;
 };
 
