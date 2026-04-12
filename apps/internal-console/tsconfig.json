@@ -1,17 +1,8 @@
 {
   "extends": "../../tsconfig.json",
-  "compilerOptions": { "outDir": "dist", "rootDir": "src" },
-  "include": ["src"],
-  "references": [
-    { "path": "../../packages/types" },
-    { "path": "../../packages/utils" },
-    { "path": "../../packages/config" },
-    { "path": "../../packages/theme" },
-    { "path": "../../packages/permissions" },
-    { "path": "../../packages/auth" },
-    { "path": "../../packages/api" },
-    { "path": "../../packages/realtime" },
-    { "path": "../../packages/hooks" },
-    { "path": "../../packages/ui" }
-  ]
+  "compilerOptions": {
+    "outDir": "dist",
+    "rootDir": "src"
+  },
+  "include": ["src"]
 }

@@ -13,7 +13,7 @@
     "dev": "concurrently \"npm run dev:portal\" \"npm run dev:console\"",
     "build:portal": "npm -w apps/customer-portal run build",
     "build:console": "npm -w apps/internal-console run build",
-    "build": "npm run build:packages && npm run build:portal && npm run build:console",
+    "build": "npm run build:portal && npm run build:console",
     "build:packages": "npm -w packages/types run build && npm -w packages/utils run build && npm -w packages/config run build && npm -w packages/theme run build && npm -w packages/permissions run build && npm -w packages/auth run build && npm -w packages/api run build && npm -w packages/realtime run build && npm -w packages/hooks run build && npm -w packages/ui run build",
     "test": "vitest run",
     "test:watch": "vitest",
