@@ -12,7 +12,7 @@ export const AuditLogPage: React.FC = () => {
 
   const { data, isLoading } = useGetAuditLogsQuery({
     page,
-    pageSize: 25,
+    page_size: 25,
     resourceType: resourceType || undefined,
   });
 
@@ -88,7 +88,7 @@ export const AuditLogPage: React.FC = () => {
       />
 
       {data && (
-        <Pagination page={data.meta.page} totalPages={data.meta.totalPages} onPageChange={setPage} />
+        <Pagination page={data.page} total_pages={data.total_pages} onPageChange={setPage} />
       )}
     </div>
   );

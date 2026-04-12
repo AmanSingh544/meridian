@@ -15,7 +15,7 @@ const initialState: AuthState = {
 };
 
 export const login = createAsyncThunk(
-  'auth/login',
+  'user/login',
   async (credentials: LoginCredentials) => loginService(credentials),
 );
 

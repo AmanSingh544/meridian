@@ -62,7 +62,18 @@ const baseQueryWithReauth: BaseQueryFn<
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
-  let result = await rawBaseQuery(args, api, extraOptions);
+  // Inject tenant_id into every request's query params
+  const state = api.getState() as { auth?: { session?: { tenantId?: string } } };
+  const tenantId = state.auth?.session?.tenantId;
+
+  let adjustedArgs = args;
+  if (tenantId) {
+    const base: FetchArgs = typeof args === 'string' ? { url: args } : { ...args };
+    base.params = { tenant_id: tenantId, ...(base.params ?? {}) };
+    adjustedArgs = base;
+  }
+
+  let result = await rawBaseQuery(adjustedArgs, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
     // Attempt token refresh
@@ -74,7 +85,7 @@ const baseQueryWithReauth: BaseQueryFn<
 
     if (refreshResult.data) {
       // Retry original request
-      result = await rawBaseQuery(args, api, extraOptions);
+      result = await rawBaseQuery(adjustedArgs, api, extraOptions);
     } else {
       // Dispatch session expired event
       api.dispatch({ type: 'auth/sessionExpired' });
@@ -124,7 +135,7 @@ export const api = createApi({
     // ── Tickets ─────────────────────────────────────────────
     getTickets: builder.query<PaginatedResponse<Ticket>, TicketFilters>({
       query: (filters) => ({
-        url: '/tickets',
+        url: '/tickets/list',
         params: filters,
       }),
       providesTags: (result) =>
@@ -221,7 +232,7 @@ export const api = createApi({
     }),
 
     // ── Projects ────────────────────────────────────────────
-    getProjects: builder.query<PaginatedResponse<Project>, { page?: number; pageSize?: number }>({
+    getProjects: builder.query<PaginatedResponse<Project>, { page?: number; page_size?: number }>({
       query: (params) => ({ url: '/projects', params }),
       providesTags: (result) =>
         result
@@ -338,7 +349,7 @@ export const api = createApi({
     // ── Audit Logs ──────────────────────────────────────────
     getAuditLogs: builder.query<PaginatedResponse<AuditLogEntry>, {
       page?: number;
-      pageSize?: number;
+      page_size?: number;
       resourceType?: string;
       userId?: string;
     }>({

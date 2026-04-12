@@ -214,7 +214,7 @@ Both Vite dev servers proxy `/api` and `/ws` to `http://localhost:8080`. Configu
 - Multi-tenancy is scoped via tenant ID in session, backend enforces isolation
 - AI endpoints are synchronous and return suggestions with confidence scores
 - File uploads use presigned URL flow (request → upload to storage → confirm)
-- Pagination is offset-based with `page` and `pageSize` parameters
+- Pagination is offset-based with `page` and `page_size` parameters
 - All timestamps are ISO 8601 strings
 - The backend validates ticket state transitions and returns 422 for invalid ones
 

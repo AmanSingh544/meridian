@@ -11,9 +11,9 @@ export const API_CONFIG = {
 } as const;
 
 export const AUTH_CONFIG = {
-  loginPath: '/auth/login',
+  loginPath: '/user/login', //'/auth/login',
   logoutPath: '/auth/logout',
-  refreshPath: '/auth/refresh',
+  refreshPath: '/token/refresh',
   sessionPath: '/auth/session',
   resetPasswordPath: '/auth/reset-password',
   confirmResetPath: '/auth/confirm-reset',

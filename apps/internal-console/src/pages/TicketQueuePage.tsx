@@ -33,7 +33,7 @@ export const TicketQueuePage: React.FC = () => {
     sortBy,
     sortOrder,
     page,
-    pageSize: 25,
+    page_size: 25,
   }), [debouncedSearch, statusFilter, priorityFilter, sortBy, sortOrder, page, view, session?.userId]);
 
   const { data, isLoading } = useGetTicketsQuery(filters);
@@ -191,7 +191,7 @@ export const TicketQueuePage: React.FC = () => {
       />
 
       {data && (
-        <Pagination page={data.meta.page} totalPages={data.meta.totalPages} onPageChange={setPage} />
+        <Pagination page={data.page} total_pages={data.total_pages} onPageChange={setPage} />
       )}
     </div>
   );

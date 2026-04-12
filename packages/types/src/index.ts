@@ -9,12 +9,10 @@ export type Email = string;
 
 export interface PaginatedResponse<T> {
   data: T[];
-  meta: {
     total: number;
     page: number;
-    pageSize: number;
-    totalPages: number;
-  };
+    page_size: number;
+    total_pages: number;
 }
 
 export interface ApiError {
@@ -48,6 +46,7 @@ export interface PasswordResetConfirm {
 export interface SessionInfo {
   userId: UUID;
   email: Email;
+  token: string;
   displayName: string;
   avatarUrl?: string;
   role: UserRole;
@@ -157,27 +156,28 @@ export interface Organization {
 
 // ── Ticket Types ────────────────────────────────────────────────
 export enum TicketStatus {
-  OPEN = 'open',
-  ACKNOWLEDGED = 'acknowledged',
-  IN_PROGRESS = 'in_progress',
-  RESOLVED = 'resolved',
-  CLOSED = 'closed',
+  OPEN = 'OPEN',
+  ACKNOWLEDGED = 'ACKNOWLEDGED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
 }
 
 export enum TicketPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical',
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
 }
 
 export enum TicketCategory {
-  BUG = 'bug',
-  FEATURE_REQUEST = 'feature_request',
-  SUPPORT = 'support',
-  QUESTION = 'question',
-  INCIDENT = 'incident',
-  TASK = 'task',
+  BUG = 'BUG',
+  FEATURE_REQUEST = 'FEATURE_REQUEST',
+  SUPPORT = 'SUPPORT',
+  BILLING = 'BILLING',
+  QUESTION = 'QUESTION',
+  INCIDENT = 'INCIDENT',
+  TASK = 'TASK',
 }
 
 /** Valid state transitions enforced in UI */
@@ -249,7 +249,7 @@ export interface TicketFilters {
   dateFrom?: ISO8601;
   dateTo?: ISO8601;
   page?: number;
-  pageSize?: number;
+  page_size?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }

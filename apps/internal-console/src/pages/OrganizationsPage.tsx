@@ -54,7 +54,7 @@ export const OrganizationsPage: React.FC = () => {
         loading={isLoading}
         emptyMessage="No organizations found"
       />
-      {data && <Pagination page={data.meta.page} totalPages={data.meta.totalPages} onPageChange={setPage} />}
+      {data && <Pagination page={data.page} total_pages={data.total_pages} onPageChange={setPage} />}
     </div>
   );
 };

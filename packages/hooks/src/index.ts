@@ -90,17 +90,17 @@ export function useDebouncedCallback<T extends (...args: unknown[]) => unknown>(
 
 export interface UsePaginationOptions {
   totalItems: number;
-  pageSize?: number;
+  page_size?: number;
   initialPage?: number;
 }
 
-export function usePagination({ totalItems, pageSize = 20, initialPage = 1 }: UsePaginationOptions) {
+export function usePagination({ totalItems, page_size = 20, initialPage = 1 }: UsePaginationOptions) {
   const [page, setPage] = useState(initialPage);
-  const totalPages = Math.ceil(totalItems / pageSize);
+  const total_pages = Math.ceil(totalItems / page_size);
 
   const goToPage = useCallback(
-    (p: number) => setPage(Math.max(1, Math.min(p, totalPages))),
-    [totalPages],
+    (p: number) => setPage(Math.max(1, Math.min(p, total_pages))),
+    [total_pages],
   );
 
   const nextPage = useCallback(() => goToPage(page + 1), [page, goToPage]);
@@ -108,13 +108,13 @@ export function usePagination({ totalItems, pageSize = 20, initialPage = 1 }: Us
 
   return {
     page,
-    pageSize,
-    totalPages,
+    page_size,
+    total_pages,
     totalItems,
     goToPage,
     nextPage,
     prevPage,
-    hasNextPage: page < totalPages,
+    hasNextPage: page < total_pages,
     hasPrevPage: page > 1,
   };
 }

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { SessionInfo, LoginCredentials } from '@3sc/types';
+import { type SessionInfo, type LoginCredentials } from '@3sc/types';
 import { login as loginService, logout as logoutService, getSession } from '@3sc/auth';
 
 interface AuthState {
@@ -15,7 +15,7 @@ const initialState: AuthState = {
 };
 
 export const login = createAsyncThunk(
-  'auth/login',
+  'user/login',
   async (credentials: LoginCredentials) => loginService(credentials),
 );
 
@@ -28,7 +28,7 @@ export const checkSession = createAsyncThunk('auth/checkSession', async () => {
 });
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: 'user',
   initialState,
   reducers: {
     sessionExpired(state) {

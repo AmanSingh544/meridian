@@ -17,7 +17,7 @@ const projectStatusColors: Record<string, string> = {
 export const ProjectsPage: React.FC = () => {
   useDocumentTitle('Projects');
   const navigate = useNavigate();
-  const { data, isLoading, error, refetch } = useGetProjectsQuery({ page: 1, pageSize: 20 });
+  const { data, isLoading, error, refetch } = useGetProjectsQuery({ page: 1, page_size: 20 });
 
   if (error) return <ErrorState onRetry={refetch} />;
 

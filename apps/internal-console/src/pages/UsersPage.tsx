@@ -109,7 +109,7 @@ export const UsersPage: React.FC = () => {
       />
 
       {data && (
-        <Pagination page={data.meta.page} totalPages={data.meta.totalPages} onPageChange={setPage} />
+        <Pagination page={data.page} total_pages={data.total_pages} onPageChange={setPage} />
       )}
     </div>
   );
