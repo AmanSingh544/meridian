@@ -23,8 +23,8 @@ export const logout = createAsyncThunk('auth/logout', async () => {
   await logoutService();
 });
 
-export const checkSession = createAsyncThunk('auth/checkSession', async () => {
-  return await getSession();
+export const checkSession = createAsyncThunk('auth/checkSession', async (tenantId: string | number) => {
+  return await getSession(tenantId);
 });
 
 const authSlice = createSlice({
@@ -48,6 +48,7 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.session = action.payload;
         state.status = 'authenticated';
+        sessionStorage.setItem('tenant_id', action.payload.tenantId);
       })
       .addCase(login.rejected, (state, action) => {
         state.status = 'unauthenticated';

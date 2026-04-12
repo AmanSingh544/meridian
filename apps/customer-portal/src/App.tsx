@@ -41,7 +41,9 @@ const SessionInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const status = useSelector((state: RootState) => state.auth.status);
 
   useEffect(() => {
-    dispatch(checkSession());
+    const tenantId = sessionStorage.getItem('tenant_id');
+    if (tenantId) dispatch(checkSession(tenantId));
+    else dispatch({ type: 'auth/checkSession/rejected' });
   }, [dispatch]);
 
   if (status === 'idle') {

@@ -88,8 +88,8 @@ export async function logout(): Promise<void> {
   });
 }
 
-export async function getSession(): Promise<SessionInfo | null> {
-  const response = await fetch(`${baseUrl}${AUTH_CONFIG.sessionPath}`, {
+export async function getSession(tenantId: string | number): Promise<SessionInfo | null> {
+  const response = await fetch(`${baseUrl}${AUTH_CONFIG.sessionPath}?tenant_id=${tenantId}`, {
     method: 'GET',
     credentials: 'include', // Browser sends cookie automatically
   });
@@ -99,7 +99,7 @@ export async function getSession(): Promise<SessionInfo | null> {
   const data = await response.json().catch(() => null);
   if (!data) return null;
 
-  return mapToSessionInfo({ tokens: { access: '', refresh: '' }, user: data, message: '' });
+  return mapToSessionInfo({ tokens: { access: '', refresh: '' }, user: data?.data, message: '' });
 }
 
 export async function requestPasswordReset(payload: PasswordResetRequest): Promise<void> {

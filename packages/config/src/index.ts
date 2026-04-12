@@ -14,7 +14,7 @@ export const AUTH_CONFIG = {
   loginPath: '/user/login', //'/auth/login',
   logoutPath: '/auth/logout',
   refreshPath: '/token/refresh',
-  sessionPath: '/auth/session',
+  sessionPath: '/user/auth/session',
   resetPasswordPath: '/auth/reset-password',
   confirmResetPath: '/auth/confirm-reset',
   sessionCheckInterval: 5 * 60 * 1_000, // 5 minutes
