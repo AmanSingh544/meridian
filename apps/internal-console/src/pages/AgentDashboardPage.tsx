@@ -20,14 +20,14 @@ export const AgentDashboardPage: React.FC = () => {
     sortBy: 'priority',
     sortOrder: 'desc',
     page: 1,
-    pageSize: 8,
+    page_size: 8,
   });
   const { data: atRiskTickets } = useGetTicketsQuery({
     status: [TicketStatus.OPEN, TicketStatus.IN_PROGRESS],
     sortBy: 'updatedAt',
     sortOrder: 'asc',
     page: 1,
-    pageSize: 5,
+    page_size: 5,
   });
 
   if (error) return <ErrorState onRetry={refetch} />;

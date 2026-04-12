@@ -2,12 +2,12 @@ import React from 'react';
 
 export interface PaginationProps {
   page: number;
-  totalPages: number;
+  total_pages: number;
   onPageChange: (page: number) => void;
 }
 
-export const Pagination: React.FC<PaginationProps> = ({ page, totalPages, onPageChange }) => {
-  if (totalPages <= 1) return null;
+export const Pagination: React.FC<PaginationProps> = ({ page, total_pages, onPageChange }) => {
+  if (total_pages <= 0) return null;
   const btnStyle = (active: boolean, disabled: boolean): React.CSSProperties => ({
     padding: '0.375rem 0.75rem',
     fontSize: '0.8125rem',
@@ -22,8 +22,8 @@ export const Pagination: React.FC<PaginationProps> = ({ page, totalPages, onPage
   });
 
   const pages: (number | '...')[] = [];
-  for (let i = 1; i <= totalPages; i++) {
-    if (i === 1 || i === totalPages || (i >= page - 1 && i <= page + 1)) {
+  for (let i = 1; i <= total_pages; i++) {
+    if (i === 1 || i === total_pages || (i >= page - 1 && i <= page + 1)) {
       pages.push(i);
     } else if (pages[pages.length - 1] !== '...') {
       pages.push('...');
@@ -40,7 +40,7 @@ export const Pagination: React.FC<PaginationProps> = ({ page, totalPages, onPage
           <button key={p} style={btnStyle(p === page, false)} onClick={() => onPageChange(p as number)}>{p}</button>
         )
       )}
-      <button style={btnStyle(false, page === totalPages)} disabled={page === totalPages} onClick={() => onPageChange(page + 1)}>→</button>
+      <button style={btnStyle(false, page === total_pages)} disabled={page === total_pages} onClick={() => onPageChange(page + 1)}>→</button>
     </div>
   );
 };

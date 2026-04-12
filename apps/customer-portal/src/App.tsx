@@ -1,7 +1,7 @@
 import React, { Suspense, lazy, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
-import { Provider, useDispatch } from 'react-redux';
-import { store, type AppDispatch } from './store';
+import { Provider, useDispatch, useSelector } from 'react-redux';
+import { store, type AppDispatch, type RootState } from './store';
 import { ErrorBoundary, ToastProvider } from '@3sc/ui';
 import { checkSession } from './features/auth/authSlice';
 import { ProtectedRoute } from './routes/ProtectedRoute';
@@ -38,10 +38,15 @@ const PageLoader: React.FC = () => (
 
 const SessionInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useDispatch<AppDispatch>();
+  const status = useSelector((state: RootState) => state.auth.status);
 
   useEffect(() => {
     dispatch(checkSession());
   }, [dispatch]);
+
+  if (status === 'idle') {
+    return <PageLoader />;
+  }
 
   return <>{children}</>;
 };
