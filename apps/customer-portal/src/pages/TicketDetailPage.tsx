@@ -49,7 +49,7 @@ export const TicketDetailPage: React.FC = () => {
 
   const handleAddComment = async (content: string) => {
     if (!id) return;
-    await createComment({ ticketId: id, content });
+    await createComment({ ticket_id: id, message: content, user_id: "1" });
   };
 
   if (error) return <ErrorState onRetry={refetch} />;
@@ -191,7 +191,7 @@ export const TicketDetailPage: React.FC = () => {
                   <span>{ticket.assignee.displayName}</span>
                 </div>
               )}
-              {ticket.tags.length > 0 && (
+              {ticket.tags && ticket.tags.length > 0 && (
                 <div>
                   <span style={{ color: 'var(--color-text-muted)', display: 'block', marginBottom: '0.25rem' }}>Tags</span>
                   <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem' }}>
