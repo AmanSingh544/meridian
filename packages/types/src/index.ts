@@ -291,12 +291,13 @@ export interface Comment {
 }
 
 export interface CommentCreatePayload {
-  ticketId: UUID;
-  content: string;
+  ticket_id: UUID;
+  user_id: UUID;
+  message: string;
   isInternal?: boolean;
-  parentId?: UUID;
-  mentions?: UUID[];
-  attachments?: File[];
+  parent_id?: UUID;
+  mentioned_user_ids?: UUID[];
+  attachment_ids?: UUID[];
 }
 
 // ── Attachment Types ────────────────────────────────────────────

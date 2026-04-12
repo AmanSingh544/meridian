@@ -199,15 +199,17 @@ export const api = createApi({
     }),
 
     createComment: builder.mutation<Comment, CommentCreatePayload>({
-      query: ({ ticketId, ...body }) => ({
-        url: `/tickets/${ticketId}/comments`,
+      query: (body) => ({
+      //query: ({ ticketId, ...body }) => ({
+       // url: `/tickets/${ticketId}/comments`,
+        url: `/comments`,
         method: 'POST',
         body,
       }),
       transformResponse: (response: ApiResponse<Comment>) => response.data,
-      invalidatesTags: (_result, _error, { ticketId }) => [
-        { type: 'Comment', id: ticketId },
-        { type: 'Ticket', id: ticketId },
+      invalidatesTags: (_result, _error, { ticket_id }) => [
+        { type: 'Comment', id: ticket_id },
+        { type: 'Ticket', id: ticket_id },
       ],
     }),
 
