@@ -5,14 +5,18 @@ import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
 import { Avatar } from '@3sc/ui';
 import { logout } from '../../features/auth/authSlice';
 import type { AppDispatch } from '../../store';
+import { Permission } from '@3sc/types';
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: '📊', perm: null },
-  { path: '/tickets', label: 'Tickets', icon: '🎫', perm: null },
-  { path: '/communication', label: 'Messages', icon: '💬', perm: null },
-  { path: '/knowledge', label: 'Knowledge Base', icon: '📚', perm: null },
-  { path: '/projects', label: 'Projects', icon: '📁', perm: 'project:view' },
+  { path: '/tickets', label: 'Tickets', icon: '🎫', perm: Permission.TICKET_VIEW },
+  { path: '/knowledge', label: 'Knowledge Base', icon: '📚', perm: Permission.KB_VIEW },
+  { path: '/projects', label: 'Projects', icon: '📁', perm: Permission.PROJECT_VIEW },
   { path: '/notifications', label: 'Notifications', icon: '🔔', perm: null },
+  { path: '/analytics', label: 'Analytics', icon: '📈', perm: Permission.ANALYTICS_VIEW },
+  { path: '/team', label: 'Team', icon: '👥', perm: Permission.USER_VIEW },
+  { path: '/organization', label: 'Organization', icon: '🏢', perm: Permission.ORG_VIEW },
+  { path: '/audit', label: 'Audit Log', icon: '📋', perm: Permission.AUDIT_VIEW },
 ];
 
 export const CustomerLayout: React.FC = () => {

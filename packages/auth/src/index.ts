@@ -26,7 +26,7 @@ interface LoginApiResponse {
     role: string;
     permissions: string[];
     tenant_id: string;
-    tenant_name: string;
+    tenant_name: string | null;
   };
 }
 
@@ -53,8 +53,8 @@ function mapToSessionInfo(apiResponse: LoginApiResponse): SessionInfo {
     role: user.role as SessionInfo['role'],
     permissions: user.permissions as SessionInfo['permissions'],
     tenantId: user.tenant_id,
-    tenantName: user.tenant_name,
-    tenantSlug: user.tenant_name.toLowerCase().replace(/\s+/g, '-'),
+    tenantName: user.tenant_name ?? "",
+    tenantSlug: user.tenant_name?.toLowerCase().replace(/\s+/g, '-') ?? "",
     expiresAt: '',
   };
 }

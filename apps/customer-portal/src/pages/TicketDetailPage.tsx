@@ -3,17 +3,18 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   useGetTicketQuery, useGetCommentsQuery,
   useTransitionTicketMutation, useCreateCommentMutation,
-  useGetAISummaryQuery,
+  useGetAISummaryQuery, useUpdateTicketMutation,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions, useTicketTransitions } from '@3sc/hooks';
 import {
   Button, Card, StatusBadge, PriorityBadge, SLATimer,
   ThreadedComments, Timeline, TimelineItem,
   AIBanner, ErrorState, Skeleton, Badge, Drawer,
-  ConfirmDialog, FileUpload,
+  ConfirmDialog, Select, Input, TextArea, PermissionGate,
 } from '@3sc/ui';
-import { TicketStatus, Permission } from '@3sc/types';
+import { TicketStatus, TicketPriority, TicketCategory, Permission } from '@3sc/types';
 import { getStatusLabel, formatDateTime, getStatusColor } from '@3sc/utils';
+import type { TicketUpdatePayload } from '@3sc/types';
 
 export const TicketDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -24,16 +25,25 @@ export const TicketDetailPage: React.FC = () => {
   const { data: comments = [] } = useGetCommentsQuery(id!);
   const [transitionTicket, { isLoading: transitioning }] = useTransitionTicketMutation();
   const [createComment] = useCreateCommentMutation();
+  const [updateTicket, { isLoading: updating }] = useUpdateTicketMutation();
   const { data: aiSummary, isLoading: summaryLoading } = useGetAISummaryQuery(id!, {
     skip: !permissions.canUseAI(),
   });
 
   const [showSummary, setShowSummary] = useState(false);
   const [confirmTransition, setConfirmTransition] = useState<TicketStatus | null>(null);
+  const [showEditDrawer, setShowEditDrawer] = useState(false);
+  const [showInternalNotes, setShowInternalNotes] = useState(false);
+
+  // Edit form state
+  const [editTitle, setEditTitle] = useState('');
+  const [editDescription, setEditDescription] = useState('');
+  const [editPriority, setEditPriority] = useState<TicketPriority>(TicketPriority.MEDIUM);
+  const [editCategory, setEditCategory] = useState<TicketCategory>(TicketCategory.SUPPORT);
 
   useDocumentTitle(ticket ? `${ticket.ticketNumber} - ${ticket.title}` : 'Ticket');
 
-  const { availableTransitions, canTransitionTo } = useTicketTransitions(
+  const { availableTransitions } = useTicketTransitions(
     ticket?.status ?? TicketStatus.OPEN,
   );
 
@@ -47,9 +57,34 @@ export const TicketDetailPage: React.FC = () => {
     }
   };
 
-  const handleAddComment = async (content: string) => {
+  const handleAddComment = async (content: string, isInternal?: boolean) => {
     if (!id) return;
-    await createComment({ ticket_id: id, message: content, user_id: "1" });
+    await createComment({ ticket_id: id, message: content, user_id: '1', isInternal });
+  };
+
+  const openEditDrawer = () => {
+    if (!ticket) return;
+    setEditTitle(ticket.title);
+    setEditDescription(ticket.description);
+    setEditPriority(ticket.priority);
+    setEditCategory(ticket.category);
+    setShowEditDrawer(true);
+  };
+
+  const handleSaveEdit = async () => {
+    if (!id) return;
+    const payload: TicketUpdatePayload = {
+      title: editTitle,
+      description: editDescription,
+      priority: editPriority,
+      category: editCategory,
+    };
+    try {
+      await updateTicket({ id, payload }).unwrap();
+      setShowEditDrawer(false);
+    } catch {
+      // Error handled by RTK Query
+    }
   };
 
   if (error) return <ErrorState onRetry={refetch} />;
@@ -62,10 +97,17 @@ export const TicketDetailPage: React.FC = () => {
   );
   if (!ticket) return <ErrorState title="Ticket not found" />;
 
-  // Only show customer-visible transitions
-  const customerTransitions = availableTransitions.filter((s) =>
-    s === TicketStatus.OPEN || s === TicketStatus.CLOSED,
-  );
+  // Customers see only OPEN/CLOSED transitions; internal users see all
+  const visibleTransitions = permissions.isInternal
+    ? availableTransitions
+    : availableTransitions.filter((s) => s === TicketStatus.OPEN || s === TicketStatus.CLOSED);
+
+  // Determine which comments to show
+  const visibleComments = permissions.canViewInternalNotes()
+    ? (showInternalNotes ? comments : comments.filter((c) => !c.isInternal))
+    : comments.filter((c) => !c.isInternal);
+
+  const internalCount = comments.filter((c) => c.isInternal).length;
 
   return (
     <div>
@@ -94,13 +136,19 @@ export const TicketDetailPage: React.FC = () => {
               {ticket.title}
             </h1>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem' }}>
+          <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {permissions.canUseAI() && (
               <Button variant="ghost" size="sm" onClick={() => setShowSummary(true)}>
                 🤖 AI Summary
               </Button>
             )}
-            {customerTransitions.map((status) => (
+            {/* Edit ticket button — gated on ticket:edit */}
+            <PermissionGate permission={Permission.TICKET_EDIT}>
+              <Button variant="secondary" size="sm" onClick={openEditDrawer}>
+                ✏️ Edit
+              </Button>
+            </PermissionGate>
+            {visibleTransitions.map((status) => (
               <Button
                 key={status}
                 variant={status === TicketStatus.OPEN ? 'secondary' : 'primary'}
@@ -144,13 +192,32 @@ export const TicketDetailPage: React.FC = () => {
 
           {/* Comments */}
           <Card>
-            <h3 style={{ margin: '0 0 1rem', fontSize: '0.875rem', fontWeight: 600 }}>
-              Conversation ({comments.filter((c) => !c.isInternal).length})
-            </h3>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+              <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600 }}>
+                Conversation ({visibleComments.filter((c) => !c.isInternal).length})
+              </h3>
+              {/* Internal notes toggle — only for users with ticket:view_internal */}
+              <PermissionGate permission={Permission.TICKET_VIEW_INTERNAL}>
+                <button
+                  onClick={() => setShowInternalNotes(!showInternalNotes)}
+                  style={{
+                    background: showInternalNotes ? '#fef3c7' : 'var(--color-bg-subtle)',
+                    border: `1px solid ${showInternalNotes ? '#f59e0b' : 'var(--color-border)'}`,
+                    borderRadius: 'var(--radius-sm)',
+                    cursor: 'pointer',
+                    fontSize: '0.75rem',
+                    padding: '0.25rem 0.625rem',
+                    color: showInternalNotes ? '#b45309' : 'var(--color-text-muted)',
+                  }}
+                >
+                  🔒 Internal Notes {internalCount > 0 && `(${internalCount})`}
+                </button>
+              </PermissionGate>
+            </div>
             <ThreadedComments
-              comments={comments.filter((c) => !c.isInternal)}
-              onAddComment={handleAddComment}
-              showInternalToggle={false}
+              comments={visibleComments}
+              onAddComment={permissions.canCreateComments() ? handleAddComment : undefined}
+              showInternalToggle={permissions.canCreateInternalComments()}
             />
           </Card>
         </div>
@@ -234,6 +301,47 @@ export const TicketDetailPage: React.FC = () => {
           </Card>
         </div>
       </div>
+
+      {/* Edit Ticket Drawer */}
+      <Drawer isOpen={showEditDrawer} onClose={() => setShowEditDrawer(false)} title="Edit Ticket">
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+          <Input
+            label="Title"
+            value={editTitle}
+            onChange={(e) => setEditTitle(e.target.value)}
+            placeholder="Ticket title"
+          />
+          <TextArea
+            label="Description"
+            value={editDescription}
+            onChange={(e) => setEditDescription(e.target.value)}
+            placeholder="Describe the issue..."
+            rows={5}
+          />
+          <Select
+            label="Priority"
+            value={editPriority}
+            onChange={(e) => setEditPriority(e.target.value as TicketPriority)}
+            options={Object.values(TicketPriority).map((p) => ({ value: p, label: p }))}
+          />
+          <Select
+            label="Category"
+            value={editCategory}
+            onChange={(e) => setEditCategory(e.target.value as TicketCategory)}
+            options={Object.values(TicketCategory).map((c) => ({ value: c, label: c.replace(/_/g, ' ') }))}
+          />
+          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+            <Button variant="ghost" onClick={() => setShowEditDrawer(false)}>Cancel</Button>
+            <Button
+              onClick={handleSaveEdit}
+              loading={updating}
+              disabled={!editTitle.trim()}
+            >
+              Save Changes
+            </Button>
+          </div>
+        </div>
+      </Drawer>
 
       {/* AI Summary Drawer */}
       <Drawer isOpen={showSummary} onClose={() => setShowSummary(false)} title="AI Thread Summary">
