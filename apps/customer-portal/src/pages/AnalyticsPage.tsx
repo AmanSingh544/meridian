@@ -122,8 +122,8 @@ export const AnalyticsPage: React.FC = () => {
               </button>
             ))}
           </div>
-          {/* Export — gated on analytics:export */}
-          <PermissionGate permission={Permission.ANALYTICS_EXPORT}>
+          {/* Export — gated on REPORT_EXPORT (CLIENT_ADMIN, LEAD, ADMIN) */}
+          <PermissionGate permission={Permission.REPORT_EXPORT}>
             <Button variant="secondary" size="sm" onClick={handleExport}>
               ⬇ Export CSV
             </Button>

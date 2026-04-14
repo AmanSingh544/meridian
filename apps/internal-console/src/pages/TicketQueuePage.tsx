@@ -26,10 +26,12 @@ export const TicketQueuePage: React.FC = () => {
   const debouncedSearch = useDebouncedValue(search, 300);
 
   const filters: TicketFilters = useMemo(() => ({
-    search: debouncedSearch || undefined,
-    status: statusFilter ? [statusFilter as TicketStatus] : undefined,
-    priority: priorityFilter ? [priorityFilter as TicketPriority] : undefined,
-    assignedTo: view === 'mine' ? session?.userId : undefined,
+    search:     debouncedSearch || undefined,
+    status:     statusFilter   ? [statusFilter   as TicketStatus]   : undefined,
+    priority:   priorityFilter ? [priorityFilter as TicketPriority] : undefined,
+    // 'mine' — filter by current user; 'unassigned' — assignedTo=null sentinel handled by API
+    assignedTo: view === 'mine'       ? session?.userId : undefined,
+    unassigned: view === 'unassigned' ? true            : undefined,
     sortBy,
     sortOrder,
     page,
@@ -125,9 +127,9 @@ export const TicketQueuePage: React.FC = () => {
         <h1 style={{ margin: 0, fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
           Ticket Queue
         </h1>
-        <Button onClick={() => navigate('/tickets/new')} icon={<span>+</span>} size="sm">
-          New Ticket
-        </Button>
+        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+          {data?.total ?? 0} tickets
+        </span>
       </div>
 
       {/* View toggle */}

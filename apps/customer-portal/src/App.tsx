@@ -49,6 +49,7 @@ const SessionInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     const tenantId = sessionStorage.getItem('tenant_id');
+    const userId = sessionStorage.getItem('user_id');
     if (tenantId) dispatch(checkSession(tenantId));
     else dispatch({ type: 'auth/checkSession/rejected' });
   }, [dispatch]);
@@ -77,9 +78,9 @@ const AppRoutes: React.FC = () => (
         <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/communication" element={<DashboardPage />} />
 
-        {/* Ticket routes — require ticket:view */}
+        {/* Ticket routes — CLIENT_USER has TICKET_VIEW_OWN, CLIENT_ADMIN has TICKET_VIEW_ORG */}
         <Route path="/tickets" element={
-          <ProtectedRoute permission={Permission.TICKET_VIEW}>
+          <ProtectedRoute permissions={[Permission.TICKET_VIEW_OWN, Permission.TICKET_VIEW_ORG]}>
             <TicketListPage />
           </ProtectedRoute>
         } />
@@ -89,12 +90,12 @@ const AppRoutes: React.FC = () => (
           </ProtectedRoute>
         } />
         <Route path="/tickets/:id" element={
-          <ProtectedRoute permission={Permission.TICKET_VIEW}>
+          <ProtectedRoute permissions={[Permission.TICKET_VIEW_OWN, Permission.TICKET_VIEW_ORG]}>
             <TicketDetailPage />
           </ProtectedRoute>
         } />
 
-        {/* Knowledge Base — require kb:view */}
+        {/* Knowledge Base — require KB_VIEW */}
         <Route path="/knowledge" element={
           <ProtectedRoute permission={Permission.KB_VIEW}>
             <KnowledgeBasePage />
@@ -106,45 +107,33 @@ const AppRoutes: React.FC = () => (
           </ProtectedRoute>
         } />
 
-        {/* Projects — require project:view */}
-        <Route path="/projects" element={
-          <ProtectedRoute permission={Permission.PROJECT_VIEW}>
-            <ProjectsPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/projects/:id" element={
-          <ProtectedRoute permission={Permission.PROJECT_VIEW}>
-            <ProjectsPage />
-          </ProtectedRoute>
-        } />
+        {/* Projects — accessible to all authenticated client users */}
+        <Route path="/projects" element={<ProjectsPage />} />
+        <Route path="/projects/:id" element={<ProjectsPage />} />
 
-        {/* Team Management — require user:view */}
+        {/* Team Management — require MEMBER_VIEW */}
         <Route path="/team" element={
-          <ProtectedRoute permission={Permission.USER_VIEW}>
+          <ProtectedRoute permission={Permission.MEMBER_VIEW}>
             <TeamManagementPage />
           </ProtectedRoute>
         } />
 
-        {/* Organization Settings — require org:view */}
+        {/* Organization Settings — require WORKSPACE_CONFIGURE */}
         <Route path="/organization" element={
-          <ProtectedRoute permission={Permission.ORG_VIEW}>
+          <ProtectedRoute permission={Permission.WORKSPACE_CONFIGURE}>
             <OrganizationSettingsPage />
           </ProtectedRoute>
         } />
 
-        {/* Analytics — require analytics:view */}
+        {/* Analytics — require REPORT_VIEW */}
         <Route path="/analytics" element={
-          <ProtectedRoute permission={Permission.ANALYTICS_VIEW}>
+          <ProtectedRoute permission={Permission.REPORT_VIEW}>
             <AnalyticsPage />
           </ProtectedRoute>
         } />
 
-        {/* Audit Log — require audit:view */}
-        <Route path="/audit" element={
-          <ProtectedRoute permission={Permission.AUDIT_VIEW}>
-            <AuditLogPage />
-          </ProtectedRoute>
-        } />
+        {/* Audit Log — no client role has AUDIT_VIEW, redirect away */}
+        <Route path="/audit" element={<Navigate to="/dashboard" replace />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

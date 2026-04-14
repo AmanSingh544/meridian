@@ -17,7 +17,7 @@ const usersMock = {
       displayName: 'Alice Johnson',
       firstName: 'Alice',
       lastName: 'Johnson',
-      role: UserRole.CUSTOMER_ADMIN,
+      role: UserRole.CLIENT_ADMIN,
       permissions: [],
       organizationId: 'org001',
       isActive: true,
@@ -31,7 +31,7 @@ const usersMock = {
       displayName: 'Bob Smith',
       firstName: 'Bob',
       lastName: 'Smith',
-      role: UserRole.CUSTOMER_USER,
+      role: UserRole.CLIENT_USER,
       permissions: [],
       organizationId: 'org001',
       isActive: true,
@@ -45,7 +45,7 @@ const usersMock = {
       displayName: 'Carol White',
       firstName: 'Carol',
       lastName: 'White',
-      role: UserRole.CUSTOMER_USER,
+      role: UserRole.CLIENT_USER,
       permissions: [],
       organizationId: 'org001',
       isActive: false,
@@ -59,7 +59,7 @@ const usersMock = {
       displayName: 'Dan Lee',
       firstName: 'Dan',
       lastName: 'Lee',
-      role: UserRole.CUSTOMER_USER,
+      role: UserRole.CLIENT_USER,
       permissions: [],
       organizationId: 'org001',
       isActive: true,
@@ -78,16 +78,16 @@ const roleBadgeColor: Record<UserRole, { color: string; bg: string }> = {
   [UserRole.ADMIN]: { color: '#7c3aed', bg: '#ede9fe' },
   [UserRole.LEAD]: { color: '#1d4ed8', bg: '#dbeafe' },
   [UserRole.AGENT]: { color: '#0369a1', bg: '#e0f2fe' },
-  [UserRole.CUSTOMER_ADMIN]: { color: '#b45309', bg: '#fef3c7' },
-  [UserRole.CUSTOMER_USER]: { color: '#374151', bg: '#f3f4f6' },
+  [UserRole.CLIENT_ADMIN]: { color: '#b45309', bg: '#fef3c7' },
+  [UserRole.CLIENT_USER]: { color: '#374151', bg: '#f3f4f6' },
 };
 
 const roleLabel: Record<UserRole, string> = {
   [UserRole.ADMIN]: 'Admin',
   [UserRole.LEAD]: 'Lead',
   [UserRole.AGENT]: 'Agent',
-  [UserRole.CUSTOMER_ADMIN]: 'Customer Admin',
-  [UserRole.CUSTOMER_USER]: 'Customer User',
+  [UserRole.CLIENT_ADMIN]: 'Client Admin',
+  [UserRole.CLIENT_USER]: 'Client User',
 };
 
 export const TeamManagementPage: React.FC = () => {
@@ -102,11 +102,11 @@ export const TeamManagementPage: React.FC = () => {
 
   const [search, setSearch] = useState('');
   const [editUser, setEditUser] = useState<User | null>(null);
-  const [editRole, setEditRole] = useState<UserRole>(UserRole.CUSTOMER_USER);
+  const [editRole, setEditRole] = useState<UserRole>(UserRole.CLIENT_USER);
   const [editActive, setEditActive] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.CUSTOMER_USER);
+  const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.CLIENT_USER);
 
   const filtered = (data?.data ?? []).filter((u) =>
     u.displayName.toLowerCase().includes(search.toLowerCase()) ||
@@ -142,7 +142,7 @@ export const TeamManagementPage: React.FC = () => {
             Manage team members and their roles
           </p>
         </div>
-        <PermissionGate permission={Permission.USER_CREATE}>
+        <PermissionGate permission={Permission.MEMBER_INVITE}>
           <Button onClick={() => setShowInviteModal(true)} icon={<span>+</span>}>
             Invite Member
           </Button>
@@ -191,7 +191,7 @@ export const TeamManagementPage: React.FC = () => {
                     {user.email}
                   </div>
                 </div>
-                <PermissionGate permission={Permission.USER_EDIT}>
+                <PermissionGate permission={Permission.MEMBER_MANAGE}>
                   <Button variant="ghost" size="sm" onClick={() => openEdit(user as User)}>
                     Edit
                   </Button>
@@ -213,7 +213,7 @@ export const TeamManagementPage: React.FC = () => {
             <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
               {editUser.email}
             </div>
-            <PermissionGate permission={Permission.USER_MANAGE_ROLES}>
+            <PermissionGate permission={Permission.MEMBER_MANAGE}>
               <Select
                 label="Role"
                 value={editRole}
@@ -257,8 +257,8 @@ export const TeamManagementPage: React.FC = () => {
             value={inviteRole}
             onChange={(e) => setInviteRole(e.target.value as UserRole)}
             options={[
-              { value: UserRole.CUSTOMER_USER, label: 'Customer User' },
-              { value: UserRole.CUSTOMER_ADMIN, label: 'Customer Admin' },
+              { value: UserRole.CLIENT_USER, label: 'Client User' },
+              { value: UserRole.CLIENT_ADMIN, label: 'Client Admin' },
             ]}
           />
           <div style={{

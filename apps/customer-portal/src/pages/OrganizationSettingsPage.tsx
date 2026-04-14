@@ -82,7 +82,7 @@ export const OrganizationSettingsPage: React.FC = () => {
       <Card style={{ marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600 }}>Organization Profile</h3>
-          <PermissionGate permission={Permission.ORG_EDIT}>
+          <PermissionGate permission={Permission.WORKSPACE_CONFIGURE}>
             {!editing ? (
               <Button variant="secondary" size="sm" onClick={() => setEditing(true)}>Edit</Button>
             ) : (
@@ -136,8 +136,8 @@ export const OrganizationSettingsPage: React.FC = () => {
         </div>
       </Card>
 
-      {/* Danger Zone — only for org:manage */}
-      <PermissionGate permission={Permission.ORG_MANAGE}>
+      {/* Danger Zone — only for WORKSPACE_CONFIGURE (CLIENT_ADMIN and ADMIN) */}
+      <PermissionGate permission={Permission.WORKSPACE_CONFIGURE}>
         <Card style={{ border: '1px solid var(--color-danger)' }}>
           <h3 style={{ margin: '0 0 0.75rem', fontSize: '0.9375rem', fontWeight: 600, color: 'var(--color-danger)' }}>
             Danger Zone

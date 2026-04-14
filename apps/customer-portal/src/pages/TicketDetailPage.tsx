@@ -103,7 +103,7 @@ export const TicketDetailPage: React.FC = () => {
     : availableTransitions.filter((s) => s === TicketStatus.OPEN || s === TicketStatus.CLOSED);
 
   // Determine which comments to show
-  const visibleComments = permissions.canViewInternalNotes()
+  const visibleComments = permissions.canCreateInternalComments()
     ? (showInternalNotes ? comments : comments.filter((c) => !c.isInternal))
     : comments.filter((c) => !c.isInternal);
 
@@ -196,8 +196,8 @@ export const TicketDetailPage: React.FC = () => {
               <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600 }}>
                 Conversation ({visibleComments.filter((c) => !c.isInternal).length})
               </h3>
-              {/* Internal notes toggle — only for users with ticket:view_internal */}
-              <PermissionGate permission={Permission.TICKET_VIEW_INTERNAL}>
+              {/* Internal notes toggle — only for users with COMMENT_INTERNAL (internal staff) */}
+              <PermissionGate permission={Permission.COMMENT_INTERNAL}>
                 <button
                   onClick={() => setShowInternalNotes(!showInternalNotes)}
                   style={{
