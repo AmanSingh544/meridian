@@ -48,6 +48,7 @@ import type {
   ApiResponse,
   SessionInfo,
   LoginCredentials,
+  UserRole,
 } from '@3sc/types';
 
 // ── Base Query with Auth Retry ──────────────────────────────────
@@ -62,7 +63,18 @@ const baseQueryWithReauth: BaseQueryFn<
   unknown,
   FetchBaseQueryError
 > = async (args, api, extraOptions) => {
-  let result = await rawBaseQuery(args, api, extraOptions);
+  // Inject tenant_id into every request's query params
+  const state = api.getState() as { auth?: { session?: { tenantId?: string } } };
+  const tenantId = state.auth?.session?.tenantId;
+
+  let adjustedArgs = args;
+  if (tenantId) {
+    const base: FetchArgs = typeof args === 'string' ? { url: args } : { ...args };
+    base.params = { tenant_id: tenantId, ...(base.params ?? {}) };
+    adjustedArgs = base;
+  }
+
+  let result = await rawBaseQuery(adjustedArgs, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
     // Attempt token refresh
@@ -74,7 +86,7 @@ const baseQueryWithReauth: BaseQueryFn<
 
     if (refreshResult.data) {
       // Retry original request
-      result = await rawBaseQuery(args, api, extraOptions);
+      result = await rawBaseQuery(adjustedArgs, api, extraOptions);
     } else {
       // Dispatch session expired event
       api.dispatch({ type: 'auth/sessionExpired' });
@@ -124,7 +136,7 @@ export const api = createApi({
     // ── Tickets ─────────────────────────────────────────────
     getTickets: builder.query<PaginatedResponse<Ticket>, TicketFilters>({
       query: (filters) => ({
-        url: '/tickets',
+        url: '/tickets/list',
         params: filters,
       }),
       providesTags: (result) =>
@@ -166,6 +178,18 @@ export const api = createApi({
       ],
     }),
 
+    deleteTicket: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/tickets/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, id) => [
+        { type: 'Ticket', id },
+        { type: 'TicketList' },
+        'Dashboard',
+      ],
+    }),
+
     transitionTicket: builder.mutation<Ticket, TicketTransitionPayload>({
       query: ({ ticketId, ...body }) => ({
         url: `/tickets/${ticketId}/transition`,
@@ -188,15 +212,17 @@ export const api = createApi({
     }),
 
     createComment: builder.mutation<Comment, CommentCreatePayload>({
-      query: ({ ticketId, ...body }) => ({
-        url: `/tickets/${ticketId}/comments`,
+      query: (body) => ({
+      //query: ({ ticketId, ...body }) => ({
+       // url: `/tickets/${ticketId}/comments`,
+        url: `/comments`,
         method: 'POST',
         body,
       }),
       transformResponse: (response: ApiResponse<Comment>) => response.data,
-      invalidatesTags: (_result, _error, { ticketId }) => [
-        { type: 'Comment', id: ticketId },
-        { type: 'Ticket', id: ticketId },
+      invalidatesTags: (_result, _error, { ticket_id }) => [
+        { type: 'Comment', id: ticket_id },
+        { type: 'Ticket', id: ticket_id },
       ],
     }),
 
@@ -221,7 +247,7 @@ export const api = createApi({
     }),
 
     // ── Projects ────────────────────────────────────────────
-    getProjects: builder.query<PaginatedResponse<Project>, { page?: number; pageSize?: number }>({
+    getProjects: builder.query<PaginatedResponse<Project>, { page?: number; page_size?: number }>({
       query: (params) => ({ url: '/projects', params }),
       providesTags: (result) =>
         result
@@ -297,10 +323,38 @@ export const api = createApi({
       invalidatesTags: ['User'],
     }),
 
+    deleteUser: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/users/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['User'],
+    }),
+
+    inviteUser: builder.mutation<User, { email: string; role: UserRole }>({
+      query: (body) => ({
+        url: '/users/invite',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: ApiResponse<User>) => response.data,
+      invalidatesTags: ['User'],
+    }),
+
     // ── Organizations ───────────────────────────────────────
     getOrganizations: builder.query<PaginatedResponse<Organization>, { page?: number }>({
       query: (params) => ({ url: '/organizations', params }),
       providesTags: ['Organization'],
+    }),
+
+    updateOrganization: builder.mutation<Organization, { id: string; payload: Partial<Pick<Organization, 'name' | 'domain' | 'logoUrl'>> }>({
+      query: ({ id, payload }) => ({
+        url: `/organizations/${id}`,
+        method: 'PATCH',
+        body: payload,
+      }),
+      transformResponse: (response: ApiResponse<Organization>) => response.data,
+      invalidatesTags: ['Organization'],
     }),
 
     // ── Dashboard ───────────────────────────────────────────
@@ -338,7 +392,7 @@ export const api = createApi({
     // ── Audit Logs ──────────────────────────────────────────
     getAuditLogs: builder.query<PaginatedResponse<AuditLogEntry>, {
       page?: number;
-      pageSize?: number;
+      page_size?: number;
       resourceType?: string;
       userId?: string;
     }>({
@@ -435,6 +489,7 @@ export const {
   useGetTicketQuery,
   useCreateTicketMutation,
   useUpdateTicketMutation,
+  useDeleteTicketMutation,
   useTransitionTicketMutation,
   // Comments
   useGetCommentsQuery,
@@ -457,8 +512,11 @@ export const {
   useGetUsersQuery,
   useGetUserQuery,
   useUpdateUserMutation,
+  useDeleteUserMutation,
+  useInviteUserMutation,
   // Organizations
   useGetOrganizationsQuery,
+  useUpdateOrganizationMutation,
   // Dashboard
   useGetDashboardQuery,
   // Analytics

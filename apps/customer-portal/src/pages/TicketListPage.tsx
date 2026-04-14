@@ -29,7 +29,7 @@ export const TicketListPage: React.FC = () => {
     sortBy,
     sortOrder,
     page,
-    pageSize: 20,
+    page_size: 20,
   }), [debouncedSearch, statusFilter, priorityFilter, sortBy, sortOrder, page]);
 
   const { data, isLoading, error, refetch } = useGetTicketsQuery(filters);
@@ -163,11 +163,10 @@ export const TicketListPage: React.FC = () => {
         onSort={handleSort}
         emptyMessage="No tickets match your filters"
       />
-
       {data && (
         <Pagination
-          page={data.meta.page}
-          totalPages={data.meta.totalPages}
+          page={data.page}
+          total_pages={data.total_pages}
           onPageChange={setPage}
         />
       )}

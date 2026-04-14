@@ -9,12 +9,10 @@ export type Email = string;
 
 export interface PaginatedResponse<T> {
   data: T[];
-  meta: {
     total: number;
     page: number;
-    pageSize: number;
-    totalPages: number;
-  };
+    page_size: number;
+    total_pages: number;
 }
 
 export interface ApiError {
@@ -48,6 +46,7 @@ export interface PasswordResetConfirm {
 export interface SessionInfo {
   userId: UUID;
   email: Email;
+  token: string;
   displayName: string;
   avatarUrl?: string;
   role: UserRole;
@@ -59,72 +58,156 @@ export interface SessionInfo {
 }
 
 // ── User & Organization Types ───────────────────────────────────
+
+/**
+ * Roles in the system — two client-side roles and three internal 3SC roles.
+ *
+ * Client side (have a tenant_id, scoped to their org):
+ *   CLIENT_ADMIN — org admin; manages members, sees all tickets in their org
+ *   CLIENT_USER  — regular client user; can only see/create their own tickets
+ *
+ * Internal 3SC staff (no tenant_id, cross-tenant access):
+ *   AGENT — works assigned tickets across all tenants
+ *   LEAD  — everything AGENT has + ticket assignment, SLA config, reports
+ *   ADMIN — everything LEAD has + org management, KB management, audit trail
+ */
 export enum UserRole {
-  CUSTOMER_ADMIN = 'customer_admin',
-  CUSTOMER_USER = 'customer_user',
-  AGENT = 'agent',
-  LEAD = 'lead',
-  ADMIN = 'admin',
+  CLIENT_ADMIN = 'CLIENT_ADMIN',
+  CLIENT_USER = 'CLIENT_USER',
+  AGENT = 'AGENT',
+  LEAD = 'LEAD',
+  ADMIN = 'ADMIN',
 }
 
+/**
+ * Permission strings sent by the backend in the session payload.
+ * These are authoritative — do NOT hardcode permission arrays on the frontend.
+ * Use `session.permissions.includes(Permission.XYZ)` or the `hasPermission`
+ * helper to gate UI features.
+ *
+ * Role → permission matrix (source of truth is the backend):
+ *
+ * ┌─────────────────────────┬──────────────┬─────────────┬───────┬──────┬───────┐
+ * │ Permission              │ CLIENT_ADMIN │ CLIENT_USER │ AGENT │ LEAD │ ADMIN │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ TICKET_CREATE           │      ✓       │      ✓      │       │      │   ✓   │
+ * │ TICKET_VIEW_OWN         │              │      ✓      │       │      │       │
+ * │ TICKET_VIEW_ORG         │      ✓       │             │       │      │       │
+ * │ TICKET_VIEW_ALL         │              │             │   ✓   │  ✓   │   ✓   │
+ * │ TICKET_EDIT             │      ✓       │             │   ✓   │  ✓   │   ✓   │
+ * │ TICKET_STATUS_CHANGE    │      ✓       │             │   ✓   │  ✓   │   ✓   │
+ * │ TICKET_ASSIGN           │              │             │       │  ✓   │   ✓   │
+ * │ TICKET_REOPEN           │      ✓       │      ✓      │       │      │   ✓   │
+ * │ TICKET_DELETE           │              │             │       │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ COMMENT_CREATE          │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ COMMENT_DELETE          │              │             │       │  ✓   │   ✓   │
+ * │ COMMENT_INTERNAL        │              │             │   ✓   │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ ATTACHMENT_UPLOAD       │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ ATTACHMENT_DELETE       │      ✓       │             │       │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ MEMBER_INVITE           │      ✓       │             │       │      │   ✓   │
+ * │ MEMBER_MANAGE           │      ✓       │             │       │      │   ✓   │
+ * │ MEMBER_VIEW             │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ REPORT_VIEW             │      ✓       │             │       │  ✓   │   ✓   │
+ * │ REPORT_EXPORT           │      ✓       │             │       │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ KB_VIEW                 │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ KB_MANAGE               │              │             │       │      │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ SLA_VIEW                │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ SLA_CONFIGURE           │              │             │       │  ✓   │   ✓   │
+ * │ ESCALATION_CONFIGURE    │              │             │       │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ AI_SUGGEST              │              │             │   ✓   │  ✓   │   ✓   │
+ * │ AI_FEEDBACK             │              │             │   ✓   │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ AUDIT_VIEW              │              │             │       │      │   ✓   │
+ * │ WORKSPACE_CONFIGURE     │      ✓       │             │       │      │   ✓   │
+ * └─────────────────────────┴──────────────┴─────────────┴───────┴──────┴───────┘
+ */
 export enum Permission {
-  // Ticket permissions
-  TICKET_VIEW = 'ticket:view',
-  TICKET_CREATE = 'ticket:create',
-  TICKET_EDIT = 'ticket:edit',
-  TICKET_ASSIGN = 'ticket:assign',
-  TICKET_ESCALATE = 'ticket:escalate',
-  TICKET_CLOSE = 'ticket:close',
-  TICKET_REOPEN = 'ticket:reopen',
-  TICKET_DELETE = 'ticket:delete',
-  TICKET_TRANSITION = 'ticket:transition',
-  TICKET_VIEW_INTERNAL = 'ticket:view_internal',
+  // ── Tickets ────────────────────────────────────────────────────────────────
+  /** Create a new ticket. Available to all roles. */
+  TICKET_CREATE = 'TICKET_CREATE',
+  /** View own tickets only. CLIENT_USER scope. */
+  TICKET_VIEW_OWN = 'TICKET_VIEW_OWN',
+  /** View all tickets within the user's org. CLIENT_ADMIN scope. */
+  TICKET_VIEW_ORG = 'TICKET_VIEW_ORG',
+  /** View all tickets across all tenants. Internal staff only (AGENT/LEAD/ADMIN). */
+  TICKET_VIEW_ALL = 'TICKET_VIEW_ALL',
+  /** Edit ticket fields (title, description, priority, etc.). */
+  TICKET_EDIT = 'TICKET_EDIT',
+  /** Change ticket status (e.g. OPEN → IN_PROGRESS). */
+  TICKET_STATUS_CHANGE = 'TICKET_STATUS_CHANGE',
+  /** Assign or reassign a ticket to any agent. LEAD and ADMIN only. */
+  TICKET_ASSIGN = 'TICKET_ASSIGN',
+  /** Reopen a resolved/closed ticket. */
+  TICKET_REOPEN = 'TICKET_REOPEN',
+  /** Permanently delete a ticket. LEAD and ADMIN only. */
+  TICKET_DELETE = 'TICKET_DELETE',
 
-  // Comment permissions
-  COMMENT_CREATE = 'comment:create',
-  COMMENT_EDIT = 'comment:edit',
-  COMMENT_DELETE = 'comment:delete',
-  COMMENT_INTERNAL = 'comment:internal',
+  // ── Comments ───────────────────────────────────────────────────────────────
+  /** Post a comment on a ticket. Available to all roles. */
+  COMMENT_CREATE = 'COMMENT_CREATE',
+  /** Delete any comment on a ticket. LEAD and ADMIN only. */
+  COMMENT_DELETE = 'COMMENT_DELETE',
+  /** Write internal (agent-only) notes not visible to the client. Internal staff only. */
+  COMMENT_INTERNAL = 'COMMENT_INTERNAL',
 
-  // User management
-  USER_VIEW = 'user:view',
-  USER_CREATE = 'user:create',
-  USER_EDIT = 'user:edit',
-  USER_DELETE = 'user:delete',
-  USER_MANAGE_ROLES = 'user:manage_roles',
+  // ── Attachments ────────────────────────────────────────────────────────────
+  /** Upload attachments to a ticket or comment. Available to all roles. */
+  ATTACHMENT_UPLOAD = 'ATTACHMENT_UPLOAD',
+  /** Delete attachments. CLIENT_ADMIN, LEAD, and ADMIN only. */
+  ATTACHMENT_DELETE = 'ATTACHMENT_DELETE',
 
-  // Organization management
-  ORG_VIEW = 'org:view',
-  ORG_EDIT = 'org:edit',
-  ORG_MANAGE = 'org:manage',
+  // ── Members ────────────────────────────────────────────────────────────────
+  /** Invite new members to an org. CLIENT_ADMIN and ADMIN only. */
+  MEMBER_INVITE = 'MEMBER_INVITE',
+  /** Edit or remove existing members. CLIENT_ADMIN and ADMIN only. */
+  MEMBER_MANAGE = 'MEMBER_MANAGE',
+  /** View the member list. Available to all roles. */
+  MEMBER_VIEW = 'MEMBER_VIEW',
+
+  // ── Reports ────────────────────────────────────────────────────────────────
+  /** View reports and analytics dashboards. CLIENT_ADMIN scope = own org; LEAD/ADMIN = all tenants. */
+  REPORT_VIEW = 'REPORT_VIEW',
+  /** Export report data (CSV/PDF). Same scope rules as REPORT_VIEW. */
+  REPORT_EXPORT = 'REPORT_EXPORT',
+
+  // ── Knowledge Base ─────────────────────────────────────────────────────────
+  /** Read KB articles. Available to all roles. */
+  KB_VIEW = 'KB_VIEW',
+  /** Create, edit, and delete KB articles. ADMIN only. */
+  KB_MANAGE = 'KB_MANAGE',
+
+  // ── SLA ────────────────────────────────────────────────────────────────────
+  /** View SLA deadlines and status on tickets. Available to all roles. */
+  SLA_VIEW = 'SLA_VIEW',
+  /** Create and modify SLA policies. LEAD and ADMIN only. */
+  SLA_CONFIGURE = 'SLA_CONFIGURE',
+  /** Configure escalation rules and routing. LEAD and ADMIN only. */
+  ESCALATION_CONFIGURE = 'ESCALATION_CONFIGURE',
+
+  // ── AI Assist ──────────────────────────────────────────────────────────────
+  /** Access AI-generated suggestions in the agent panel. Internal staff only. */
+  AI_SUGGEST = 'AI_SUGGEST',
+  /** Submit accept/reject feedback on AI suggestions. Internal staff only. */
+  AI_FEEDBACK = 'AI_FEEDBACK',
+
+  // ── Audit & Workspace ──────────────────────────────────────────────────────
+  /** View the audit trail of all system actions. ADMIN only. */
+  AUDIT_VIEW = 'AUDIT_VIEW',
+  /** Configure workspace-level settings. CLIENT_ADMIN (own org) and ADMIN only. */
+  WORKSPACE_CONFIGURE = 'WORKSPACE_CONFIGURE',
 
   // Project permissions
-  PROJECT_VIEW = 'project:view',
-  PROJECT_CREATE = 'project:create',
-  PROJECT_EDIT = 'project:edit',
-  PROJECT_DELETE = 'project:delete',
-
-  // Knowledge base
-  KB_VIEW = 'kb:view',
-  KB_CREATE = 'kb:create',
-  KB_EDIT = 'kb:edit',
-  KB_DELETE = 'kb:delete',
-
-  // Analytics
-  ANALYTICS_VIEW = 'analytics:view',
-  ANALYTICS_EXPORT = 'analytics:export',
-
-  // Audit
-  AUDIT_VIEW = 'audit:view',
-
-  // AI features
-  AI_USE = 'ai:use',
-  AI_CONFIGURE = 'ai:configure',
-
-  // Admin
-  ADMIN_PANEL = 'admin:panel',
-  ROUTING_MANAGE = 'routing:manage',
-  SLA_MANAGE = 'sla:manage',
+  PROJECT_VIEW = 'PROJECT_VIEW',
+  PROJECT_CREATE = 'PROJECT_CREATE',
+  PROJECT_EDIT = 'PROJECT_EDIT',
+  PROJECT_DELETE = 'PROJECT_DELETE',
 }
 
 export interface User {
@@ -157,27 +240,28 @@ export interface Organization {
 
 // ── Ticket Types ────────────────────────────────────────────────
 export enum TicketStatus {
-  OPEN = 'open',
-  ACKNOWLEDGED = 'acknowledged',
-  IN_PROGRESS = 'in_progress',
-  RESOLVED = 'resolved',
-  CLOSED = 'closed',
+  OPEN = 'OPEN',
+  ACKNOWLEDGED = 'ACKNOWLEDGED',
+  IN_PROGRESS = 'IN_PROGRESS',
+  RESOLVED = 'RESOLVED',
+  CLOSED = 'CLOSED',
 }
 
 export enum TicketPriority {
-  LOW = 'low',
-  MEDIUM = 'medium',
-  HIGH = 'high',
-  CRITICAL = 'critical',
+  LOW = 'LOW',
+  MEDIUM = 'MEDIUM',
+  HIGH = 'HIGH',
+  CRITICAL = 'CRITICAL',
 }
 
 export enum TicketCategory {
-  BUG = 'bug',
-  FEATURE_REQUEST = 'feature_request',
-  SUPPORT = 'support',
-  QUESTION = 'question',
-  INCIDENT = 'incident',
-  TASK = 'task',
+  BUG = 'BUG',
+  FEATURE_REQUEST = 'FEATURE_REQUEST',
+  SUPPORT = 'SUPPORT',
+  BILLING = 'BILLING',
+  QUESTION = 'QUESTION',
+  INCIDENT = 'INCIDENT',
+  TASK = 'TASK',
 }
 
 /** Valid state transitions enforced in UI */
@@ -249,7 +333,7 @@ export interface TicketFilters {
   dateFrom?: ISO8601;
   dateTo?: ISO8601;
   page?: number;
-  pageSize?: number;
+  page_size?: number;
   sortBy?: string;
   sortOrder?: 'asc' | 'desc';
 }
@@ -291,12 +375,13 @@ export interface Comment {
 }
 
 export interface CommentCreatePayload {
-  ticketId: UUID;
-  content: string;
+  ticket_id: UUID;
+  user_id: UUID;
+  message: string;
   isInternal?: boolean;
-  parentId?: UUID;
-  mentions?: UUID[];
-  attachments?: File[];
+  parent_id?: UUID;
+  mentioned_user_ids?: UUID[];
+  attachment_ids?: UUID[];
 }
 
 // ── Attachment Types ────────────────────────────────────────────

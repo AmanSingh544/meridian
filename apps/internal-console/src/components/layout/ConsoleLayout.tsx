@@ -17,13 +17,20 @@ interface NavItem {
 
 const NAV_ITEMS: NavItem[] = [
   { path: '/dashboard', label: 'Dashboard', icon: '📊' },
+  // TICKET_VIEW_ALL — visible to all internal roles (AGENT/LEAD/ADMIN)
   { path: '/tickets', label: 'Ticket Queue', icon: '🎫' },
+  // Triage (assign/reassign) — LEAD and ADMIN only
   { path: '/tickets/triage', label: 'Triage', icon: '🔀', permission: Permission.TICKET_ASSIGN },
   { path: '/search', label: 'Search', icon: '🔍' },
-  { path: '/analytics', label: 'Analytics', icon: '📈', permission: Permission.ANALYTICS_VIEW },
-  { path: '/users', label: 'Users', icon: '👥', permission: Permission.USER_VIEW, section: 'Admin' },
-  { path: '/organizations', label: 'Organizations', icon: '🏢', permission: Permission.ORG_VIEW, section: 'Admin' },
-  { path: '/routing', label: 'Routing Rules', icon: '🔧', permission: Permission.ROUTING_MANAGE, section: 'Admin' },
+  // REPORT_VIEW replaces old ANALYTICS_VIEW — LEAD and ADMIN
+  { path: '/analytics', label: 'Analytics', icon: '📈', permission: Permission.REPORT_VIEW },
+  // MEMBER_VIEW replaces old USER_VIEW — all internal roles
+  { path: '/users', label: 'Users', icon: '👥', permission: Permission.MEMBER_VIEW, section: 'Admin' },
+  // MEMBER_MANAGE replaces old ORG_VIEW — ADMIN only
+  { path: '/organizations', label: 'Organizations', icon: '🏢', permission: Permission.MEMBER_MANAGE, section: 'Admin' },
+  // ESCALATION_CONFIGURE replaces old ROUTING_MANAGE — LEAD and ADMIN
+  { path: '/routing', label: 'Routing Rules', icon: '🔧', permission: Permission.ESCALATION_CONFIGURE, section: 'Admin' },
+  // AUDIT_VIEW — ADMIN only
   { path: '/audit', label: 'Audit Log', icon: '📋', permission: Permission.AUDIT_VIEW, section: 'Admin' },
 ];
 

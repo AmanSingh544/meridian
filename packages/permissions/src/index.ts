@@ -5,80 +5,106 @@
 import { UserRole, Permission } from '@3sc/types';
 
 // ── Role → Permission Mapping ───────────────────────────────────
+// Mirrors the backend ROLES dict exactly. Used as a fallback when
+// the session payload does not include a permissions array.
 const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
-  [UserRole.CUSTOMER_USER]: [
-    Permission.TICKET_VIEW,
+  [UserRole.CLIENT_USER]: [
     Permission.TICKET_CREATE,
-    Permission.COMMENT_CREATE,
-    Permission.PROJECT_VIEW,
-    Permission.KB_VIEW,
-  ],
-  [UserRole.CUSTOMER_ADMIN]: [
-    Permission.TICKET_VIEW,
-    Permission.TICKET_CREATE,
-    Permission.TICKET_EDIT,
+    Permission.TICKET_VIEW_OWN,
     Permission.TICKET_REOPEN,
     Permission.COMMENT_CREATE,
-    Permission.COMMENT_EDIT,
-    Permission.PROJECT_VIEW,
+    Permission.ATTACHMENT_UPLOAD,
+    Permission.MEMBER_VIEW,
     Permission.KB_VIEW,
-    Permission.USER_VIEW,
-    Permission.USER_CREATE,
-    Permission.USER_EDIT,
-    Permission.ORG_VIEW,
-    Permission.ORG_EDIT,
-    Permission.ANALYTICS_VIEW,
+    Permission.SLA_VIEW,
   ],
+
+  [UserRole.CLIENT_ADMIN]: [
+    Permission.TICKET_CREATE,
+    Permission.TICKET_VIEW_ORG,
+    Permission.TICKET_EDIT,
+    Permission.TICKET_STATUS_CHANGE,
+    Permission.TICKET_REOPEN,
+    Permission.COMMENT_CREATE,
+    Permission.ATTACHMENT_UPLOAD,
+    Permission.ATTACHMENT_DELETE,
+    Permission.MEMBER_INVITE,
+    Permission.MEMBER_MANAGE,
+    Permission.MEMBER_VIEW,
+    Permission.REPORT_VIEW,
+    Permission.REPORT_EXPORT,
+    Permission.KB_VIEW,
+    Permission.SLA_VIEW,
+    Permission.WORKSPACE_CONFIGURE,
+  ],
+
   [UserRole.AGENT]: [
-    Permission.TICKET_VIEW,
-    Permission.TICKET_CREATE,
+    Permission.TICKET_VIEW_ALL,
     Permission.TICKET_EDIT,
-    Permission.TICKET_TRANSITION,
-    Permission.TICKET_VIEW_INTERNAL,
+    Permission.TICKET_STATUS_CHANGE,
     Permission.COMMENT_CREATE,
-    Permission.COMMENT_EDIT,
     Permission.COMMENT_INTERNAL,
-    Permission.PROJECT_VIEW,
+    Permission.ATTACHMENT_UPLOAD,
+    Permission.AI_SUGGEST,
+    Permission.AI_FEEDBACK,
     Permission.KB_VIEW,
-    Permission.KB_CREATE,
-    Permission.KB_EDIT,
-    Permission.AI_USE,
-    Permission.USER_VIEW,
+    Permission.SLA_VIEW,
+    Permission.MEMBER_VIEW,
   ],
+
   [UserRole.LEAD]: [
-    Permission.TICKET_VIEW,
-    Permission.TICKET_CREATE,
+    Permission.TICKET_VIEW_ALL,
     Permission.TICKET_EDIT,
+    Permission.TICKET_STATUS_CHANGE,
     Permission.TICKET_ASSIGN,
-    Permission.TICKET_ESCALATE,
-    Permission.TICKET_CLOSE,
-    Permission.TICKET_REOPEN,
-    Permission.TICKET_TRANSITION,
-    Permission.TICKET_VIEW_INTERNAL,
+    Permission.TICKET_DELETE,
     Permission.COMMENT_CREATE,
-    Permission.COMMENT_EDIT,
-    Permission.COMMENT_DELETE,
     Permission.COMMENT_INTERNAL,
+    Permission.COMMENT_DELETE,
+    Permission.ATTACHMENT_UPLOAD,
+    Permission.ATTACHMENT_DELETE,
+    Permission.SLA_VIEW,
+    Permission.SLA_CONFIGURE,
+    Permission.ESCALATION_CONFIGURE,
+    Permission.REPORT_VIEW,
+    Permission.REPORT_EXPORT,
+    Permission.AI_SUGGEST,
+    Permission.AI_FEEDBACK,
+    Permission.KB_VIEW,
+    Permission.MEMBER_VIEW,
+  ],
+
+  [UserRole.ADMIN]: [
+    Permission.TICKET_VIEW_ALL,
+    Permission.TICKET_EDIT,
+    Permission.TICKET_STATUS_CHANGE,
+    Permission.TICKET_ASSIGN,
+    Permission.TICKET_DELETE,
+    Permission.TICKET_REOPEN,
+    Permission.COMMENT_CREATE,
+    Permission.COMMENT_INTERNAL,
+    Permission.COMMENT_DELETE,
+    Permission.ATTACHMENT_UPLOAD,
+    Permission.ATTACHMENT_DELETE,
+    Permission.SLA_VIEW,
+    Permission.SLA_CONFIGURE,
+    Permission.ESCALATION_CONFIGURE,
+    Permission.REPORT_VIEW,
+    Permission.REPORT_EXPORT,
+    Permission.AI_SUGGEST,
+    Permission.AI_FEEDBACK,
+    Permission.KB_VIEW,
+    Permission.KB_MANAGE,
+    Permission.MEMBER_INVITE,
+    Permission.MEMBER_MANAGE,
+    Permission.MEMBER_VIEW,
+    Permission.AUDIT_VIEW,
+    Permission.WORKSPACE_CONFIGURE,
     Permission.PROJECT_VIEW,
     Permission.PROJECT_CREATE,
     Permission.PROJECT_EDIT,
-    Permission.KB_VIEW,
-    Permission.KB_CREATE,
-    Permission.KB_EDIT,
-    Permission.KB_DELETE,
-    Permission.AI_USE,
-    Permission.AI_CONFIGURE,
-    Permission.USER_VIEW,
-    Permission.USER_CREATE,
-    Permission.USER_EDIT,
-    Permission.USER_MANAGE_ROLES,
-    Permission.ORG_VIEW,
-    Permission.ANALYTICS_VIEW,
-    Permission.ANALYTICS_EXPORT,
-    Permission.ROUTING_MANAGE,
-    Permission.SLA_MANAGE,
+    Permission.PROJECT_DELETE,
   ],
-  [UserRole.ADMIN]: Object.values(Permission),
 };
 
 // ── Permission Checker Class ────────────────────────────────────
@@ -103,8 +129,9 @@ export class PermissionChecker {
     return permissions.some(p => this.permissions.has(p));
   }
 
+  // ── Role helpers ────────────────────────────────────────────
   get isCustomer(): boolean {
-    return this.role === UserRole.CUSTOMER_USER || this.role === UserRole.CUSTOMER_ADMIN;
+    return this.role === UserRole.CLIENT_USER || this.role === UserRole.CLIENT_ADMIN;
   }
 
   get isInternal(): boolean {
@@ -121,7 +148,7 @@ export class PermissionChecker {
 
   // ── Ticket Permissions ──────────────────────────────────────
   canViewTickets(): boolean {
-    return this.has(Permission.TICKET_VIEW);
+    return this.hasAny(Permission.TICKET_VIEW_OWN, Permission.TICKET_VIEW_ORG, Permission.TICKET_VIEW_ALL);
   }
 
   canCreateTickets(): boolean {
@@ -136,24 +163,16 @@ export class PermissionChecker {
     return this.has(Permission.TICKET_ASSIGN);
   }
 
-  canEscalateTicket(): boolean {
-    return this.has(Permission.TICKET_ESCALATE);
-  }
-
-  canCloseTicket(): boolean {
-    return this.has(Permission.TICKET_CLOSE);
+  canChangeStatus(): boolean {
+    return this.has(Permission.TICKET_STATUS_CHANGE);
   }
 
   canReopenTicket(): boolean {
     return this.has(Permission.TICKET_REOPEN);
   }
 
-  canTransitionTicket(): boolean {
-    return this.has(Permission.TICKET_TRANSITION);
-  }
-
-  canViewInternalNotes(): boolean {
-    return this.has(Permission.TICKET_VIEW_INTERNAL);
+  canDeleteTicket(): boolean {
+    return this.has(Permission.TICKET_DELETE);
   }
 
   // ── Comment Permissions ─────────────────────────────────────
@@ -165,31 +184,30 @@ export class PermissionChecker {
     return this.has(Permission.COMMENT_INTERNAL);
   }
 
-  // ── User Management ─────────────────────────────────────────
-  canViewUsers(): boolean {
-    return this.has(Permission.USER_VIEW);
+  canDeleteComment(): boolean {
+    return this.has(Permission.COMMENT_DELETE);
   }
 
-  canManageUsers(): boolean {
-    return this.hasAny(Permission.USER_CREATE, Permission.USER_EDIT);
+  // ── Member Management ───────────────────────────────────────
+  canViewMembers(): boolean {
+    return this.has(Permission.MEMBER_VIEW);
   }
 
-  canManageRoles(): boolean {
-    return this.has(Permission.USER_MANAGE_ROLES);
+  canInviteMembers(): boolean {
+    return this.has(Permission.MEMBER_INVITE);
   }
 
-  // ── Organization ────────────────────────────────────────────
-  canManageOrg(): boolean {
-    return this.has(Permission.ORG_MANAGE);
+  canManageMembers(): boolean {
+    return this.has(Permission.MEMBER_MANAGE);
   }
 
-  // ── Project Permissions ─────────────────────────────────────
-  canViewProjects(): boolean {
-    return this.has(Permission.PROJECT_VIEW);
+  // ── Reports ─────────────────────────────────────────────────
+  canViewReports(): boolean {
+    return this.has(Permission.REPORT_VIEW);
   }
 
-  canManageProjects(): boolean {
-    return this.hasAny(Permission.PROJECT_CREATE, Permission.PROJECT_EDIT);
+  canExportReports(): boolean {
+    return this.has(Permission.REPORT_EXPORT);
   }
 
   // ── Knowledge Base ──────────────────────────────────────────
@@ -198,43 +216,47 @@ export class PermissionChecker {
   }
 
   canManageKB(): boolean {
-    return this.hasAny(Permission.KB_CREATE, Permission.KB_EDIT);
+    return this.has(Permission.KB_MANAGE);
   }
 
-  // ── Analytics ───────────────────────────────────────────────
-  canViewAnalytics(): boolean {
-    return this.has(Permission.ANALYTICS_VIEW);
+  // ── SLA ─────────────────────────────────────────────────────
+  canViewSLA(): boolean {
+    return this.has(Permission.SLA_VIEW);
   }
 
-  canExportAnalytics(): boolean {
-    return this.has(Permission.ANALYTICS_EXPORT);
+  canConfigureSLA(): boolean {
+    return this.has(Permission.SLA_CONFIGURE);
   }
 
-  // ── Audit ───────────────────────────────────────────────────
-  canViewAuditLog(): boolean {
-    return this.has(Permission.AUDIT_VIEW);
+  canConfigureEscalations(): boolean {
+    return this.has(Permission.ESCALATION_CONFIGURE);
   }
 
   // ── AI ──────────────────────────────────────────────────────
   canUseAI(): boolean {
-    return this.has(Permission.AI_USE);
+    return this.has(Permission.AI_SUGGEST);
   }
 
-  canConfigureAI(): boolean {
-    return this.has(Permission.AI_CONFIGURE);
+  canGiveAIFeedback(): boolean {
+    return this.has(Permission.AI_FEEDBACK);
   }
 
-  // ── Admin ───────────────────────────────────────────────────
-  canAccessAdmin(): boolean {
-    return this.has(Permission.ADMIN_PANEL);
+  // ── Audit & Workspace ───────────────────────────────────────
+  canViewAuditLog(): boolean {
+    return this.has(Permission.AUDIT_VIEW);
   }
 
-  canManageRouting(): boolean {
-    return this.has(Permission.ROUTING_MANAGE);
+  canConfigureWorkspace(): boolean {
+    return this.has(Permission.WORKSPACE_CONFIGURE);
   }
 
-  canManageSLA(): boolean {
-    return this.has(Permission.SLA_MANAGE);
+  // ── Projects ────────────────────────────────────────────────
+  canViewProjects(): boolean {
+    return this.has(Permission.PROJECT_VIEW);
+  }
+
+  canManageProjects(): boolean {
+    return this.hasAny(Permission.PROJECT_CREATE, Permission.PROJECT_EDIT);
   }
 }
 
@@ -249,7 +271,7 @@ export function getDefaultPermissions(role: UserRole): Permission[] {
 }
 
 export function isCustomerRole(role: UserRole): boolean {
-  return role === UserRole.CUSTOMER_USER || role === UserRole.CUSTOMER_ADMIN;
+  return role === UserRole.CLIENT_USER || role === UserRole.CLIENT_ADMIN;
 }
 
 export function isInternalRole(role: UserRole): boolean {

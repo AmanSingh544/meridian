@@ -148,7 +148,7 @@ export const TicketWorkspacePage: React.FC = () => {
                 🤖 AI Panel
               </Button>
             )}
-            {permissions.canTransitionTicket() && availableTransitions.map((status) => (
+            {permissions.canChangeStatus() && availableTransitions.map((status) => (
               <Button
                 key={status}
                 variant={status === TicketStatus.RESOLVED ? 'success' : 'secondary'}

@@ -1,5 +1,5 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
-import type { SessionInfo, LoginCredentials } from '@3sc/types';
+import { type SessionInfo, type LoginCredentials } from '@3sc/types';
 import { login as loginService, logout as logoutService, getSession } from '@3sc/auth';
 
 interface AuthState {
@@ -15,7 +15,7 @@ const initialState: AuthState = {
 };
 
 export const login = createAsyncThunk(
-  'auth/login',
+  'user/login',
   async (credentials: LoginCredentials) => loginService(credentials),
 );
 
@@ -23,12 +23,12 @@ export const logout = createAsyncThunk('auth/logout', async () => {
   await logoutService();
 });
 
-export const checkSession = createAsyncThunk('auth/checkSession', async () => {
-  return await getSession();
+export const checkSession = createAsyncThunk('auth/checkSession', async (tenantId: string | number) => {
+  return await getSession(tenantId);
 });
 
 const authSlice = createSlice({
-  name: 'auth',
+  name: 'user',
   initialState,
   reducers: {
     sessionExpired(state) {
@@ -48,6 +48,8 @@ const authSlice = createSlice({
       .addCase(login.fulfilled, (state, action) => {
         state.session = action.payload;
         state.status = 'authenticated';
+        sessionStorage.setItem('tenant_id', action.payload.tenantId);
+        sessionStorage.setItem('user_id', action.payload.userId);
       })
       .addCase(login.rejected, (state, action) => {
         state.status = 'unauthenticated';
