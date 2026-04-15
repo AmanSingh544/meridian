@@ -5,14 +5,23 @@ import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
 import { Avatar } from '@3sc/ui';
 import { logout } from '../../features/auth/authSlice';
 import type { AppDispatch } from '../../store';
+import { Permission } from '@3sc/types';
 
 const NAV_ITEMS = [
   { path: '/dashboard', label: 'Dashboard', icon: '📊', perm: null },
-  { path: '/tickets', label: 'Tickets', icon: '🎫', perm: null },
-  { path: '/communication', label: 'Messages', icon: '💬', perm: null },
-  { path: '/knowledge', label: 'Knowledge Base', icon: '📚', perm: null },
-  { path: '/projects', label: 'Projects', icon: '📁', perm: 'project:view' },
+  // CLIENT_USER sees TICKET_VIEW_OWN; CLIENT_ADMIN sees TICKET_VIEW_ORG — both grant access
+  { path: '/tickets', label: 'Tickets', icon: '🎫', perm: Permission.TICKET_VIEW_OWN },
+  { path: '/knowledge', label: 'Knowledge Base', icon: '📚', perm: Permission.KB_VIEW },
+  { path: '/projects', label: 'Projects', icon: '📁', perm: Permission.PROJECT_VIEW },
   { path: '/notifications', label: 'Notifications', icon: '🔔', perm: null },
+  // REPORT_VIEW replaces old ANALYTICS_VIEW — CLIENT_ADMIN only
+  { path: '/analytics', label: 'Analytics', icon: '📈', perm: Permission.REPORT_VIEW },
+  // MEMBER_VIEW replaces old USER_VIEW — all client roles have this
+  { path: '/team', label: 'Team', icon: '👥', perm: Permission.MEMBER_VIEW },
+  // WORKSPACE_CONFIGURE replaces old ORG_VIEW — CLIENT_ADMIN only
+  { path: '/organization', label: 'Organization', icon: '🏢', perm: Permission.WORKSPACE_CONFIGURE },
+  // AUDIT_VIEW — ADMIN only, not visible on customer portal
+  { path: '/audit', label: 'Audit Log', icon: '📋', perm: Permission.AUDIT_VIEW },
 ];
 
 export const CustomerLayout: React.FC = () => {
@@ -89,7 +98,10 @@ export const CustomerLayout: React.FC = () => {
           {/* Navigation */}
           <nav style={{ flex: 1, padding: '0.75rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
             {NAV_ITEMS.map((item) => {
-              if (item.perm && !permissions.has(item.perm as never)) return null;
+              // Tickets nav: visible if user has either TICKET_VIEW_OWN or TICKET_VIEW_ORG
+              if (item.path === '/tickets') {
+                if (!permissions.hasAny(Permission.TICKET_VIEW_OWN, Permission.TICKET_VIEW_ORG)) return null;
+              } else if (item.perm && !permissions.has(item.perm)) return null;
               return (
                 <NavLink
                   key={item.path}

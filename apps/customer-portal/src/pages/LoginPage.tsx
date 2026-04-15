@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useLocation } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { Button, Input } from '@3sc/ui';
 import { login, clearError } from '../features/auth/authSlice';
@@ -119,9 +119,9 @@ export const LoginPage: React.FC = () => {
             autoComplete="current-password"
           />
           <div style={{ textAlign: 'right', marginTop: '-0.5rem', marginBottom: '1rem' }}>
-            <a href="/forgot-password" style={{ fontSize: '0.8125rem', color: 'var(--color-brand-600)' }}>
+            <Link to="/forgot-password" style={{ fontSize: '0.8125rem', color: 'var(--color-brand-600)' }}>
               Forgot password?
-            </a>
+            </Link>
           </div>
           <Button
             type="submit"

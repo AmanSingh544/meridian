@@ -48,6 +48,8 @@ import type {
   ApiResponse,
   SessionInfo,
   LoginCredentials,
+  UserRole,
+  InviteUserPayload,
 } from '@3sc/types';
 
 // ── Base Query with Auth Retry ──────────────────────────────────
@@ -165,12 +167,24 @@ export const api = createApi({
 
     updateTicket: builder.mutation<Ticket, { id: string; payload: TicketUpdatePayload }>({
       query: ({ id, payload }) => ({
-        url: `/tickets/${id}`,
+        url: `/tickets/${id}/update`,
         method: 'PATCH',
         body: payload,
       }),
       transformResponse: (response: ApiResponse<Ticket>) => response.data,
       invalidatesTags: (_result, _error, { id }) => [
+        { type: 'Ticket', id },
+        { type: 'TicketList' },
+        'Dashboard',
+      ],
+    }),
+
+    deleteTicket: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/tickets/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: (_result, _error, id) => [
         { type: 'Ticket', id },
         { type: 'TicketList' },
         'Dashboard',
@@ -310,15 +324,43 @@ export const api = createApi({
       invalidatesTags: ['User'],
     }),
 
+    deleteUser: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/users/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['User'],
+    }),
+
+    inviteUser: builder.mutation<User, InviteUserPayload>({
+      query: (body) => ({
+        url: '/users/invite',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: ApiResponse<User>) => response.data,
+      invalidatesTags: ['User'],
+    }),
+
     // ── Organizations ───────────────────────────────────────
     getOrganizations: builder.query<PaginatedResponse<Organization>, { page?: number }>({
       query: (params) => ({ url: '/organizations', params }),
       providesTags: ['Organization'],
     }),
 
+    updateOrganization: builder.mutation<Organization, { id: string; payload: Partial<Pick<Organization, 'name' | 'domain' | 'logoUrl'>> }>({
+      query: ({ id, payload }) => ({
+        url: `/organizations/${id}`,
+        method: 'PATCH',
+        body: payload,
+      }),
+      transformResponse: (response: ApiResponse<Organization>) => response.data,
+      invalidatesTags: ['Organization'],
+    }),
+
     // ── Dashboard ───────────────────────────────────────────
     getDashboard: builder.query<DashboardSummary, void>({
-      query: () => '/dashboard',
+      query: () => '/dashboard/kpis',
       transformResponse: (response: ApiResponse<DashboardSummary>) => response.data,
       providesTags: ['Dashboard'],
     }),
@@ -448,6 +490,7 @@ export const {
   useGetTicketQuery,
   useCreateTicketMutation,
   useUpdateTicketMutation,
+  useDeleteTicketMutation,
   useTransitionTicketMutation,
   // Comments
   useGetCommentsQuery,
@@ -470,8 +513,11 @@ export const {
   useGetUsersQuery,
   useGetUserQuery,
   useUpdateUserMutation,
+  useDeleteUserMutation,
+  useInviteUserMutation,
   // Organizations
   useGetOrganizationsQuery,
+  useUpdateOrganizationMutation,
   // Dashboard
   useGetDashboardQuery,
   // Analytics

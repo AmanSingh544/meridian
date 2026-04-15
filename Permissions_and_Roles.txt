@@ -1,0 +1,199 @@
+TENANT_IDS = ["1", "2"]
+ 
+TENANT = {
+    "1": {
+        "tenant_name": "Acme Corp",
+    },
+    "2": {
+        "tenant_name": "Beta Industries",
+    },
+}
+ 
+ 
+# ─────────────────────────────────────────────────────────────────────────────
+# ROLES AND PERMISSIONS
+# Each role maps to a list of permission strings.
+# Use has_permission(email, "TICKET_CREATE") to check in your views.
+# ─────────────────────────────────────────────────────────────────────────────
+ 
+ROLES = {
+ 
+    # ── Client side ───────────────────────────────────────────────────────────
+ 
+    "CLIENT_ADMIN": [
+        # Tickets — sees all tickets in own org
+        "TICKET_CREATE",
+        "TICKET_VIEW_ORG",      # all tickets in their org
+        "TICKET_EDIT",
+        "TICKET_STATUS_CHANGE",
+        "TICKET_REOPEN",
+        # Comments
+        "COMMENT_CREATE",
+        # Attachments
+        "ATTACHMENT_UPLOAD",
+        "ATTACHMENT_DELETE",
+        # Org members
+        "MEMBER_INVITE",
+        "MEMBER_MANAGE",
+        "MEMBER_VIEW",
+        # Reports — own org only
+        "REPORT_VIEW",
+        "REPORT_EXPORT",
+        # Other
+        "KB_VIEW",
+        "SLA_VIEW",
+        "WORKSPACE_CONFIGURE",
+    ],
+ 
+    "CLIENT_USER": [
+        # Tickets — own tickets only
+        "TICKET_CREATE",
+        "TICKET_VIEW_OWN",      # only their own tickets
+        "TICKET_REOPEN",
+        # Comments
+        "COMMENT_CREATE",
+        # Attachments
+        "ATTACHMENT_UPLOAD",
+        # Other
+        "MEMBER_VIEW",
+        "KB_VIEW",
+        "SLA_VIEW",
+    ],
+ 
+    # ── Internal 3SC side ─────────────────────────────────────────────────────
+ 
+    "AGENT": [
+        # Tickets — can work any assigned ticket across all tenants
+        "TICKET_VIEW_ALL",
+        "TICKET_EDIT",
+        "TICKET_STATUS_CHANGE",
+        # Comments — can write internal notes
+        "COMMENT_CREATE",
+        "COMMENT_INTERNAL",
+        # Attachments
+        "ATTACHMENT_UPLOAD",
+        # AI assist panel
+        "AI_SUGGEST",
+        "AI_FEEDBACK",
+        # Other
+        "KB_VIEW",
+        "SLA_VIEW",
+        "MEMBER_VIEW",
+    ],
+ 
+    "LEAD": [
+        # Everything AGENT has, plus assignment + routing + SLA config
+        "TICKET_VIEW_ALL",
+        "TICKET_EDIT",
+        "TICKET_STATUS_CHANGE",
+        "TICKET_ASSIGN",        # assign/reassign to any agent
+        "TICKET_DELETE",
+        "COMMENT_CREATE",
+        "COMMENT_INTERNAL",
+        "COMMENT_DELETE",
+        "ATTACHMENT_UPLOAD",
+        "ATTACHMENT_DELETE",
+        # SLA
+        "SLA_VIEW",
+        "SLA_CONFIGURE",
+        "ESCALATION_CONFIGURE",
+        # Reports — all tenants
+        "REPORT_VIEW",
+        "REPORT_EXPORT",
+        # AI assist
+        "AI_SUGGEST",
+        "AI_FEEDBACK",
+        # Other
+        "KB_VIEW",
+        "MEMBER_VIEW",
+    ],
+ 
+    "ADMIN": [
+        # Everything LEAD has, plus org management + audit
+        "TICKET_VIEW_ALL",
+        "TICKET_EDIT",
+        "TICKET_STATUS_CHANGE",
+        "TICKET_ASSIGN",
+        "TICKET_DELETE",
+        "TICKET_REOPEN",
+        "COMMENT_CREATE",
+        "COMMENT_INTERNAL",
+        "COMMENT_DELETE",
+        "ATTACHMENT_UPLOAD",
+        "ATTACHMENT_DELETE",
+        # SLA — full control
+        "SLA_VIEW",
+        "SLA_CONFIGURE",
+        "ESCALATION_CONFIGURE",
+        # Reports
+        "REPORT_VIEW",
+        "REPORT_EXPORT",
+        # AI assist
+        "AI_SUGGEST",
+        "AI_FEEDBACK",
+        # KB — full control
+        "KB_VIEW",
+        "KB_MANAGE",
+        # Members — manage any org
+        "MEMBER_INVITE",
+        "MEMBER_MANAGE",
+        "MEMBER_VIEW",
+        # Audit trail
+        "AUDIT_VIEW",
+        # Workspace
+        "WORKSPACE_CONFIGURE",
+    ]
+}
+ 
+ 
+
+
+/**
+ * Permission strings sent by the backend in the session payload.
+ * These are authoritative — do NOT hardcode permission arrays on the frontend.
+ * Use `session.permissions.includes(Permission.XYZ)` or the `hasPermission`
+ * helper to gate UI features.
+ *
+ * Role → permission matrix (source of truth is the backend):
+ *
+ * ┌─────────────────────────┬──────────────┬─────────────┬───────┬──────┬───────┐
+ * │ Permission              │ CLIENT_ADMIN │ CLIENT_USER │ AGENT │ LEAD │ ADMIN │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ TICKET_CREATE           │      ✓       │      ✓      │       │      │   ✓   │
+ * │ TICKET_VIEW_OWN         │              │      ✓      │       │      │       │
+ * │ TICKET_VIEW_ORG         │      ✓       │             │       │      │       │
+ * │ TICKET_VIEW_ALL         │              │             │   ✓   │  ✓   │   ✓   │
+ * │ TICKET_EDIT             │      ✓       │             │   ✓   │  ✓   │   ✓   │
+ * │ TICKET_STATUS_CHANGE    │      ✓       │             │   ✓   │  ✓   │   ✓   │
+ * │ TICKET_ASSIGN           │              │             │       │  ✓   │   ✓   │
+ * │ TICKET_REOPEN           │      ✓       │      ✓      │       │      │   ✓   │
+ * │ TICKET_DELETE           │              │             │       │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ COMMENT_CREATE          │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ COMMENT_DELETE          │              │             │       │  ✓   │   ✓   │
+ * │ COMMENT_INTERNAL        │              │             │   ✓   │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ ATTACHMENT_UPLOAD       │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ ATTACHMENT_DELETE       │      ✓       │             │       │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ MEMBER_INVITE           │      ✓       │             │       │      │   ✓   │
+ * │ MEMBER_MANAGE           │      ✓       │             │       │      │   ✓   │
+ * │ MEMBER_VIEW             │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ REPORT_VIEW             │      ✓       │             │       │  ✓   │   ✓   │
+ * │ REPORT_EXPORT           │      ✓       │             │       │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ KB_VIEW                 │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ KB_MANAGE               │              │             │       │      │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ SLA_VIEW                │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ SLA_CONFIGURE           │              │             │       │  ✓   │   ✓   │
+ * │ ESCALATION_CONFIGURE    │              │             │       │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ AI_SUGGEST              │              │             │   ✓   │  ✓   │   ✓   │
+ * │ AI_FEEDBACK             │              │             │   ✓   │  ✓   │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ AUDIT_VIEW              │              │             │       │      │   ✓   │
+ * │ WORKSPACE_CONFIGURE     │      ✓       │             │       │      │   ✓   │
+ * └─────────────────────────┴──────────────┴─────────────┴───────┴──────┴───────┘
+ */

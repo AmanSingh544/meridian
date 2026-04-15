@@ -41,6 +41,7 @@ const SessionInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const dispatch = useDispatch<AppDispatch>();
   useEffect(() => {
     const tenantId = sessionStorage.getItem('tenant_id');
+    const userId = sessionStorage.getItem('user_id');
     if (tenantId) dispatch(checkSession(tenantId));
     else dispatch({ type: 'auth/checkSession/rejected' });
   }, [dispatch]);
@@ -59,29 +60,34 @@ const AppRoutes: React.FC = () => (
       }>
         <Route path="/dashboard" element={<AgentDashboardPage />} />
         <Route path="/tickets" element={<TicketQueuePage />} />
-        <Route path="/tickets/triage" element={<TicketQueuePage />} />
+        {/* Triage — TICKET_ASSIGN is LEAD and ADMIN only */}
+        <Route path="/tickets/triage" element={
+          <ProtectedRoute permission={Permission.TICKET_ASSIGN}>
+            <TicketQueuePage />
+          </ProtectedRoute>
+        } />
         <Route path="/tickets/:id" element={<TicketWorkspacePage />} />
         <Route path="/search" element={<SearchPage />} />
         <Route path="/notifications" element={<AgentDashboardPage />} />
 
-        {/* Permission-gated admin routes */}
+        {/* Permission-gated internal routes */}
         <Route path="/analytics" element={
-          <ProtectedRoute permission={Permission.ANALYTICS_VIEW}>
+          <ProtectedRoute permission={Permission.REPORT_VIEW}>
             <AnalyticsPage />
           </ProtectedRoute>
         } />
         <Route path="/users" element={
-          <ProtectedRoute permission={Permission.USER_VIEW}>
+          <ProtectedRoute permission={Permission.MEMBER_VIEW}>
             <UsersPage />
           </ProtectedRoute>
         } />
         <Route path="/organizations" element={
-          <ProtectedRoute permission={Permission.ORG_VIEW}>
+          <ProtectedRoute permission={Permission.MEMBER_MANAGE}>
             <OrganizationsPage />
           </ProtectedRoute>
         } />
         <Route path="/routing" element={
-          <ProtectedRoute permission={Permission.ROUTING_MANAGE}>
+          <ProtectedRoute permission={Permission.ESCALATION_CONFIGURE}>
             <AgentDashboardPage />
           </ProtectedRoute>
         } />

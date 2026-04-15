@@ -49,6 +49,7 @@ const authSlice = createSlice({
         state.session = action.payload;
         state.status = 'authenticated';
         sessionStorage.setItem('tenant_id', action.payload.tenantId);
+        sessionStorage.setItem('user_id', action.payload.userId);
       })
       .addCase(login.rejected, (state, action) => {
         state.status = 'unauthenticated';

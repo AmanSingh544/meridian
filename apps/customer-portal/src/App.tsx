@@ -8,10 +8,13 @@ import { ProtectedRoute } from './routes/ProtectedRoute';
 import { CustomerLayout } from './components/layout/CustomerLayout';
 //import '@3sc/ui/src/styles/global.css';
 import '../../../packages/ui/src/styles/global.css';
+import { Permission } from '@3sc/types';
 
 
 // Lazy-loaded pages
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
+const ResetPasswordPage = lazy(() => import('./pages/ResetPasswordPage').then(m => ({ default: m.ResetPasswordPage })));
 const DashboardPage = lazy(() => import('./pages/DashboardPage').then(m => ({ default: m.DashboardPage })));
 const TicketListPage = lazy(() => import('./pages/TicketListPage').then(m => ({ default: m.TicketListPage })));
 const TicketDetailPage = lazy(() => import('./pages/TicketDetailPage').then(m => ({ default: m.TicketDetailPage })));
@@ -19,6 +22,10 @@ const CreateTicketPage = lazy(() => import('./pages/CreateTicketPage').then(m =>
 const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage').then(m => ({ default: m.KnowledgeBasePage })));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage').then(m => ({ default: m.ProjectsPage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
+const TeamManagementPage = lazy(() => import('./pages/TeamManagementPage').then(m => ({ default: m.TeamManagementPage })));
+const OrganizationSettingsPage = lazy(() => import('./pages/OrganizationSettingsPage').then(m => ({ default: m.OrganizationSettingsPage })));
+const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
+const AuditLogPage = lazy(() => import('./pages/AuditLogPage').then(m => ({ default: m.AuditLogPage })));
 
 const PageLoader: React.FC = () => (
   <div style={{
@@ -42,6 +49,7 @@ const SessionInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     const tenantId = sessionStorage.getItem('tenant_id');
+    const userId = sessionStorage.getItem('user_id');
     if (tenantId) dispatch(checkSession(tenantId));
     else dispatch({ type: 'auth/checkSession/rejected' });
   }, [dispatch]);
@@ -57,22 +65,75 @@ const AppRoutes: React.FC = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+      <Route path="/reset-password" element={<ResetPasswordPage />} />
 
       <Route element={
         <ProtectedRoute>
           <CustomerLayout />
         </ProtectedRoute>
       }>
+        {/* Accessible to all authenticated users */}
         <Route path="/dashboard" element={<DashboardPage />} />
-        <Route path="/tickets" element={<TicketListPage />} />
-        <Route path="/tickets/new" element={<CreateTicketPage />} />
-        <Route path="/tickets/:id" element={<TicketDetailPage />} />
-        <Route path="/knowledge" element={<KnowledgeBasePage />} />
-        <Route path="/knowledge/:id" element={<KnowledgeBasePage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
+        <Route path="/communication" element={<DashboardPage />} />
+
+        {/* Ticket routes — CLIENT_USER has TICKET_VIEW_OWN, CLIENT_ADMIN has TICKET_VIEW_ORG */}
+        <Route path="/tickets" element={
+          <ProtectedRoute permissions={[Permission.TICKET_VIEW_OWN, Permission.TICKET_VIEW_ORG]}>
+            <TicketListPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/tickets/new" element={
+          <ProtectedRoute permission={Permission.TICKET_CREATE}>
+            <CreateTicketPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/tickets/:id" element={
+          <ProtectedRoute permissions={[Permission.TICKET_VIEW_OWN, Permission.TICKET_VIEW_ORG]}>
+            <TicketDetailPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Knowledge Base — require KB_VIEW */}
+        <Route path="/knowledge" element={
+          <ProtectedRoute permission={Permission.KB_VIEW}>
+            <KnowledgeBasePage />
+          </ProtectedRoute>
+        } />
+        <Route path="/knowledge/:id" element={
+          <ProtectedRoute permission={Permission.KB_VIEW}>
+            <KnowledgeBasePage />
+          </ProtectedRoute>
+        } />
+
+        {/* Projects — accessible to all authenticated client users */}
         <Route path="/projects" element={<ProjectsPage />} />
         <Route path="/projects/:id" element={<ProjectsPage />} />
-        <Route path="/communication" element={<DashboardPage />} />
-        <Route path="/notifications" element={<NotificationsPage />} />
+
+        {/* Team Management — require MEMBER_VIEW */}
+        <Route path="/team" element={
+          <ProtectedRoute permission={Permission.MEMBER_VIEW}>
+            <TeamManagementPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Organization Settings — require WORKSPACE_CONFIGURE */}
+        <Route path="/organization" element={
+          <ProtectedRoute permission={Permission.WORKSPACE_CONFIGURE}>
+            <OrganizationSettingsPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Analytics — require REPORT_VIEW */}
+        <Route path="/analytics" element={
+          <ProtectedRoute permission={Permission.REPORT_VIEW}>
+            <AnalyticsPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Audit Log — no client role has AUDIT_VIEW, redirect away */}
+        <Route path="/audit" element={<Navigate to="/dashboard" replace />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />
