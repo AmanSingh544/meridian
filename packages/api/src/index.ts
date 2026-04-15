@@ -49,6 +49,7 @@ import type {
   SessionInfo,
   LoginCredentials,
   UserRole,
+  InviteUserPayload,
 } from '@3sc/types';
 
 // ── Base Query with Auth Retry ──────────────────────────────────
@@ -166,7 +167,7 @@ export const api = createApi({
 
     updateTicket: builder.mutation<Ticket, { id: string; payload: TicketUpdatePayload }>({
       query: ({ id, payload }) => ({
-        url: `/tickets/${id}`,
+        url: `/tickets/${id}/update`,
         method: 'PATCH',
         body: payload,
       }),
@@ -331,7 +332,7 @@ export const api = createApi({
       invalidatesTags: ['User'],
     }),
 
-    inviteUser: builder.mutation<User, { email: string; role: UserRole }>({
+    inviteUser: builder.mutation<User, InviteUserPayload>({
       query: (body) => ({
         url: '/users/invite',
         method: 'POST',
@@ -359,7 +360,7 @@ export const api = createApi({
 
     // ── Dashboard ───────────────────────────────────────────
     getDashboard: builder.query<DashboardSummary, void>({
-      query: () => '/dashboard',
+      query: () => '/dashboard/kpis',
       transformResponse: (response: ApiResponse<DashboardSummary>) => response.data,
       providesTags: ['Dashboard'],
     }),

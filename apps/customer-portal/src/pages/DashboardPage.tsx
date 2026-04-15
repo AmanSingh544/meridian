@@ -13,91 +13,13 @@ import {
   SkeletonCard,
   ErrorState,
 } from '@3sc/ui';
-import { TicketStatus, TicketPriority, SLAState } from '@3sc/types';
 import { formatRelativeTime } from '@3sc/utils';
 
 export const DashboardPage: React.FC = () => {
   useDocumentTitle('Dashboard');
   const session = useSession();
   const navigate = useNavigate();
-  // const { data: dashboard, isLoading, error, refetch } = useGetDashboardQuery();
-  const dummy = {
-    totalTickets: 128,
-    openTickets: 34,
-    resolvedToday: 12,
-    avgResolutionTime: '4h 32m',
-    slaComplianceRate: 92.5,
-
-    ticketsByPriority: {
-      low: 20,
-      medium: 45,
-      high: 40,
-      critical: 23,
-    },
-
-    ticketsByStatus: {
-      open: 34,
-      acknowledged: 18,
-      in_progress: 27,
-      resolved: 30,
-      closed: 19,
-    },
-
-    recentActivity: [
-      {
-        id: 'a1b2c3d4-e001-4f1a-9a11-123456789001',
-        type: 'ticket_created',
-        description: 'New ticket created for login issue',
-        userId: 'u101',
-        userName: 'Rahul Sharma',
-        resourceType: 'ticket',
-        resourceId: 't001',
-        timestamp: '2026-04-10T10:15:30Z',
-      },
-      {
-        id: 'a1b2c3d4-e002-4f1a-9a11-123456789002',
-        type: 'ticket_updated',
-        description: 'Priority changed to HIGH',
-        userId: 'u102',
-        userName: 'Ankit Verma',
-        resourceType: 'ticket',
-        resourceId: 't002',
-        timestamp: '2026-04-10T09:45:10Z',
-      },
-      {
-        id: 'a1b2c3d4-e003-4f1a-9a11-123456789003',
-        type: 'ticket_resolved',
-        description: 'Payment gateway issue resolved',
-        userId: 'u103',
-        userName: 'Priya Singh',
-        resourceType: 'ticket',
-        resourceId: 't003',
-        timestamp: '2026-04-10T08:30:00Z',
-      },
-      {
-        id: 'a1b2c3d4-e004-4f1a-9a11-123456789004',
-        type: 'comment_added',
-        description: 'Added troubleshooting steps',
-        userId: 'u104',
-        userName: 'Neha Gupta',
-        resourceType: 'ticket',
-        resourceId: 't004',
-        timestamp: '2026-04-09T18:20:45Z',
-      },
-      {
-        id: 'a1b2c3d4-e005-4f1a-9a11-123456789005',
-        type: 'ticket_closed',
-        description: 'Ticket closed after confirmation',
-        userId: 'u105',
-        userName: 'Amit Kumar',
-        resourceType: 'ticket',
-        resourceId: 't005',
-        timestamp: '2026-04-09T16:05:12Z',
-      },
-    ],
-  };
-
-  const { data: dashboard, isLoading, error, refetch } = { data: dummy, isLoading: false, error: null, refetch: () => { } };
+  const { data: dashboard, isLoading, error, refetch } = useGetDashboardQuery();
   const { data: recentTickets } = useGetTicketsQuery({
     page: 1,
     page_size: 5,
@@ -152,7 +74,13 @@ export const DashboardPage: React.FC = () => {
           <>
             <MetricCard
               title="Open Tickets"
-              value={dashboard?.openTickets ?? 0}
+              value={dashboard?.by_status?.OPEN ?? 0}
+              icon="📂"
+              color="var(--color-warning)"
+            />
+            <MetricCard
+              title="Total Tickets"
+              value={dashboard?.total ?? 0}
               icon="🎫"
               color="var(--color-brand-500)"
             />
@@ -170,7 +98,7 @@ export const DashboardPage: React.FC = () => {
             />
             <MetricCard
               title="SLA Compliance"
-              value={dashboard?.slaComplianceRate ? `${Math.round(dashboard.slaComplianceRate * 100)}%` : '—'}
+              value={dashboard?.slaComplianceRate != null ? `${dashboard.slaComplianceRate}%` : '—'}
               icon="📈"
               color="var(--color-info)"
             />

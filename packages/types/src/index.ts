@@ -226,6 +226,24 @@ export interface User {
   updatedAt: ISO8601;
 }
 
+export interface InviteUserPayload {
+  email: Email;
+  role: UserRole;
+  firstName?: string;
+  lastName?: string;
+}
+
+/**
+ * Sent by the invitee when they click the link in their invitation email
+ * and set their password to activate the account.
+ */
+export interface InviteAcceptPayload {
+  token: string;       // one-time invite token from the email link
+  firstName: string;
+  lastName: string;
+  password: string;
+}
+
 export interface Organization {
   id: UUID;
   name: string;
@@ -551,14 +569,13 @@ export interface AgentPerformance {
 }
 
 export interface DashboardSummary {
-  totalTickets: number;
-  openTickets: number;
+  total: number;
   resolvedToday: number;
   avgResolutionTime: string;
   slaComplianceRate: number;
-  ticketsByPriority: Record<TicketPriority, number>;
-  ticketsByStatus: Record<TicketStatus, number>;
-  recentActivity: ActivityItem[];
+  by_priority: Record<TicketPriority, number>;
+  by_status: Record<TicketStatus, number>;
+  recentActivity?: ActivityItem[];
 }
 
 export interface ActivityItem {
