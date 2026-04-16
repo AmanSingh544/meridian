@@ -70,27 +70,26 @@ export const CustomerLayout: React.FC = () => {
         }}>
           {/* Logo */}
           <div style={{
-            padding: '1.25rem 1.25rem',
+            padding: '0.54rem',
             borderBottom: '1px solid var(--color-border)',
             display: 'flex',
             alignItems: 'center',
             gap: '0.75rem',
           }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 'var(--radius-md)',
-              background: 'var(--color-brand-600)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 700, fontSize: '0.875rem',
-              fontFamily: 'var(--font-display)',
-            }}>
-              3SC
-            </div>
+            <svg width="32" height="32" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+              <rect width="56" height="56" rx="8" fill="#4f46e5"/>
+              <path d="M 28 10 L 34 24 L 28 28 L 22 24 Z" fill="#ffffff" opacity="0.95"/>
+              <path d="M 46 28 L 34 32 L 30 28 L 34 24 Z" fill="#c7d2fe" opacity="0.9"/>
+              <path d="M 28 46 L 22 32 L 28 28 L 34 32 Z" fill="#e0e7ff" opacity="0.8"/>
+              <path d="M 10 28 L 22 24 L 26 28 L 22 32 Z" fill="#e0e7ff" opacity="0.65"/>
+              <circle cx="28" cy="28" r="2.5" fill="#ffffff"/>
+            </svg>
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.9375rem', fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}>
-                Support Portal
+                Meridian
               </div>
               <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                {session?.tenantName || 'Customer'}
+                {session?.tenantName || 'Support Portal'}
               </div>
             </div>
           </div>

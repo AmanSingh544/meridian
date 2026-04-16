@@ -81,18 +81,22 @@ export const ConsoleLayout: React.FC = () => {
         }}>
           {/* Logo */}
           <div style={{
-            padding: '1rem', borderBottom: '1px solid var(--color-border)',
+            padding: '0.54rem', borderBottom: '1px solid var(--color-border)',
             display: 'flex', alignItems: 'center', gap: '0.625rem',
           }}>
-            <div style={{
-              width: 28, height: 28, borderRadius: 'var(--radius-sm)',
-              background: '#1e1b4b',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#c7d2fe', fontWeight: 700, fontSize: '0.6875rem',
-              fontFamily: 'var(--font-display)',
-            }}>3SC</div>
+            <svg width="28" height="28" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+              <rect width="56" height="56" rx="8" fill="#1e1b4b"/>
+              <path d="M 28 10 L 34 24 L 28 28 L 22 24 Z" fill="#818cf8" opacity="0.95"/>
+              <path d="M 46 28 L 34 32 L 30 28 L 34 24 Z" fill="#a5b4fc" opacity="0.85"/>
+              <path d="M 28 46 L 22 32 L 28 28 L 34 32 Z" fill="#c7d2fe" opacity="0.75"/>
+              <path d="M 10 28 L 22 24 L 26 28 L 22 32 Z" fill="#e0e7ff" opacity="0.65"/>
+              <circle cx="28" cy="28" r="2.5" fill="#818cf8"/>
+            </svg>
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.8125rem', fontFamily: 'var(--font-display)' }}>
+                Meridian
+              </div>
+              <div style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', letterSpacing: '0.04em' }}>
                 Internal Console
               </div>
             </div>

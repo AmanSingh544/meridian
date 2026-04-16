@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useCreateTicketMutation, useSearchKBQuery } from '@3sc/api';
+import { useCreateTicketMutation, useCreateAttachmentMutation, useSearchKBQuery } from '@3sc/api';
 import { useDocumentTitle, useDebouncedValue } from '@3sc/hooks';
 import { Button, Input, TextArea, Select, FileUpload, Card, useToast } from '@3sc/ui';
 import { TicketPriority, TicketCategory } from '@3sc/types';
@@ -10,12 +10,14 @@ export const CreateTicketPage: React.FC = () => {
   const navigate = useNavigate();
   const { toast } = useToast();
   const [createTicket, { isLoading }] = useCreateTicketMutation();
+  const [createAttachment] = useCreateAttachmentMutation();
 
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [priority, setPriority] = useState<TicketPriority>(TicketPriority.MEDIUM);
   const [category, setCategory] = useState<TicketCategory>(TicketCategory.SUPPORT);
   const [files, setFiles] = useState<File[]>([]);
+  const [uploading, setUploading] = useState(false);
 
   const debouncedTitle = useDebouncedValue(title, 500);
   const { data: kbResults } = useSearchKBQuery(
@@ -28,16 +30,35 @@ export const CreateTicketPage: React.FC = () => {
     if (!title.trim() || !description.trim()) return;
 
     try {
+      let attachment_ids: number[] = [];
+
+      if (files.length > 0) {
+        setUploading(true);
+        const results = await Promise.all(
+          files.map((file) =>
+            createAttachment({
+              file_name: file.name,
+              file_type: file.type,
+              file_path: `/uploads/${file.name}`,
+              metadata: {},
+            }).unwrap()
+          )
+        );
+        attachment_ids = results.map((r) => r?.data?.id);
+        setUploading(false);
+      }
+
       const ticket = await createTicket({
         title: title.trim(),
         description: description.trim(),
         priority,
         category,
-        attachments: files,
+        attachment_ids,
       }).unwrap();
       toast('Ticket created successfully', 'success');
       navigate(`/tickets/${ticket.id}`);
     } catch {
+      setUploading(false);
       toast('Failed to create ticket', 'error');
     }
   };
@@ -143,7 +164,7 @@ export const CreateTicketPage: React.FC = () => {
             }}>
               Attachments
             </label>
-            <FileUpload onFilesSelected={setFiles} />
+            <FileUpload onFilesSelected={setFiles} uploading={uploading} />
           </div>
 
           <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
