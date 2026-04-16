@@ -134,10 +134,10 @@ export const CreateTicketPage: React.FC = () => {
             <Select
               label="Priority"
               options={[
-                { value: 'low', label: 'Low' },
-                { value: 'medium', label: 'Medium' },
-                { value: 'high', label: 'High' },
-                { value: 'critical', label: 'Critical' },
+                { value: TicketPriority.LOW, label: 'Low' },
+                { value: TicketPriority.MEDIUM, label: 'Medium' },
+                { value: TicketPriority.HIGH, label: 'High' },
+                { value: TicketPriority.CRITICAL, label: 'Critical' },
               ]}
               value={priority}
               onChange={(e) => setPriority(e.target.value as TicketPriority)}
@@ -145,12 +145,12 @@ export const CreateTicketPage: React.FC = () => {
             <Select
               label="Category"
               options={[
-                { value: 'support', label: 'Support' },
-                { value: 'bug', label: 'Bug Report' },
-                { value: 'feature_request', label: 'Feature Request' },
-                { value: 'question', label: 'Question' },
-                { value: 'incident', label: 'Incident' },
-                { value: 'task', label: 'Task' },
+                { value: TicketCategory.SUPPORT, label: 'Support' },
+                { value: TicketCategory.BUG, label: 'Bug Report' },
+                { value: TicketCategory.FEATURE_REQUEST, label: 'Feature Request' },
+                { value: TicketCategory.QUESTION, label: 'Question' },
+                { value: TicketCategory.INCIDENT, label: 'Incident' },
+                { value: TicketCategory.TASK, label: 'Task' },
               ]}
               value={category}
               onChange={(e) => setCategory(e.target.value as TicketCategory)}
