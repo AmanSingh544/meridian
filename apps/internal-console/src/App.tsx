@@ -12,6 +12,7 @@ import '../../../packages/ui/src/styles/global.css';
 
 // Lazy-loaded pages
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
+const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
 const AgentDashboardPage = lazy(() => import('./pages/AgentDashboardPage').then(m => ({ default: m.AgentDashboardPage })));
 const TicketQueuePage = lazy(() => import('./pages/TicketQueuePage').then(m => ({ default: m.TicketQueuePage })));
 const TicketWorkspacePage = lazy(() => import('./pages/TicketWorkspacePage').then(m => ({ default: m.TicketWorkspacePage })));
@@ -52,6 +53,7 @@ const AppRoutes: React.FC = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       <Route element={
         <ProtectedRoute>

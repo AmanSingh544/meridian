@@ -19,6 +19,8 @@ import type {
   Comment,
   CommentCreatePayload,
   Attachment,
+  AttachmentCreatePayload,
+  AttachmentRecord,
   PresignedUpload,
   Project,
   Milestone,
@@ -228,6 +230,15 @@ export const api = createApi({
     }),
 
     // ── Attachments ─────────────────────────────────────────
+    createAttachment: builder.mutation<AttachmentRecord, AttachmentCreatePayload>({
+      query: (body) => ({
+        url: '/attachments',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Attachment'],
+    }),
+
     getPresignedUpload: builder.mutation<PresignedUpload, { fileName: string; mimeType: string }>({
       query: (body) => ({
         url: '/attachments/presign',
@@ -496,6 +507,7 @@ export const {
   useGetCommentsQuery,
   useCreateCommentMutation,
   // Attachments
+  useCreateAttachmentMutation,
   useGetPresignedUploadMutation,
   useConfirmUploadMutation,
   // Projects

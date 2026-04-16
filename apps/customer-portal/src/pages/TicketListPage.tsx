@@ -6,7 +6,7 @@ import {
   Button, DataTable, SearchInput, StatusBadge, PriorityBadge,
   SLABadge, Pagination, Select, EmptyState, ErrorState,
 } from '@3sc/ui';
-import type { Ticket, TicketFilters, TicketStatus, TicketPriority } from '@3sc/types';
+import { Ticket, TicketFilters, TicketStatus, TicketPriority } from '@3sc/types';
 import { formatRelativeTime, truncate } from '@3sc/utils';
 
 export const TicketListPage: React.FC = () => {
@@ -127,11 +127,11 @@ export const TicketListPage: React.FC = () => {
           <Select
             options={[
               { value: '', label: 'All Statuses' },
-              { value: 'open', label: 'Open' },
-              { value: 'acknowledged', label: 'Acknowledged' },
-              { value: 'in_progress', label: 'In Progress' },
-              { value: 'resolved', label: 'Resolved' },
-              { value: 'closed', label: 'Closed' },
+              { value: TicketStatus.OPEN, label: 'Open' },
+              { value: TicketStatus.ACKNOWLEDGED, label: 'Acknowledged' },
+              { value: TicketStatus.IN_PROGRESS, label: 'In Progress' },
+              { value: TicketStatus.RESOLVED, label: 'Resolved' },
+              { value: TicketStatus.CLOSED, label: 'Closed' },
             ]}
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
@@ -141,10 +141,10 @@ export const TicketListPage: React.FC = () => {
           <Select
             options={[
               { value: '', label: 'All Priorities' },
-              { value: 'low', label: 'Low' },
-              { value: 'medium', label: 'Medium' },
-              { value: 'high', label: 'High' },
-              { value: 'critical', label: 'Critical' },
+              { value: TicketPriority.LOW, label: 'Low' },
+              { value: TicketPriority.MEDIUM, label: 'Medium' },
+              { value: TicketPriority.HIGH, label: 'High' },
+              { value: TicketPriority.CRITICAL, label: 'Critical' },
             ]}
             value={priorityFilter}
             onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }}

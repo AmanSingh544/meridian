@@ -322,7 +322,7 @@ export interface TicketCreatePayload {
   category: TicketCategory;
   tags?: string[];
   projectId?: UUID;
-  attachments?: File[];
+  attachment_ids?: number[];
 }
 
 export interface TicketUpdatePayload {
@@ -403,6 +403,23 @@ export interface CommentCreatePayload {
 }
 
 // ── Attachment Types ────────────────────────────────────────────
+export interface AttachmentCreatePayload {
+  file_name: string;
+  file_type: string;
+  file_path: string;
+  metadata?: Record<string, unknown>;
+}
+
+export interface AttachmentRecord {
+  id: number;
+  file_name: string;
+  file_type: string;
+  file_path: string;
+  tenant_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
 export interface Attachment {
   id: UUID;
   fileName: string;
