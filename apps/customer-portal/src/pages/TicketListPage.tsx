@@ -51,7 +51,7 @@ export const TicketListPage: React.FC = () => {
       sortable: true,
       render: (t: Ticket) => (
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.8125rem', color: 'var(--color-brand-600)' }}>
-          {t.ticketNumber}
+          "TCK- "  {t.id}
         </span>
       ),
     },
