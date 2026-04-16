@@ -54,6 +54,54 @@ import type {
   InviteUserPayload,
 } from '@3sc/types';
 
+// ── Raw API shapes (snake_case from backend) ────────────────────
+interface RawApiAttachment {
+  id: number;
+  file_name: string;
+  file_type: string;
+  file_path: string;
+  tenant_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+interface RawApiComment {
+  id: number;
+  ticket_id: number;
+  tenant_id: string;
+  user_id: number;
+  parent_id: number | null;
+  message: string;
+  is_deleted: boolean;
+  attachments: RawApiAttachment[];
+  mentions: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+function mapRawComment(raw: RawApiComment): import('@3sc/types').Comment {
+  return {
+    id: String(raw.id),
+    ticketId: String(raw.ticket_id),
+    authorId: String(raw.user_id),
+    content: raw.message,
+    isInternal: false,
+    parentId: raw.parent_id != null ? String(raw.parent_id) : undefined,
+    attachments: raw.attachments.map((a) => ({
+      id: String(a.id),
+      fileName: a.file_name,
+      fileSize: 0,
+      mimeType: a.file_type,
+      url: a.file_path,
+      uploadedBy: raw.tenant_id,
+      created_at: a.created_at,
+    })),
+    mentions: raw.mentions.map(String),
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+  };
+}
+
 // ── Base Query with Auth Retry ──────────────────────────────────
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_CONFIG.baseUrl,
@@ -210,7 +258,10 @@ export const api = createApi({
     // ── Comments ────────────────────────────────────────────
     getComments: builder.query<Comment[], string>({
       query: (ticketId) => `/tickets/${ticketId}/comments`,
-      transformResponse: (response: ApiResponse<Comment[]>) => response.data,
+      transformResponse: (response: ApiResponse<RawApiComment[]> | RawApiComment[]) => {
+        const raw = Array.isArray(response) ? response : response.data;
+        return raw.map(mapRawComment);
+      },
       providesTags: (_result, _error, ticketId) => [{ type: 'Comment', id: ticketId }],
     }),
 

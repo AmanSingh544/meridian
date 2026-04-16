@@ -21,7 +21,7 @@ const auditMock = {
       changes: undefined,
       metadata: { ticketNumber: 'TK-0042' },
       ipAddress: '192.168.1.10',
-      createdAt: '2026-04-13T09:15:00Z',
+      created_at: '2026-04-13T09:15:00Z',
     },
     {
       id: 'al002',
@@ -34,7 +34,7 @@ const auditMock = {
       changes: { status: { from: 'OPEN', to: 'IN_PROGRESS' } },
       metadata: { ticketNumber: 'TK-0042' },
       ipAddress: '10.0.0.5',
-      createdAt: '2026-04-13T10:30:00Z',
+      created_at: '2026-04-13T10:30:00Z',
     },
     {
       id: 'al003',
@@ -47,7 +47,7 @@ const auditMock = {
       changes: { role: { from: 'customer_user', to: 'customer_admin' } },
       metadata: {},
       ipAddress: '192.168.1.10',
-      createdAt: '2026-04-12T14:00:00Z',
+      created_at: '2026-04-12T14:00:00Z',
     },
     {
       id: 'al004',
@@ -60,7 +60,7 @@ const auditMock = {
       changes: undefined,
       metadata: { ticketNumber: 'TK-0041', isInternal: false },
       ipAddress: '10.0.0.5',
-      createdAt: '2026-04-12T11:20:00Z',
+      created_at: '2026-04-12T11:20:00Z',
     },
     {
       id: 'al005',
@@ -73,7 +73,7 @@ const auditMock = {
       changes: { name: { from: 'ACME Corp', to: 'Acme Corporation' } },
       metadata: {},
       ipAddress: '192.168.1.10',
-      createdAt: '2026-04-11T16:45:00Z',
+      created_at: '2026-04-11T16:45:00Z',
     },
     {
       id: 'al006',
@@ -86,7 +86,7 @@ const auditMock = {
       changes: { status: { from: 'RESOLVED', to: 'CLOSED' } },
       metadata: { ticketNumber: 'TK-0038' },
       ipAddress: '172.16.0.3',
-      createdAt: '2026-04-11T09:05:00Z',
+      created_at: '2026-04-11T09:05:00Z',
     },
   ] as AuditLogEntry[],
   total: 6,
@@ -191,7 +191,7 @@ export const AuditLogPage: React.FC = () => {
                   </div>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                     {entry.ipAddress && <span>IP: {entry.ipAddress}</span>}
-                    <span>{formatDateTime(entry.createdAt)}</span>
+                    <span>{formatDateTime(entry.created_at)}</span>
                   </div>
                 </div>
 
