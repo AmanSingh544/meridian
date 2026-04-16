@@ -24,7 +24,7 @@ export const AgentDashboardPage: React.FC = () => {
   });
   const { data: atRiskTickets } = useGetTicketsQuery({
     status: [TicketStatus.OPEN, TicketStatus.IN_PROGRESS],
-    sortBy: 'updatedAt',
+    sortBy: 'updated_at',
     sortOrder: 'asc',
     page: 1,
     page_size: 5,

@@ -213,3 +213,44 @@ export function useDocumentTitle(title: string): void {
     };
   }, [title]);
 }
+
+// ── Theme Hook ──────────────────────────────────────────────────
+// Persists choice in localStorage, applies [data-theme] on <html>.
+// Respects system preference on first visit.
+
+export type Theme = 'light' | 'dark';
+
+function getSystemTheme(): Theme {
+  if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
+    return 'dark';
+  }
+  return 'light';
+}
+
+function applyTheme(theme: Theme) {
+  document.documentElement.setAttribute('data-theme', theme);
+}
+
+export function useTheme(): { theme: Theme; toggleTheme: () => void; isDark: boolean } {
+  const [theme, setThemeState] = useState<Theme>(() => {
+    try {
+      const stored = localStorage.getItem('3sc_pref_theme') as Theme | null;
+      if (stored === 'light' || stored === 'dark') return stored;
+    } catch { /* ignore */ }
+    return getSystemTheme();
+  });
+
+  useEffect(() => {
+    applyTheme(theme);
+    try { localStorage.setItem('3sc_pref_theme', theme); } catch { /* ignore */ }
+  }, [theme]);
+
+  // Apply immediately on mount (handles SSR/hydration edge cases)
+  useEffect(() => { applyTheme(theme); }, []);
+
+  const toggleTheme = useCallback(() => {
+    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+  }, []);
+
+  return { theme, toggleTheme, isDark: theme === 'dark' };
+}

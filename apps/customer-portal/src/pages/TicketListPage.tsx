@@ -16,7 +16,7 @@ export const TicketListPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
-  const [sortBy, setSortBy] = useState('updatedAt');
+  const [sortBy, setSortBy] = useState('updated_at');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
 
@@ -83,13 +83,13 @@ export const TicketListPage: React.FC = () => {
         t.sla ? <SLABadge state={t.sla.resolutionState} /> : <span style={{ color: 'var(--color-text-muted)' }}>—</span>,
     },
     {
-      key: 'updatedAt',
+      key: 'updated_at',
       header: 'Updated',
       width: '8rem',
       sortable: true,
       render: (t: Ticket) => (
         <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
-          {formatRelativeTime(t.updatedAt)}
+          {formatRelativeTime(t.updated_at)}
         </span>
       ),
     },

@@ -63,7 +63,7 @@ export const TicketWorkspacePage: React.FC = () => {
 
   category: "Authentication",
 
-  createdAt: "2026-03-31T10:15:00Z",
+  created_at: "2026-03-31T10:15:00Z",
 
   tags: ["login", "backend", "urgent"]
 };
@@ -294,7 +294,7 @@ export const TicketWorkspacePage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Created</span>
-                <span style={{ fontSize: '0.75rem' }}>{formatDateTime(ticket.createdAt)}</span>
+                <span style={{ fontSize: '0.75rem' }}>{formatDateTime(ticket.created_at)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Reporter</span>

@@ -228,7 +228,7 @@ const CommentNode: React.FC<{
               <Badge color="#b45309" bgColor="#fef3c7">Internal</Badge>
             )}
             <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-              {formatRelativeTime(comment.createdAt)}
+              {formatRelativeTime(comment.created_at)}
             </span>
           </div>
           <div style={{

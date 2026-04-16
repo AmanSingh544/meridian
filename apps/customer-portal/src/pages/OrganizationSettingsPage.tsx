@@ -15,8 +15,8 @@ const orgMock = {
   logoUrl: '',
   isActive: true,
   plan: 'Enterprise',
-  createdAt: '2024-06-01T00:00:00Z',
-  updatedAt: '2026-04-10T00:00:00Z',
+  created_at: '2024-06-01T00:00:00Z',
+  updated_at: '2026-04-10T00:00:00Z',
 };
 
 export const OrganizationSettingsPage: React.FC = () => {

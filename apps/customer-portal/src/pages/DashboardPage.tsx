@@ -23,7 +23,7 @@ export const DashboardPage: React.FC = () => {
   const { data: recentTickets } = useGetTicketsQuery({
     page: 1,
     page_size: 5,
-    sortBy: 'updatedAt',
+    sortBy: 'updated_at',
     sortOrder: 'desc',
   });
 
@@ -194,7 +194,7 @@ export const DashboardPage: React.FC = () => {
                   <StatusBadge status={ticket.status} />
                   {ticket.sla && <SLABadge state={ticket.sla.resolutionState} />}
                   <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    {formatRelativeTime(ticket.updatedAt)}
+                    {formatRelativeTime(ticket.updated_at)}
                   </span>
                 </div>
               </div>

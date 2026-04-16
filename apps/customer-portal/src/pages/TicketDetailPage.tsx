@@ -246,11 +246,11 @@ export const TicketDetailPage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Created</span>
-                <span>{formatDateTime(ticket.createdAt)}</span>
+                <span>{formatDateTime(ticket.created_at)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Updated</span>
-                <span>{formatDateTime(ticket.updatedAt)}</span>
+                <span>{formatDateTime(ticket.updated_at)}</span>
               </div>
               {ticket.assignee && (
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -277,22 +277,22 @@ export const TicketDetailPage: React.FC = () => {
             <Timeline>
               <TimelineItem
                 title="Ticket Created"
-                timestamp={formatDateTime(ticket.createdAt)}
+                timestamp={formatDateTime(ticket.created_at)}
                 color={getStatusColor(TicketStatus.OPEN)}
-                isLast={!ticket.resolvedAt}
+                isLast={!ticket.resolved_at}
               />
-              {ticket.resolvedAt && (
+              {ticket.resolved_at && (
                 <TimelineItem
                   title="Resolved"
-                  timestamp={formatDateTime(ticket.resolvedAt)}
+                  timestamp={formatDateTime(ticket.resolved_at)}
                   color={getStatusColor(TicketStatus.RESOLVED)}
-                  isLast={!ticket.closedAt}
+                  isLast={!ticket.closed_at}
                 />
               )}
-              {ticket.closedAt && (
+              {ticket.closed_at && (
                 <TimelineItem
                   title="Closed"
-                  timestamp={formatDateTime(ticket.closedAt)}
+                  timestamp={formatDateTime(ticket.closed_at)}
                   color={getStatusColor(TicketStatus.CLOSED)}
                   isLast
                 />

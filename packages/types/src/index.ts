@@ -222,8 +222,8 @@ export interface User {
   organizationId: UUID;
   isActive: boolean;
   lastLoginAt?: ISO8601;
-  createdAt: ISO8601;
-  updatedAt: ISO8601;
+  created_at: ISO8601;
+  updated_at: ISO8601;
 }
 
 export interface InviteUserPayload {
@@ -252,8 +252,8 @@ export interface Organization {
   domain?: string;
   isActive: boolean;
   plan?: string;
-  createdAt: ISO8601;
-  updatedAt: ISO8601;
+  created_at: ISO8601;
+  updated_at: ISO8601;
 }
 
 // ── Ticket Types ────────────────────────────────────────────────
@@ -309,10 +309,10 @@ export interface Ticket {
   commentCount: number;
   creator?: User;
   assignee?: User;
-  createdAt: ISO8601;
-  updatedAt: ISO8601;
-  resolvedAt?: ISO8601;
-  closedAt?: ISO8601;
+  created_at: ISO8601;
+  updated_at: ISO8601;
+  resolved_at?: ISO8601;
+  closed_at?: ISO8601;
 }
 
 export interface TicketCreatePayload {
@@ -388,8 +388,8 @@ export interface Comment {
   parentId?: UUID;
   attachments: Attachment[];
   mentions: UUID[];
-  createdAt: ISO8601;
-  updatedAt: ISO8601;
+  created_at: ISO8601;
+  updated_at: ISO8601;
 }
 
 export interface CommentCreatePayload {
@@ -427,7 +427,7 @@ export interface Attachment {
   mimeType: string;
   url: string;
   uploadedBy: UUID;
-  createdAt: ISO8601;
+  created_at: ISO8601;
 }
 
 export interface PresignedUpload {
@@ -458,8 +458,8 @@ export interface Project {
   startDate?: ISO8601;
   targetDate?: ISO8601;
   completedAt?: ISO8601;
-  createdAt: ISO8601;
-  updatedAt: ISO8601;
+  created_at: ISO8601;
+  updated_at: ISO8601;
 }
 
 export interface Milestone {
@@ -497,8 +497,8 @@ export interface KBArticle {
   viewCount: number;
   helpfulCount: number;
   relatedArticleIds: UUID[];
-  createdAt: ISO8601;
-  updatedAt: ISO8601;
+  created_at: ISO8601;
+  updated_at: ISO8601;
 }
 
 export interface KBCategory {
@@ -540,7 +540,7 @@ export interface Notification {
   data?: Record<string, unknown>;
   resourceType?: string;
   resourceId?: UUID;
-  createdAt: ISO8601;
+  created_at: ISO8601;
 }
 
 // ── Analytics Types ─────────────────────────────────────────────
@@ -632,7 +632,7 @@ export interface AISuggestion<T = unknown> {
   confidence: number;
   reasoning?: string;
   status: AISuggestionStatus;
-  createdAt: ISO8601;
+  created_at: ISO8601;
 }
 
 export interface AIClassificationSuggestion {
@@ -707,7 +707,7 @@ export interface AuditLogEntry {
   changes?: Record<string, { from: unknown; to: unknown }>;
   metadata?: Record<string, unknown>;
   ipAddress?: string;
-  createdAt: ISO8601;
+  created_at: ISO8601;
 }
 
 // ── Realtime Types ──────────────────────────────────────────────
@@ -740,7 +740,7 @@ export interface RoutingRule {
   assignTo: UUID;
   priority: number;
   isActive: boolean;
-  createdAt: ISO8601;
+  created_at: ISO8601;
 }
 
 export interface RoutingCondition {
