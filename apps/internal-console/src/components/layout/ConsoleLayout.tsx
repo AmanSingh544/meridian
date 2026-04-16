@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
-import { Avatar, ConnectionIndicator, Badge } from '@3sc/ui';
+import { Avatar, ConnectionIndicator, Badge, ThemeToggle } from '@3sc/ui';
 import { Permission } from '@3sc/types';
 import { logout } from '../../features/auth/authSlice';
 import type { AppDispatch, RootState } from '../../store';
@@ -198,6 +198,7 @@ export const ConsoleLayout: React.FC = () => {
             }}>☰</button>
           )}
           <div style={{ flex: 1 }} />
+          <ThemeToggle />
           <NavLink
             to="/notifications"
             style={{

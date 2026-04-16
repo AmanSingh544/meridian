@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
 import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
-import { Avatar } from '@3sc/ui';
+import { Avatar, ThemeToggle } from '@3sc/ui';
 import { logout } from '../../features/auth/authSlice';
-import type { AppDispatch } from '../../store';
+import type { AppDispatch, RootState } from '../../store';
 import { Permission } from '@3sc/types';
 
 const NAV_ITEMS = [
@@ -31,6 +31,7 @@ export const CustomerLayout: React.FC = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const unreadCount = useSelector((state: RootState) => state.notifications.unreadCount);
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -188,9 +189,27 @@ export const CustomerLayout: React.FC = () => {
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-            {session?.tenantName}
-          </div>
+          <ThemeToggle />
+          <NavLink
+            to="/notifications"
+            style={{
+              position: 'relative', textDecoration: 'none',
+              fontSize: '1.25rem', color: 'var(--color-text-secondary)',
+            }}
+          >
+            🔔
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -6,
+                background: 'var(--color-danger)', color: '#fff',
+                fontSize: '0.5625rem', fontWeight: 700,
+                width: 16, height: 16, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </NavLink>
         </header>
 
         {/* Page content */}
