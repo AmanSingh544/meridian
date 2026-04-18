@@ -19,6 +19,8 @@ import type {
   Comment,
   CommentCreatePayload,
   Attachment,
+  AttachmentCreatePayload,
+  AttachmentRecord,
   PresignedUpload,
   Project,
   Milestone,
@@ -32,6 +34,12 @@ import type {
   ResolutionTrendData,
   AgentPerformance,
   AnalyticsFilters,
+  MonthlyVolumeData,
+  CategoryBreakdownData,
+  SeverityDistributionData,
+  ResolutionBySeverityData,
+  UserPreferences,
+  UserPreferencesUpdatePayload,
   User,
   Organization,
   AuditLogEntry,
@@ -44,12 +52,76 @@ import type {
   AISummarySuggestion,
   AIETASuggestion,
   AISearchResult,
+  AITextClassificationResult,
+  AIDigest,
+  AIKBSuggestion,
+  AIKBDraftResult,
+  AIKBGap,
+  AIKBAnswer,
+  ProjectHealthScore,
+  ProjectTicketCluster,
+  ProjectScopeDrift,
+  ProjectChurnRisk,
+  ProjectStatusReport,
+  ProjectQAAnswer,
+  ProjectNextBestAction,
+  ProjectKnowledgeEntry,
+  ProjectMilestonePrediction,
   PaginatedResponse,
   ApiResponse,
   SessionInfo,
   LoginCredentials,
   UserRole,
+  InviteUserPayload,
 } from '@3sc/types';
+
+// ── Raw API shapes (snake_case from backend) ────────────────────
+interface RawApiAttachment {
+  id: number;
+  file_name: string;
+  file_type: string;
+  file_path: string;
+  tenant_id: string;
+  metadata: Record<string, unknown>;
+  created_at: string;
+}
+
+interface RawApiComment {
+  id: number;
+  ticket_id: number;
+  tenant_id: string;
+  user_id: number;
+  parent_id: number | null;
+  message: string;
+  is_deleted: boolean;
+  attachments: RawApiAttachment[];
+  mentions: number[];
+  created_at: string;
+  updated_at: string;
+}
+
+function mapRawComment(raw: RawApiComment): import('@3sc/types').Comment {
+  return {
+    id: String(raw.id),
+    ticketId: String(raw.ticket_id),
+    authorId: String(raw.user_id),
+    content: raw.message,
+    isInternal: false,
+    parentId: raw.parent_id != null ? String(raw.parent_id) : undefined,
+    attachments: raw.attachments.map((a) => ({
+      id: String(a.id),
+      fileName: a.file_name,
+      fileSize: 0,
+      mimeType: a.file_type,
+      url: a.file_path,
+      uploadedBy: raw.tenant_id,
+      created_at: a.created_at,
+    })),
+    mentions: raw.mentions.map(String),
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+  };
+}
 
 // ── Base Query with Auth Retry ──────────────────────────────────
 const rawBaseQuery = fetchBaseQuery({
@@ -105,7 +177,7 @@ export const api = createApi({
     'Project', 'Milestone', 'KBArticle', 'KBCategory',
     'Notification', 'User', 'Organization', 'AuditLog',
     'Analytics', 'Dashboard', 'RoutingRule', 'AI',
-    'Session',
+    'Session', 'UserPreferences',
   ],
   endpoints: (builder) => ({
     // ── Auth ────────────────────────────────────────────────
@@ -166,7 +238,7 @@ export const api = createApi({
 
     updateTicket: builder.mutation<Ticket, { id: string; payload: TicketUpdatePayload }>({
       query: ({ id, payload }) => ({
-        url: `/tickets/${id}`,
+        url: `/tickets/${id}/update`,
         method: 'PATCH',
         body: payload,
       }),
@@ -207,7 +279,10 @@ export const api = createApi({
     // ── Comments ────────────────────────────────────────────
     getComments: builder.query<Comment[], string>({
       query: (ticketId) => `/tickets/${ticketId}/comments`,
-      transformResponse: (response: ApiResponse<Comment[]>) => response.data,
+      transformResponse: (response: ApiResponse<RawApiComment[]> | RawApiComment[]) => {
+        const raw = Array.isArray(response) ? response : response.data;
+        return raw.map(mapRawComment);
+      },
       providesTags: (_result, _error, ticketId) => [{ type: 'Comment', id: ticketId }],
     }),
 
@@ -227,6 +302,15 @@ export const api = createApi({
     }),
 
     // ── Attachments ─────────────────────────────────────────
+    createAttachment: builder.mutation<AttachmentRecord, AttachmentCreatePayload>({
+      query: (body) => ({
+        url: '/attachments',
+        method: 'POST',
+        body,
+      }),
+      invalidatesTags: ['Attachment'],
+    }),
+
     getPresignedUpload: builder.mutation<PresignedUpload, { fileName: string; mimeType: string }>({
       query: (body) => ({
         url: '/attachments/presign',
@@ -261,6 +345,79 @@ export const api = createApi({
       providesTags: (_result, _error, id) => [{ type: 'Project', id }],
     }),
 
+    createProject: builder.mutation<Project, Partial<Project>>({
+      query: (body) => ({ url: '/projects', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<Project>) => response.data,
+      invalidatesTags: ['Project'],
+    }),
+
+    updateProject: builder.mutation<Project, { id: string } & Partial<Project>>({
+      query: ({ id, ...body }) => ({ url: `/projects/${id}`, method: 'PATCH', body }),
+      transformResponse: (response: ApiResponse<Project>) => response.data,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'Project', id }, 'Project'],
+    }),
+
+    // ── AI Projects ──────────────────────────────────────────
+
+    /** Computed health score for a project (velocity + SLA + sentiment) */
+    getProjectHealth: builder.query<ProjectHealthScore, string>({
+      query: (projectId) => `/ai/projects/${projectId}/health`,
+      transformResponse: (response: ApiResponse<ProjectHealthScore>) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'Project', id }],
+    }),
+
+    /** Semantic ticket clusters within a project */
+    getProjectClusters: builder.query<ProjectTicketCluster[], string>({
+      query: (projectId) => `/ai/projects/${projectId}/clusters`,
+      transformResponse: (response: ApiResponse<ProjectTicketCluster[]>) => response.data,
+    }),
+
+    /** Scope drift flags — tickets semantically outside declared scope */
+    getProjectScopeDrift: builder.query<ProjectScopeDrift[], string>({
+      query: (projectId) => `/ai/projects/${projectId}/scope-drift`,
+      transformResponse: (response: ApiResponse<ProjectScopeDrift[]>) => response.data,
+    }),
+
+    /** Churn risk scoring for a project/client relationship */
+    getProjectChurnRisk: builder.query<ProjectChurnRisk, string>({
+      query: (projectId) => `/ai/projects/${projectId}/churn-risk`,
+      transformResponse: (response: ApiResponse<ProjectChurnRisk>) => response.data,
+    }),
+
+    /** Generate (or retrieve cached) weekly status report */
+    getProjectStatusReport: builder.query<ProjectStatusReport, string>({
+      query: (projectId) => `/ai/projects/${projectId}/status-report`,
+      transformResponse: (response: ApiResponse<ProjectStatusReport>) => response.data,
+    }),
+
+    /** Ask a natural-language question grounded in project history */
+    askProject: builder.mutation<ProjectQAAnswer, { projectId: string; question: string }>({
+      query: ({ projectId, question }) => ({
+        url: `/ai/projects/${projectId}/ask`,
+        method: 'POST',
+        body: { question },
+      }),
+      transformResponse: (response: ApiResponse<ProjectQAAnswer>) => response.data,
+    }),
+
+    /** Recommended next action for the agent working a project */
+    getProjectNextAction: builder.query<ProjectNextBestAction, string>({
+      query: (projectId) => `/ai/projects/${projectId}/next-action`,
+      transformResponse: (response: ApiResponse<ProjectNextBestAction>) => response.data,
+    }),
+
+    /** Knowledge entries extracted from closed projects (for onboarding context) */
+    getProjectKnowledge: builder.query<ProjectKnowledgeEntry[], string>({
+      query: (organizationId) => `/ai/projects/knowledge?orgId=${organizationId}`,
+      transformResponse: (response: ApiResponse<ProjectKnowledgeEntry[]>) => response.data,
+    }),
+
+    /** Milestone delivery predictions for a project */
+    getProjectMilestonePredictions: builder.query<ProjectMilestonePrediction[], string>({
+      query: (projectId) => `/ai/projects/${projectId}/milestone-predictions`,
+      transformResponse: (response: ApiResponse<ProjectMilestonePrediction[]>) => response.data,
+    }),
+
     // ── Knowledge Base ──────────────────────────────────────
     searchKB: builder.query<KBSearchResult[], { query: string; limit?: number }>({
       query: (params) => ({ url: '/knowledge-base/search', params }),
@@ -277,6 +434,28 @@ export const api = createApi({
       query: () => '/knowledge-base/categories',
       transformResponse: (response: ApiResponse<KBCategory[]>) => response.data,
       providesTags: ['KBCategory'],
+    }),
+
+    createKBArticle: builder.mutation<KBArticle, Partial<KBArticle>>({
+      query: (body) => ({ url: '/knowledge-base/articles', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<KBArticle>) => response.data,
+      invalidatesTags: ['KBArticle', 'KBCategory'],
+    }),
+
+    updateKBArticle: builder.mutation<KBArticle, { id: string } & Partial<KBArticle>>({
+      query: ({ id, ...body }) => ({ url: `/knowledge-base/articles/${id}`, method: 'PATCH', body }),
+      transformResponse: (response: ApiResponse<KBArticle>) => response.data,
+      invalidatesTags: (_result, _error, { id }) => [{ type: 'KBArticle', id }, 'KBCategory'],
+    }),
+
+    deleteKBArticle: builder.mutation<void, string>({
+      query: (id) => ({ url: `/knowledge-base/articles/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['KBArticle', 'KBCategory'],
+    }),
+
+    voteHelpful: builder.mutation<void, string>({
+      query: (id) => ({ url: `/knowledge-base/articles/${id}/helpful`, method: 'POST' }),
+      invalidatesTags: (_result, _error, id) => [{ type: 'KBArticle', id }],
     }),
 
     // ── Notifications ───────────────────────────────────────
@@ -331,7 +510,7 @@ export const api = createApi({
       invalidatesTags: ['User'],
     }),
 
-    inviteUser: builder.mutation<User, { email: string; role: UserRole }>({
+    inviteUser: builder.mutation<User, InviteUserPayload>({
       query: (body) => ({
         url: '/users/invite',
         method: 'POST',
@@ -359,7 +538,7 @@ export const api = createApi({
 
     // ── Dashboard ───────────────────────────────────────────
     getDashboard: builder.query<DashboardSummary, void>({
-      query: () => '/dashboard',
+      query: () => '/dashboard/kpis',
       transformResponse: (response: ApiResponse<DashboardSummary>) => response.data,
       providesTags: ['Dashboard'],
     }),
@@ -387,6 +566,43 @@ export const api = createApi({
       query: (params) => ({ url: '/analytics/agent-performance', params }),
       transformResponse: (response: ApiResponse<AgentPerformance[]>) => response.data,
       providesTags: ['Analytics'],
+    }),
+
+    getMonthlyVolume: builder.query<MonthlyVolumeData[], AnalyticsFilters>({
+      query: (params) => ({ url: '/analytics/monthly-volume', params }),
+      transformResponse: (response: ApiResponse<MonthlyVolumeData[]>) => response.data,
+      providesTags: ['Analytics'],
+    }),
+
+    getCategoryBreakdown: builder.query<CategoryBreakdownData[], AnalyticsFilters>({
+      query: (params) => ({ url: '/analytics/category-breakdown', params }),
+      transformResponse: (response: ApiResponse<CategoryBreakdownData[]>) => response.data,
+      providesTags: ['Analytics'],
+    }),
+
+    getSeverityDistribution: builder.query<SeverityDistributionData[], AnalyticsFilters>({
+      query: (params) => ({ url: '/analytics/severity-distribution', params }),
+      transformResponse: (response: ApiResponse<SeverityDistributionData[]>) => response.data,
+      providesTags: ['Analytics'],
+    }),
+
+    getResolutionBySeverity: builder.query<ResolutionBySeverityData[], AnalyticsFilters>({
+      query: (params) => ({ url: '/analytics/resolution-by-severity', params }),
+      transformResponse: (response: ApiResponse<ResolutionBySeverityData[]>) => response.data,
+      providesTags: ['Analytics'],
+    }),
+
+    // ── User Preferences ────────────────────────────────────
+    getUserPreferences: builder.query<UserPreferences, void>({
+      query: () => '/users/me/preferences',
+      transformResponse: (response: ApiResponse<UserPreferences>) => response.data,
+      providesTags: ['UserPreferences'],
+    }),
+
+    updateUserPreferences: builder.mutation<UserPreferences, UserPreferencesUpdatePayload>({
+      query: (payload) => ({ url: '/users/me/preferences', method: 'PATCH', body: payload }),
+      transformResponse: (response: ApiResponse<UserPreferences>) => response.data,
+      invalidatesTags: ['UserPreferences'],
     }),
 
     // ── Audit Logs ──────────────────────────────────────────
@@ -454,6 +670,21 @@ export const api = createApi({
       providesTags: ['AI'],
     }),
 
+    getAIDigest: builder.query<AIDigest, void>({
+      query: () => '/ai/digest',
+      transformResponse: (response: ApiResponse<AIDigest>) => response.data,
+      providesTags: ['AI'],
+    }),
+
+    classifyText: builder.mutation<AITextClassificationResult, { title: string; description: string }>({
+      query: (body) => ({
+        url: '/ai/classify-text',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: ApiResponse<AITextClassificationResult>) => response.data,
+    }),
+
     aiSemanticSearch: builder.query<AISearchResult, { query: string; scope?: string }>({
       query: (params) => ({ url: '/ai/search', params }),
       transformResponse: (response: ApiResponse<AISearchResult>) => response.data,
@@ -475,6 +706,47 @@ export const api = createApi({
       }),
       invalidatesTags: ['AI'],
     }),
+
+    // ── AI Knowledge Base ──────────────────────────────────────────
+    /** Get KB articles most relevant to a ticket (semantic match on title + description) */
+    getAIKBSuggestions: builder.query<AIKBSuggestion[], string>({
+      query: (ticketId) => `/ai/kb-suggest/${ticketId}`,
+      transformResponse: (response: ApiResponse<AIKBSuggestion[]>) => response.data,
+      providesTags: ['AI'],
+    }),
+
+    /** Get KB articles relevant to a free-form query (used for ticket deflection on create) */
+    getAIKBDeflections: builder.query<AIKBSuggestion[], { query: string; limit?: number }>({
+      query: (params) => ({ url: '/ai/kb-deflect', params }),
+      transformResponse: (response: ApiResponse<AIKBSuggestion[]>) => response.data,
+    }),
+
+    /** Generate a KB article draft from a topic description */
+    generateKBDraft: builder.mutation<AIKBDraftResult, { topic: string; categoryId?: string; tone?: 'technical' | 'friendly' | 'formal' }>({
+      query: (body) => ({
+        url: '/ai/kb-draft',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: ApiResponse<AIKBDraftResult>) => response.data,
+    }),
+
+    /** Get KB coverage gaps detected from recurring ticket patterns */
+    getKBGaps: builder.query<AIKBGap[], void>({
+      query: () => '/ai/kb-gaps',
+      transformResponse: (response: ApiResponse<AIKBGap[]>) => response.data,
+      providesTags: ['AI'],
+    }),
+
+    /** Ask a free-form question; answer is grounded in KB articles (RAG) */
+    askKB: builder.mutation<AIKBAnswer, { question: string; articleId?: string }>({
+      query: (body) => ({
+        url: '/ai/kb-ask',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: ApiResponse<AIKBAnswer>) => response.data,
+    }),
   }),
 });
 
@@ -495,15 +767,32 @@ export const {
   useGetCommentsQuery,
   useCreateCommentMutation,
   // Attachments
+  useCreateAttachmentMutation,
   useGetPresignedUploadMutation,
   useConfirmUploadMutation,
   // Projects
   useGetProjectsQuery,
   useGetProjectQuery,
+  useCreateProjectMutation,
+  useUpdateProjectMutation,
+  // AI Projects
+  useGetProjectHealthQuery,
+  useGetProjectClustersQuery,
+  useGetProjectScopeDriftQuery,
+  useGetProjectChurnRiskQuery,
+  useGetProjectStatusReportQuery,
+  useAskProjectMutation,
+  useGetProjectNextActionQuery,
+  useGetProjectKnowledgeQuery,
+  useGetProjectMilestonePredictionsQuery,
   // Knowledge Base
   useSearchKBQuery,
   useGetKBArticleQuery,
   useGetKBCategoriesQuery,
+  useCreateKBArticleMutation,
+  useUpdateKBArticleMutation,
+  useDeleteKBArticleMutation,
+  useVoteHelpfulMutation,
   // Notifications
   useGetNotificationsQuery,
   useMarkNotificationReadMutation,
@@ -524,19 +813,34 @@ export const {
   useGetSLAComplianceQuery,
   useGetResolutionTrendsQuery,
   useGetAgentPerformanceQuery,
+  useGetMonthlyVolumeQuery,
+  useGetCategoryBreakdownQuery,
+  useGetSeverityDistributionQuery,
+  useGetResolutionBySeverityQuery,
+  // User Preferences
+  useGetUserPreferencesQuery,
+  useUpdateUserPreferencesMutation,
   // Audit
   useGetAuditLogsQuery,
   // Routing
   useGetRoutingRulesQuery,
   useUpdateRoutingRuleMutation,
   // AI
+  useGetAIDigestQuery,
   useGetAIClassificationQuery,
   useGetAIPriorityQuery,
   useGetAIRoutingQuery,
   useGetAISuggestedReplyQuery,
   useGetAISummaryQuery,
   useGetAIETAQuery,
+  useClassifyTextMutation,
   useAiSemanticSearchQuery,
   useAcceptAISuggestionMutation,
   useRejectAISuggestionMutation,
+  // AI Knowledge Base
+  useGetAIKBSuggestionsQuery,
+  useGetAIKBDeflectionsQuery,
+  useGenerateKBDraftMutation,
+  useGetKBGapsQuery,
+  useAskKBMutation,
 } = api;

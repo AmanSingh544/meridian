@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
-import { useDispatch } from 'react-redux';
+import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
+import { useDispatch, useSelector } from 'react-redux';
 import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
-import { Avatar } from '@3sc/ui';
+import { Avatar, ThemeToggle } from '@3sc/ui';
 import { logout } from '../../features/auth/authSlice';
-import type { AppDispatch } from '../../store';
+import type { AppDispatch, RootState } from '../../store';
 import { Permission } from '@3sc/types';
 
 const NAV_ITEMS = [
@@ -31,6 +31,7 @@ export const CustomerLayout: React.FC = () => {
   const navigate = useNavigate();
   const isMobile = useIsMobile();
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
+  const unreadCount = useSelector((state: RootState) => state.notifications.unreadCount);
 
   const handleLogout = async () => {
     await dispatch(logout());
@@ -70,27 +71,26 @@ export const CustomerLayout: React.FC = () => {
         }}>
           {/* Logo */}
           <div style={{
-            padding: '1.25rem 1.25rem',
+            padding: '0.54rem',
             borderBottom: '1px solid var(--color-border)',
             display: 'flex',
             alignItems: 'center',
             gap: '0.75rem',
           }}>
-            <div style={{
-              width: 32, height: 32, borderRadius: 'var(--radius-md)',
-              background: 'var(--color-brand-600)',
-              display: 'flex', alignItems: 'center', justifyContent: 'center',
-              color: '#fff', fontWeight: 700, fontSize: '0.875rem',
-              fontFamily: 'var(--font-display)',
-            }}>
-              3SC
-            </div>
+            <svg width="32" height="32" viewBox="0 0 56 56" xmlns="http://www.w3.org/2000/svg" style={{ flexShrink: 0 }}>
+              <rect width="56" height="56" rx="8" fill="#4f46e5"/>
+              <path d="M 28 10 L 34 24 L 28 28 L 22 24 Z" fill="#ffffff" opacity="0.95"/>
+              <path d="M 46 28 L 34 32 L 30 28 L 34 24 Z" fill="#c7d2fe" opacity="0.9"/>
+              <path d="M 28 46 L 22 32 L 28 28 L 34 32 Z" fill="#e0e7ff" opacity="0.8"/>
+              <path d="M 10 28 L 22 24 L 26 28 L 22 32 Z" fill="#e0e7ff" opacity="0.65"/>
+              <circle cx="28" cy="28" r="2.5" fill="#ffffff"/>
+            </svg>
             <div>
               <div style={{ fontWeight: 700, fontSize: '0.9375rem', fontFamily: 'var(--font-display)', color: 'var(--color-text)' }}>
-                Support Portal
+                Meridian
               </div>
               <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                {session?.tenantName || 'Customer'}
+                {session?.tenantName || 'Support Portal'}
               </div>
             </div>
           </div>
@@ -118,35 +118,56 @@ export const CustomerLayout: React.FC = () => {
 
           {/* User Section */}
           <div style={{
-            padding: '1rem 1.25rem',
+            padding: '0.875rem 1rem',
             borderTop: '1px solid var(--color-border)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
           }}>
-            <Avatar name={session?.displayName || 'User'} size={32} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: '0.8125rem', fontWeight: 600,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {session?.displayName}
-              </div>
-              <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                {session?.email}
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Sign out"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: '1rem', color: 'var(--color-text-muted)',
-                padding: '0.25rem',
-              }}
+            {/* Settings link */}
+            <NavLink
+              to="/settings"
+              onClick={() => isMobile && setSidebarOpen(false)}
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', gap: '0.625rem',
+                padding: '0.5rem 0.625rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem',
+                fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'var(--color-brand-700)' : 'var(--color-text-secondary)',
+                background: isActive ? 'var(--color-brand-50)' : 'transparent',
+                textDecoration: 'none', marginBottom: '0.5rem',
+              })}
             >
-              ↪
-            </button>
+              <span style={{ fontSize: '1rem', width: '1.5rem', textAlign: 'center' }}>⚙️</span>
+              Account Settings
+            </NavLink>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.25rem 0.625rem' }}>
+              <Link to="/settings" style={{ textDecoration: 'none', flexShrink: 0 }}>
+                <Avatar name={session?.displayName || 'User'} size={30} />
+              </Link>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: '0.8125rem', fontWeight: 600,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  color: 'var(--color-text)',
+                }}>
+                  {session?.displayName}
+                </div>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {session?.email}
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Sign out"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: '1rem', color: 'var(--color-text-muted)',
+                  padding: '0.25rem',
+                }}
+              >
+                ↪
+              </button>
+            </div>
           </div>
         </aside>
       )}
@@ -189,9 +210,27 @@ export const CustomerLayout: React.FC = () => {
             </button>
           )}
           <div style={{ flex: 1 }} />
-          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-            {session?.tenantName}
-          </div>
+          <ThemeToggle />
+          <NavLink
+            to="/notifications"
+            style={{
+              position: 'relative', textDecoration: 'none',
+              fontSize: '1.25rem', color: 'var(--color-text-secondary)',
+            }}
+          >
+            🔔
+            {unreadCount > 0 && (
+              <span style={{
+                position: 'absolute', top: -4, right: -6,
+                background: 'var(--color-danger)', color: '#fff',
+                fontSize: '0.5625rem', fontWeight: 700,
+                width: 16, height: 16, borderRadius: '50%',
+                display: 'flex', alignItems: 'center', justifyContent: 'center',
+              }}>
+                {unreadCount > 9 ? '9+' : unreadCount}
+              </span>
+            )}
+          </NavLink>
         </header>
 
         {/* Page content */}

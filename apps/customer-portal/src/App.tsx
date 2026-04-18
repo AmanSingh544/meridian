@@ -20,12 +20,15 @@ const TicketListPage = lazy(() => import('./pages/TicketListPage').then(m => ({ 
 const TicketDetailPage = lazy(() => import('./pages/TicketDetailPage').then(m => ({ default: m.TicketDetailPage })));
 const CreateTicketPage = lazy(() => import('./pages/CreateTicketPage').then(m => ({ default: m.CreateTicketPage })));
 const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage').then(m => ({ default: m.KnowledgeBasePage })));
+const KnowledgeBaseArticlePage = lazy(() => import('./pages/KnowledgeBaseArticlePage').then(m => ({ default: m.KnowledgeBaseArticlePage })));
 const ProjectsPage = lazy(() => import('./pages/ProjectsPage').then(m => ({ default: m.ProjectsPage })));
+const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailPage })));
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const TeamManagementPage = lazy(() => import('./pages/TeamManagementPage').then(m => ({ default: m.TeamManagementPage })));
 const OrganizationSettingsPage = lazy(() => import('./pages/OrganizationSettingsPage').then(m => ({ default: m.OrganizationSettingsPage })));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
 const AuditLogPage = lazy(() => import('./pages/AuditLogPage').then(m => ({ default: m.AuditLogPage })));
+const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage').then(m => ({ default: m.UserSettingsPage })));
 
 const PageLoader: React.FC = () => (
   <div style={{
@@ -103,13 +106,13 @@ const AppRoutes: React.FC = () => (
         } />
         <Route path="/knowledge/:id" element={
           <ProtectedRoute permission={Permission.KB_VIEW}>
-            <KnowledgeBasePage />
+            <KnowledgeBaseArticlePage />
           </ProtectedRoute>
         } />
 
         {/* Projects — accessible to all authenticated client users */}
         <Route path="/projects" element={<ProjectsPage />} />
-        <Route path="/projects/:id" element={<ProjectsPage />} />
+        <Route path="/projects/:id" element={<ProjectDetailPage />} />
 
         {/* Team Management — require MEMBER_VIEW */}
         <Route path="/team" element={
@@ -131,6 +134,9 @@ const AppRoutes: React.FC = () => (
             <AnalyticsPage />
           </ProtectedRoute>
         } />
+
+        {/* Account settings — accessible to all authenticated users */}
+        <Route path="/settings" element={<UserSettingsPage />} />
 
         {/* Audit Log — no client role has AUDIT_VIEW, redirect away */}
         <Route path="/audit" element={<Navigate to="/dashboard" replace />} />

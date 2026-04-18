@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { useGetUsersQuery, useUpdateUserMutation } from '@3sc/api';
+import { useGetUsersQuery, useUpdateUserMutation, useInviteUserMutation } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
 import {
   Card, Button, Badge, Avatar, Skeleton, EmptyState, ErrorState,
@@ -8,71 +8,6 @@ import {
 import { Permission, UserRole } from '@3sc/types';
 import type { User } from '@3sc/types';
 
-// ── Mock data — replace with live API when ready ──────────────────
-const usersMock = {
-  data: [
-    {
-      id: 'u001',
-      email: 'alice@acme.com',
-      displayName: 'Alice Johnson',
-      firstName: 'Alice',
-      lastName: 'Johnson',
-      role: UserRole.CLIENT_ADMIN,
-      permissions: [],
-      organizationId: 'org001',
-      isActive: true,
-      lastLoginAt: '2026-04-12T10:00:00Z',
-      createdAt: '2025-01-10T08:00:00Z',
-      updatedAt: '2026-04-12T10:00:00Z',
-    },
-    {
-      id: 'u002',
-      email: 'bob@acme.com',
-      displayName: 'Bob Smith',
-      firstName: 'Bob',
-      lastName: 'Smith',
-      role: UserRole.CLIENT_USER,
-      permissions: [],
-      organizationId: 'org001',
-      isActive: true,
-      lastLoginAt: '2026-04-11T14:30:00Z',
-      createdAt: '2025-03-05T09:00:00Z',
-      updatedAt: '2026-04-11T14:30:00Z',
-    },
-    {
-      id: 'u003',
-      email: 'carol@acme.com',
-      displayName: 'Carol White',
-      firstName: 'Carol',
-      lastName: 'White',
-      role: UserRole.CLIENT_USER,
-      permissions: [],
-      organizationId: 'org001',
-      isActive: false,
-      lastLoginAt: '2026-03-20T11:00:00Z',
-      createdAt: '2025-06-18T10:00:00Z',
-      updatedAt: '2026-03-20T11:00:00Z',
-    },
-    {
-      id: 'u004',
-      email: 'dan@acme.com',
-      displayName: 'Dan Lee',
-      firstName: 'Dan',
-      lastName: 'Lee',
-      role: UserRole.CLIENT_USER,
-      permissions: [],
-      organizationId: 'org001',
-      isActive: true,
-      lastLoginAt: '2026-04-10T08:15:00Z',
-      createdAt: '2025-09-01T07:00:00Z',
-      updatedAt: '2026-04-10T08:15:00Z',
-    },
-  ],
-  total: 4,
-  page: 1,
-  page_size: 20,
-  total_pages: 1,
-};
 
 const roleBadgeColor: Record<UserRole, { color: string; bg: string }> = {
   [UserRole.ADMIN]: { color: '#7c3aed', bg: '#ede9fe' },
@@ -90,15 +25,84 @@ const roleLabel: Record<UserRole, string> = {
   [UserRole.CLIENT_USER]: 'Client User',
 };
 
+// ── Mock data — replace with live API when ready ──────────────────
+const usersMock = {
+  data: [
+    {
+      id: 'u001',
+      email: 'alice@acme.com',
+      displayName: 'Alice Johnson',
+      firstName: 'Alice',
+      lastName: 'Johnson',
+      role: UserRole.CLIENT_ADMIN,
+      permissions: [],
+      organizationId: 'org001',
+      isActive: true,
+      lastLoginAt: '2026-04-12T10:00:00Z',
+      created_at: '2025-01-10T08:00:00Z',
+      updated_at: '2026-04-12T10:00:00Z',
+    },
+    {
+      id: 'u002',
+      email: 'bob@acme.com',
+      displayName: 'Bob Smith',
+      firstName: 'Bob',
+      lastName: 'Smith',
+      role: UserRole.CLIENT_USER,
+      permissions: [],
+      organizationId: 'org001',
+      isActive: true,
+      lastLoginAt: '2026-04-11T14:30:00Z',
+      created_at: '2025-03-05T09:00:00Z',
+      updated_at: '2026-04-11T14:30:00Z',
+    },
+    {
+      id: 'u003',
+      email: 'carol@acme.com',
+      displayName: 'Carol White',
+      firstName: 'Carol',
+      lastName: 'White',
+      role: UserRole.CLIENT_USER,
+      permissions: [],
+      organizationId: 'org001',
+      isActive: false,
+      lastLoginAt: '2026-03-20T11:00:00Z',
+      created_at: '2025-06-18T10:00:00Z',
+      updated_at: '2026-03-20T11:00:00Z',
+    },
+    {
+      id: 'u004',
+      email: 'dan@acme.com',
+      displayName: 'Dan Lee',
+      firstName: 'Dan',
+      lastName: 'Lee',
+      role: UserRole.CLIENT_USER,
+      permissions: [],
+      organizationId: 'org001',
+      isActive: true,
+      lastLoginAt: '2026-04-10T08:15:00Z',
+      created_at: '2025-09-01T07:00:00Z',
+      updated_at: '2026-04-10T08:15:00Z',
+    },
+  ],
+  total: 4,
+  page: 1,
+  page_size: 20,
+  total_pages: 1,
+};
+
 export const TeamManagementPage: React.FC = () => {
   useDocumentTitle('Team Management');
   const permissions = usePermissions();
 
-  // Live query — commented out until API is ready
+    // Live query — commented out until API is ready
   // const { data, isLoading, error, refetch } = useGetUsersQuery({ page: 1 });
   const { data, isLoading, error, refetch } = { data: usersMock, isLoading: false, error: null, refetch: () => {} };
 
+  // const { data, isLoading, error, refetch } = useGetUsersQuery({ page: 1 });
+
   const [updateUser, { isLoading: saving }] = useUpdateUserMutation();
+  const [inviteUser, { isLoading: inviting }] = useInviteUserMutation();
 
   const [search, setSearch] = useState('');
   const [editUser, setEditUser] = useState<User | null>(null);
@@ -106,7 +110,11 @@ export const TeamManagementPage: React.FC = () => {
   const [editActive, setEditActive] = useState(true);
   const [showInviteModal, setShowInviteModal] = useState(false);
   const [inviteEmail, setInviteEmail] = useState('');
+  const [inviteFirstName, setInviteFirstName] = useState('');
+  const [inviteLastName, setInviteLastName] = useState('');
   const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.CLIENT_USER);
+  const [inviteError, setInviteError] = useState<string | null>(null);
+  const [inviteSuccess, setInviteSuccess] = useState(false);
 
   const filtered = (data?.data ?? []).filter((u) =>
     u.displayName.toLowerCase().includes(search.toLowerCase()) ||
@@ -126,6 +134,35 @@ export const TeamManagementPage: React.FC = () => {
       setEditUser(null);
     } catch {
       // handled by RTK Query
+    }
+  };
+
+  const resetInviteModal = () => {
+    setShowInviteModal(false);
+    setInviteEmail('');
+    setInviteFirstName('');
+    setInviteLastName('');
+    setInviteRole(UserRole.CLIENT_USER);
+    setInviteError(null);
+    setInviteSuccess(false);
+  };
+
+  const handleSendInvite = async () => {
+    setInviteError(null);
+    try {
+      await inviteUser({
+        email: inviteEmail.trim(),
+        role: inviteRole,
+        firstName: inviteFirstName.trim() || undefined,
+        lastName: inviteLastName.trim() || undefined,
+      }).unwrap();
+      setInviteSuccess(true);
+      setTimeout(resetInviteModal, 1800);
+    } catch (err: unknown) {
+      const message =
+        (err as { data?: { message?: string } })?.data?.message ??
+        'Failed to send invitation. Please try again.';
+      setInviteError(message);
     }
   };
 
@@ -240,47 +277,77 @@ export const TeamManagementPage: React.FC = () => {
       {/* Invite Member Modal */}
       <Modal
         isOpen={showInviteModal}
-        onClose={() => setShowInviteModal(false)}
+        onClose={resetInviteModal}
         title="Invite Team Member"
       >
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-          <Input
-            label="Email Address"
-            type="email"
-            value={inviteEmail}
-            onChange={(e) => setInviteEmail(e.target.value)}
-            placeholder="colleague@company.com"
-            autoFocus
-          />
-          <Select
-            label="Role"
-            value={inviteRole}
-            onChange={(e) => setInviteRole(e.target.value as UserRole)}
-            options={[
-              { value: UserRole.CLIENT_USER, label: 'Client User' },
-              { value: UserRole.CLIENT_ADMIN, label: 'Client Admin' },
-            ]}
-          />
+        {inviteSuccess ? (
           <div style={{
-            padding: '0.75rem', background: 'var(--color-bg-subtle)',
-            borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--color-text-muted)',
+            textAlign: 'center', padding: '1.5rem 0',
+            color: 'var(--color-text)', fontSize: '0.9375rem',
           }}>
-            📧 An invitation email will be sent to this address.
+            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
+            Invitation sent to <strong>{inviteEmail}</strong>
           </div>
-          <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-            <Button variant="ghost" onClick={() => setShowInviteModal(false)}>Cancel</Button>
-            <Button
-              disabled={!inviteEmail.trim()}
-              onClick={() => {
-                // TODO: wire up invite API when endpoint is ready
-                setShowInviteModal(false);
-                setInviteEmail('');
-              }}
-            >
-              Send Invite
-            </Button>
+        ) : (
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '0.75rem' }}>
+              <Input
+                label="First Name"
+                value={inviteFirstName}
+                onChange={(e) => setInviteFirstName(e.target.value)}
+                placeholder="Jane"
+              />
+              <Input
+                label="Last Name"
+                value={inviteLastName}
+                onChange={(e) => setInviteLastName(e.target.value)}
+                placeholder="Smith"
+              />
+            </div>
+            <Input
+              label="Email Address"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="colleague@company.com"
+              autoFocus
+            />
+            <Select
+              label="Role"
+              value={inviteRole}
+              onChange={(e) => setInviteRole(e.target.value as UserRole)}
+              options={[
+                { value: UserRole.CLIENT_USER, label: 'Client User' },
+                { value: UserRole.CLIENT_ADMIN, label: 'Client Admin' },
+              ]}
+            />
+            <div style={{
+              padding: '0.75rem', background: 'var(--color-bg-subtle)',
+              borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--color-text-muted)',
+            }}>
+              An invitation email will be sent. The invitee will set their own password via the link.
+            </div>
+            {inviteError && (
+              <div style={{
+                padding: '0.625rem 0.875rem', background: '#fef2f2',
+                border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem', color: '#b91c1c',
+              }}>
+                {inviteError}
+              </div>
+            )}
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <Button variant="ghost" onClick={resetInviteModal}>Cancel</Button>
+              <Button
+                disabled={!inviteEmail.trim()}
+                loading={inviting}
+                onClick={handleSendInvite}
+              >
+                Send Invite
+              </Button>
+            </div>
           </div>
-        </div>
+        )}
       </Modal>
     </div>
   );

@@ -8,6 +8,7 @@ import {
   useGetAIRoutingQuery, useGetAISuggestedReplyQuery,
   useGetAISummaryQuery, useGetAIETAQuery,
   useAcceptAISuggestionMutation, useRejectAISuggestionMutation,
+  useGetAIKBSuggestionsQuery,
 } from '@3sc/api';
 import {
   useDocumentTitle, usePermissions, useTicketTransitions,
@@ -26,49 +27,7 @@ export const TicketWorkspacePage: React.FC = () => {
   const navigate = useNavigate();
   const permissions = usePermissions();
 
-  const dummyticket = {
-  ticketNumber: "TCK-2026-00123",
-  status: "In Progress", // Open | In Progress | Resolved | Closed
-  title: "Unable to login to internal console",
-  description: "User reports that login fails with a 500 error after entering valid credentials.",
-  
-  assignee: {
-    id: "USR-102",
-    displayName: "Aman Singh"
-  },
-
-  creator: {
-    id: "USR-087",
-    displayName: "Rahul Sharma"
-  },
-
-  attachments: [
-    {
-      id: "ATT-1",
-      fileName: "error-screenshot.png",
-      fileUrl: "https://dummyurl.com/error-screenshot.png"
-    },
-    {
-      id: "ATT-2",
-      fileName: "network-log.txt",
-      fileUrl: "https://dummyurl.com/network-log.txt"
-    }
-  ],
-
-  sla: {
-    priority: "High",
-    responseTime: "2h",
-    resolutionTime: "24h"
-  },
-
-  category: "Authentication",
-
-  createdAt: "2026-03-31T10:15:00Z",
-
-  tags: ["login", "backend", "urgent"]
-};
-  let { data: ticket, isLoading, error, refetch } = useGetTicketQuery(id!);
-  ticket = dummyticket; // Remove this line when API is ready
+  const { data: ticket, isLoading, error, refetch } = useGetTicketQuery(id!);
   const { data: comments = [] } = useGetCommentsQuery(id!);
   const [transitionTicket, { isLoading: transitioning }] = useTransitionTicketMutation();
   const [updateTicket] = useUpdateTicketMutation();
@@ -84,6 +43,8 @@ export const TicketWorkspacePage: React.FC = () => {
   const { data: aiReply, isLoading: replyLoading } = useGetAISuggestedReplyQuery(id!, { skip: !canAI });
   const { data: aiSummary, isLoading: summaryLoading } = useGetAISummaryQuery(id!, { skip: !canAI });
   const { data: aiETA, isLoading: etaLoading } = useGetAIETAQuery(id!, { skip: !canAI });
+  const canKBSuggest = permissions.has(Permission.AI_KB_SUGGEST);
+  const { data: aiKBSuggestions, isLoading: kbSuggestLoading } = useGetAIKBSuggestionsQuery(id!, { skip: !canKBSuggest || !id });
 
   const [confirmTransition, setConfirmTransition] = useState<TicketStatus | null>(null);
   const [activeTab, setActiveTab] = useState('conversation');
@@ -294,7 +255,7 @@ export const TicketWorkspacePage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Created</span>
-                <span style={{ fontSize: '0.75rem' }}>{formatDateTime(ticket.createdAt)}</span>
+                <span style={{ fontSize: '0.75rem' }}>{formatDateTime(ticket.created_at)}</span>
               </div>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Reporter</span>
@@ -371,6 +332,61 @@ export const TicketWorkspacePage: React.FC = () => {
               confidence={aiETA.confidence}
               status={aiETA.status}
             />
+          )}
+
+          {/* KB Suggestions */}
+          {canKBSuggest && (
+            <div>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)' }}>
+                  📚 Relevant KB Articles
+                </span>
+              </div>
+              {kbSuggestLoading ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {Array.from({ length: 3 }).map((_, i) => (
+                    <Skeleton key={i} height="3rem" />
+                  ))}
+                </div>
+              ) : aiKBSuggestions && aiKBSuggestions.length > 0 ? (
+                <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                  {aiKBSuggestions.map((s) => (
+                    <a
+                      key={s.articleId}
+                      href={`/knowledge/${s.articleId}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{
+                        display: 'block', padding: '0.625rem 0.75rem',
+                        background: 'var(--color-bg-subtle)',
+                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
+                        textDecoration: 'none', color: 'inherit',
+                      }}
+                    >
+                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-brand-700)', marginBottom: '0.25rem' }}>
+                        {s.title}
+                      </div>
+                      <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
+                        {s.excerpt.slice(0, 100)}…
+                      </div>
+                      <div style={{ marginTop: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+                        <div style={{ flex: 1, height: 4, borderRadius: 2, background: 'var(--color-border)', overflow: 'hidden' }}>
+                          <div style={{ height: '100%', width: `${Math.round(s.score * 100)}%`, background: s.score > 0.7 ? 'var(--color-success)' : 'var(--color-brand-500)', borderRadius: 2 }} />
+                        </div>
+                        <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
+                          {Math.round(s.score * 100)}% match
+                        </span>
+                      </div>
+                    </a>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', textAlign: 'center', padding: '0.75rem 0' }}>
+                  No relevant articles found for this ticket.
+                </p>
+              )}
+            </div>
           )}
         </div>
       </Drawer>
