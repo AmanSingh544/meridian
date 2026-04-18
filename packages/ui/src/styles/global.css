@@ -47,56 +47,6 @@
   --transition-slow: 300ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* ── Dark Theme ─────────────────────────────────────────────────
-   Applied via [data-theme="dark"] on <html>.
-   Design intent:
-     • Three background depth levels (not flat) for natural layering
-     • Border colours use blue-tinted greys to feel intentional on dark bg
-     • Brand tokens unchanged — indigo reads well on dark surfaces
-     • Semantic colours slightly brightened for contrast on dark backgrounds
-     • Danger/success/warning hue kept but lightness lifted
-────────────────────────────────────────────────────────────── */
-[data-theme="dark"] {
-  /* Backgrounds — three depth levels */
-  --color-bg:          #16161e;   /* sidebar, card surfaces          */
-  --color-bg-subtle:   #0f0f14;   /* page canvas                     */
-  --color-bg-muted:    #1e1e28;   /* hover states, subtle fills      */
-
-  /* Borders */
-  --color-border:        #25252f;
-  --color-border-strong: #32323e;
-
-  /* Text */
-  --color-text:           #eef0f6;   /* primary — slightly warm white    */
-  --color-text-secondary: #8b8fa8;   /* secondary                        */
-  --color-text-muted:     #4c4f66;   /* placeholders, disabled           */
-
-  /* Brand — unchanged hue, kept identical */
-  --color-brand-50:  #1e1b4b;
-  --color-brand-100: #2e2a6e;
-  --color-brand-200: #3730a3;
-  --color-brand-500: #818cf8;
-  --color-brand-600: #6366f1;
-  --color-brand-700: #a5b4fc;
-  --color-brand-900: #e0e7ff;
-
-  /* Semantic — brightened for dark surface contrast */
-  --color-success:       #34d399;
-  --color-success-light: #052e16;
-  --color-warning:       #fbbf24;
-  --color-warning-light: #1c1107;
-  --color-danger:        #f87171;
-  --color-danger-light:  #1f0505;
-  --color-info:          #60a5fa;
-  --color-info-light:    #0b1e3e;
-
-  /* Shadows — deeper with subtle colour tint */
-  --shadow-sm: 0 1px 3px 0 rgb(0 0 0 / 0.4);
-  --shadow-md: 0 4px 8px -1px rgb(0 0 0 / 0.5), 0 2px 4px -2px rgb(0 0 0 / 0.4);
-  --shadow-lg: 0 10px 20px -3px rgb(0 0 0 / 0.6), 0 4px 8px -4px rgb(0 0 0 / 0.4);
-  --shadow-xl: 0 20px 32px -5px rgb(0 0 0 / 0.7), 0 8px 12px -6px rgb(0 0 0 / 0.5);
-}
-
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;
@@ -115,20 +65,6 @@ body {
   background: var(--color-bg-subtle);
   line-height: 1.5;
   min-height: 100vh;
-  /* Smooth theme transition on all colour-bearing properties */
-  transition:
-    background-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
-    color 220ms cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Propagate transition to common structural elements */
-aside, header, nav, main, footer,
-div[style], section, article {
-  transition:
-    background-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
-    border-color 220ms cubic-bezier(0.4, 0, 0.2, 1),
-    color 220ms cubic-bezier(0.4, 0, 0.2, 1),
-    box-shadow 220ms cubic-bezier(0.4, 0, 0.2, 1);
 }
 
 a {

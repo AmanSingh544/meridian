@@ -141,8 +141,7 @@ export const Select: React.FC<SelectProps> = ({
   const fieldId = id || `field-${label?.toLowerCase().replace(/\s+/g, '-')}`;
 
   return (
-    // <div style={{ marginBottom: '1rem' }}>
-    <div style={{ }}>
+    <div style={{ marginBottom: '1rem' }}>
       {label && <label htmlFor={fieldId} style={labelStyle}>{label}</label>}
       <select
         id={fieldId}

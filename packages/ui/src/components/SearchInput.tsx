@@ -32,8 +32,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
       placeholder={placeholder}
       style={{
         width: '100%',
-      //  padding: '0.5rem 2.25rem 0.5rem 2.25rem',
-        padding: '9.8px 2.25rem 9.8px 2.25rem',
+        padding: '0.5rem 2.25rem 0.5rem 2.25rem',
         fontSize: '0.875rem',
         fontFamily: 'var(--font-body)',
         border: '1px solid var(--color-border)',

@@ -12,7 +12,6 @@ import '../../../packages/ui/src/styles/global.css';
 
 // Lazy-loaded pages
 const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m.LoginPage })));
-const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
 const AgentDashboardPage = lazy(() => import('./pages/AgentDashboardPage').then(m => ({ default: m.AgentDashboardPage })));
 const TicketQueuePage = lazy(() => import('./pages/TicketQueuePage').then(m => ({ default: m.TicketQueuePage })));
 const TicketWorkspacePage = lazy(() => import('./pages/TicketWorkspacePage').then(m => ({ default: m.TicketWorkspacePage })));
@@ -21,15 +20,6 @@ const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default:
 const UsersPage = lazy(() => import('./pages/UsersPage').then(m => ({ default: m.UsersPage })));
 const OrganizationsPage = lazy(() => import('./pages/OrganizationsPage').then(m => ({ default: m.OrganizationsPage })));
 const AuditLogPage = lazy(() => import('./pages/AuditLogPage').then(m => ({ default: m.AuditLogPage })));
-const KnowledgeBasePage = lazy(() => import('./pages/KnowledgeBasePage').then(m => ({ default: m.KnowledgeBasePage })));
-const KBArticleEditorPage = lazy(() => import('./pages/KBArticleEditorPage').then(m => ({ default: m.KBArticleEditorPage })));
-const ProjectsPage = lazy(() => import('./pages/ProjectsPage').then(m => ({ default: m.ProjectsPage })));
-const ProjectDetailPage = lazy(() => import('./pages/ProjectDetailPage').then(m => ({ default: m.ProjectDetailPage })));
-const EscalationsPage = lazy(() => import('./pages/EscalationsPage').then(m => ({ default: m.EscalationsPage })));
-const SLAConfigPage = lazy(() => import('./pages/SLAConfigPage').then(m => ({ default: m.SLAConfigPage })));
-const SystemSettingsPage = lazy(() => import('./pages/SystemSettingsPage').then(m => ({ default: m.SystemSettingsPage })));
-const RoutingRulesPage = lazy(() => import('./pages/RoutingRulesPage').then(m => ({ default: m.RoutingRulesPage })));
-const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage').then(m => ({ default: m.UserSettingsPage })));
 
 const PageLoader: React.FC = () => (
   <div style={{
@@ -62,7 +52,6 @@ const AppRoutes: React.FC = () => (
   <Suspense fallback={<PageLoader />}>
     <Routes>
       <Route path="/login" element={<LoginPage />} />
-      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
 
       <Route element={
         <ProtectedRoute>
@@ -97,58 +86,14 @@ const AppRoutes: React.FC = () => (
             <OrganizationsPage />
           </ProtectedRoute>
         } />
-        <Route path="/escalations" element={
-          <ProtectedRoute permission={Permission.ESCALATION_VIEW}>
-            <EscalationsPage />
-          </ProtectedRoute>
-        } />
         <Route path="/routing" element={
-          <ProtectedRoute permission={Permission.ROUTING_VIEW}>
-            <RoutingRulesPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/sla-config" element={
-          <ProtectedRoute permission={Permission.SLA_CONFIGURE}>
-            <SLAConfigPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/system-settings" element={
-          <ProtectedRoute permission={Permission.SYSTEM_CONFIGURE}>
-            <SystemSettingsPage />
+          <ProtectedRoute permission={Permission.ESCALATION_CONFIGURE}>
+            <AgentDashboardPage />
           </ProtectedRoute>
         } />
         <Route path="/audit" element={
           <ProtectedRoute permission={Permission.AUDIT_VIEW}>
             <AuditLogPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/projects" element={
-          <ProtectedRoute permission={Permission.PROJECT_VIEW}>
-            <ProjectsPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/projects/:id" element={
-          <ProtectedRoute permission={Permission.PROJECT_VIEW}>
-            <ProjectDetailPage />
-          </ProtectedRoute>
-        } />
-
-        {/* User account settings — accessible to all authenticated agents */}
-        <Route path="/settings" element={<UserSettingsPage />} />
-
-        <Route path="/knowledge" element={
-          <ProtectedRoute permission={Permission.KB_VIEW}>
-            <KnowledgeBasePage />
-          </ProtectedRoute>
-        } />
-        <Route path="/knowledge/new" element={
-          <ProtectedRoute permission={Permission.KB_MANAGE}>
-            <KBArticleEditorPage />
-          </ProtectedRoute>
-        } />
-        <Route path="/knowledge/:id/edit" element={
-          <ProtectedRoute permission={Permission.KB_MANAGE}>
-            <KBArticleEditorPage />
           </ProtectedRoute>
         } />
       </Route>

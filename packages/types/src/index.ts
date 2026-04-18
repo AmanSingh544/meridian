@@ -119,19 +119,13 @@ export enum UserRole {
  * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
  * │ SLA_VIEW                │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
  * │ SLA_CONFIGURE           │              │             │       │  ✓   │   ✓   │
- * │ ESCALATION_VIEW         │              │             │   ✓   │  ✓   │   ✓   │
  * │ ESCALATION_CONFIGURE    │              │             │       │  ✓   │   ✓   │
- * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
- * │ ROUTING_VIEW            │              │             │       │  ✓   │   ✓   │
  * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
  * │ AI_SUGGEST              │              │             │   ✓   │  ✓   │   ✓   │
  * │ AI_FEEDBACK             │              │             │   ✓   │  ✓   │   ✓   │
  * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
  * │ AUDIT_VIEW              │              │             │       │      │   ✓   │
  * │ WORKSPACE_CONFIGURE     │      ✓       │             │       │      │   ✓   │
- * │ BRANDING_CONFIGURE      │      ✓       │             │       │      │   ✓   │
- * │ SYSTEM_CONFIGURE        │              │             │       │      │   ✓   │
- * │ COMPLIANCE_VIEW         │              │             │       │      │   ✓   │
  * └─────────────────────────┴──────────────┴─────────────┴───────┴──────┴───────┘
  */
 export enum Permission {
@@ -197,17 +191,11 @@ export enum Permission {
   /** Configure escalation rules and routing. LEAD and ADMIN only. */
   ESCALATION_CONFIGURE = 'ESCALATION_CONFIGURE',
 
-  // ── AI Assist (internal staff) ─────────────────────────────────────────────
+  // ── AI Assist ──────────────────────────────────────────────────────────────
   /** Access AI-generated suggestions in the agent panel. Internal staff only. */
   AI_SUGGEST = 'AI_SUGGEST',
   /** Submit accept/reject feedback on AI suggestions. Internal staff only. */
   AI_FEEDBACK = 'AI_FEEDBACK',
-
-  // ── AI Assist (client-facing) ──────────────────────────────────────────────
-  /** View the AI digest panel on the customer dashboard (needs-attention, patterns, gaps). CLIENT_ADMIN, CLIENT_USER, ADMIN. */
-  AI_DIGEST = 'AI_DIGEST',
-  /** Surface AI-suggested KB articles based on open ticket content. All roles. */
-  AI_KB_SUGGEST = 'AI_KB_SUGGEST',
 
   // ── Audit & Workspace ──────────────────────────────────────────────────────
   /** View the audit trail of all system actions. ADMIN only. */
@@ -215,54 +203,11 @@ export enum Permission {
   /** Configure workspace-level settings. CLIENT_ADMIN (own org) and ADMIN only. */
   WORKSPACE_CONFIGURE = 'WORKSPACE_CONFIGURE',
 
-  // ── Projects ──────────────────────────────────────────────────────────────
+  // Project permissions
   PROJECT_VIEW = 'PROJECT_VIEW',
   PROJECT_CREATE = 'PROJECT_CREATE',
   PROJECT_EDIT = 'PROJECT_EDIT',
   PROJECT_DELETE = 'PROJECT_DELETE',
-
-  // ── AI Projects ───────────────────────────────────────────────────────────
-  /** View AI health scores, cluster analysis, and churn risk for projects. LEAD + ADMIN. */
-  AI_PROJECT_INSIGHTS = 'AI_PROJECT_INSIGHTS',
-  /** View and generate AI status reports for projects. LEAD + ADMIN. */
-  AI_PROJECT_REPORTS = 'AI_PROJECT_REPORTS',
-  /** Ask AI questions over project history. All authenticated roles. */
-  AI_PROJECT_QA = 'AI_PROJECT_QA',
-
-  // ── System Administration ─────────────────────────────────────────────────
-  /**
-   * Configure system-wide settings: AI model provider, SLA policies, notification
-   * toggles, access/security rules, and danger-zone operations. ADMIN only.
-   */
-  SYSTEM_CONFIGURE = 'SYSTEM_CONFIGURE',
-
-  // ── Escalations ───────────────────────────────────────────────────────────
-  /**
-   * View the escalations queue — tickets that have breached or are approaching
-   * SLA breach. AGENT sees only their assigned escalations; LEAD/ADMIN see all.
-   */
-  ESCALATION_VIEW = 'ESCALATION_VIEW',
-
-  // ── Routing ───────────────────────────────────────────────────────────────
-  /**
-   * View routing rules list. LEAD + ADMIN.
-   * ESCALATION_CONFIGURE already gates create/edit/delete of rules.
-   */
-  ROUTING_VIEW = 'ROUTING_VIEW',
-
-  // ── Branding ──────────────────────────────────────────────────────────────
-  /**
-   * Configure customer portal branding: logo, primary colour, portal display name.
-   * CLIENT_ADMIN (own org only) and ADMIN (any org).
-   */
-  BRANDING_CONFIGURE = 'BRANDING_CONFIGURE',
-
-  // ── Compliance ────────────────────────────────────────────────────────────
-  /**
-   * View and manage compliance settings: data retention policy, GDPR right-to-erasure
-   * requests, SLA compliance reports, and audit data export. ADMIN only.
-   */
-  COMPLIANCE_VIEW = 'COMPLIANCE_VIEW',
 }
 
 export interface User {
@@ -277,26 +222,8 @@ export interface User {
   organizationId: UUID;
   isActive: boolean;
   lastLoginAt?: ISO8601;
-  created_at: ISO8601;
-  updated_at: ISO8601;
-}
-
-export interface InviteUserPayload {
-  email: Email;
-  role: UserRole;
-  firstName?: string;
-  lastName?: string;
-}
-
-/**
- * Sent by the invitee when they click the link in their invitation email
- * and set their password to activate the account.
- */
-export interface InviteAcceptPayload {
-  token: string;       // one-time invite token from the email link
-  firstName: string;
-  lastName: string;
-  password: string;
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
 }
 
 export interface Organization {
@@ -307,187 +234,8 @@ export interface Organization {
   domain?: string;
   isActive: boolean;
   plan?: string;
-  created_at: ISO8601;
-  updated_at: ISO8601;
-}
-
-// ── Branding Types ──────────────────────────────────────────────
-
-/**
- * Per-tenant portal branding configuration.
- * Applied at render-time so the customer portal looks like the client's product.
- */
-export interface OrgBranding {
-  organizationId: UUID;
-  logoUrl?: string;
-  faviconUrl?: string;
-  portalDisplayName: string;   // e.g. "Acme Support Portal"
-  primaryColor: string;        // hex, e.g. "#6366f1"
-  accentColor?: string;        // hex, optional secondary accent
-  customCssUrl?: string;       // advanced: link to a hosted CSS override file
-  updated_at: ISO8601;
-}
-
-export interface OrgBrandingUpdatePayload {
-  logoUrl?: string;
-  faviconUrl?: string;
-  portalDisplayName?: string;
-  primaryColor?: string;
-  accentColor?: string;
-}
-
-// ── SLA Policy Types ────────────────────────────────────────────
-
-export interface SLAPolicyByPriority {
-  responseHours: number;
-  resolutionHours: number;
-}
-
-export interface SLAPolicy {
-  id: UUID;
-  name: string;
-  description?: string;
-  isDefault: boolean;
-  organizationId?: UUID;   // null = global default; set = per-org override
-  priorities: {
-    CRITICAL: SLAPolicyByPriority;
-    HIGH: SLAPolicyByPriority;
-    MEDIUM: SLAPolicyByPriority;
-    LOW: SLAPolicyByPriority;
-  };
-  escalationRules: SLAEscalationRules;
-  businessHours: SLABusinessHours;
-  created_at: ISO8601;
-  updated_at: ISO8601;
-}
-
-export interface SLAEscalationRules {
-  autoEscalateAtPercent: number;   // e.g. 80 — auto-assign to senior SPOC at 80% of SLA elapsed
-  notifyAdminAtPercent: number;    // e.g. 60 — send admin alert at 60% elapsed
-  s1ReAlertIntervalMinutes: number; // e.g. 30 — re-alert every 30m until resolved
-}
-
-export interface SLABusinessHours {
-  startTime: string;    // "HH:mm" in org timezone
-  endTime: string;      // "HH:mm" in org timezone
-  timezone: string;     // IANA tz, e.g. "Asia/Kolkata"
-  pauseOnWeekends: boolean;
-}
-
-export interface SLAPolicyUpdatePayload {
-  name?: string;
-  description?: string;
-  priorities?: Partial<SLAPolicy['priorities']>;
-  escalationRules?: Partial<SLAEscalationRules>;
-  businessHours?: Partial<SLABusinessHours>;
-}
-
-// ── Escalation Queue Types ──────────────────────────────────────
-
-export interface EscalatedTicket {
-  ticketId: UUID;
-  ticketNumber: string;
-  title: string;
-  clientName: string;
-  clientId: UUID;
-  severity: TicketPriority;  // re-uses TicketPriority — S1=CRITICAL, S2=HIGH, S3=MEDIUM
-  escalatedBy?: string;      // display name of agent who triggered escalation
-  escalatedByUserId?: UUID;
-  reason: string;
-  timeInEscalationMinutes: number;
-  assignedTo?: UUID;
-  assigneeName?: string;
-  slaState: SLAState;
-  created_at: ISO8601;
-}
-
-export interface EscalationAssignPayload {
-  ticketId: UUID;
-  agentId: UUID;
-}
-
-export interface EscalationResolvePayload {
-  ticketId: UUID;
-  resolution?: string;
-}
-
-// ── System Settings Types ───────────────────────────────────────
-
-export interface SystemNotificationSettings {
-  emailOnSLABreach: boolean;
-  slackIntegrationEnabled: boolean;
-  slackChannel?: string;
-  dailyDigestEnabled: boolean;
-  dailyDigestTime?: string;   // "HH:mm" IST
-  clientStatusNotifications: boolean;
-}
-
-export interface SystemAIFeatureSettings {
-  triageAgentEnabled: boolean;
-  similarTicketSuggestionsEnabled: boolean;
-  kbDeflectionEnabled: boolean;
-  autoGenerateKBArticlesEnabled: boolean;
-  weeklyProjectSummariesEnabled: boolean;
-  aiProvider?: 'anthropic' | 'openai' | 'custom';
-  aiModelName?: string;
-  aiApiKey?: string;           // write-only — never returned in GET
-  aiBaseUrl?: string;          // for custom OpenAI-compatible providers
-}
-
-export interface SystemAccessSettings {
-  ssoEnabled: boolean;
-  twoFactorRequired: boolean;
-  auditLoggingEnabled: boolean;
-  ipAllowlistEnabled: boolean;
-  ipAllowlist?: string[];      // CIDR or IP strings
-}
-
-export interface SystemSettings {
-  notifications: SystemNotificationSettings;
-  aiFeatures: SystemAIFeatureSettings;
-  access: SystemAccessSettings;
-  updated_at: ISO8601;
-  updatedBy?: UUID;
-}
-
-export interface SystemSettingsUpdatePayload {
-  notifications?: Partial<SystemNotificationSettings>;
-  aiFeatures?: Partial<SystemAIFeatureSettings>;
-  access?: Partial<SystemAccessSettings>;
-}
-
-// ── Compliance Types ────────────────────────────────────────────
-
-export interface ComplianceDataRetentionPolicy {
-  closedTicketRetentionDays: number;    // e.g. 90
-  auditLogRetentionDays: number;        // e.g. 365
-  attachmentRetentionDays: number;      // e.g. 180
-}
-
-export interface GDPRErasureRequest {
-  id: UUID;
-  requestedBy: UUID;
-  targetUserId: UUID;
-  targetEmail: string;
-  status: 'pending' | 'in_progress' | 'completed' | 'rejected';
-  requestedAt: ISO8601;
-  completedAt?: ISO8601;
-  notes?: string;
-}
-
-// ── User Appearance Preferences ─────────────────────────────────
-
-export type AccentColor = 'cobalt' | 'emerald' | 'violet' | 'rose' | 'amber' | 'slate';
-export type ColorMode = 'light' | 'dark' | 'system';
-
-export interface UserAppearancePreferences {
-  accentColor: AccentColor;
-  colorMode: ColorMode;
-}
-
-export interface UserAppearanceUpdatePayload {
-  accentColor?: AccentColor;
-  colorMode?: ColorMode;
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
 }
 
 // ── Ticket Types ────────────────────────────────────────────────
@@ -543,10 +291,10 @@ export interface Ticket {
   commentCount: number;
   creator?: User;
   assignee?: User;
-  created_at: ISO8601;
-  updated_at: ISO8601;
-  resolved_at?: ISO8601;
-  closed_at?: ISO8601;
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
+  resolvedAt?: ISO8601;
+  closedAt?: ISO8601;
 }
 
 export interface TicketCreatePayload {
@@ -556,7 +304,7 @@ export interface TicketCreatePayload {
   category: TicketCategory;
   tags?: string[];
   projectId?: UUID;
-  attachment_ids?: number[];
+  attachments?: File[];
 }
 
 export interface TicketUpdatePayload {
@@ -622,8 +370,8 @@ export interface Comment {
   parentId?: UUID;
   attachments: Attachment[];
   mentions: UUID[];
-  created_at: ISO8601;
-  updated_at: ISO8601;
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
 }
 
 export interface CommentCreatePayload {
@@ -637,23 +385,6 @@ export interface CommentCreatePayload {
 }
 
 // ── Attachment Types ────────────────────────────────────────────
-export interface AttachmentCreatePayload {
-  file_name: string;
-  file_type: string;
-  file_path: string;
-  metadata?: Record<string, unknown>;
-}
-
-export interface AttachmentRecord {
-  id: number;
-  file_name: string;
-  file_type: string;
-  file_path: string;
-  tenant_id: string;
-  metadata: Record<string, unknown>;
-  created_at: string;
-}
-
 export interface Attachment {
   id: UUID;
   fileName: string;
@@ -661,7 +392,7 @@ export interface Attachment {
   mimeType: string;
   url: string;
   uploadedBy: UUID;
-  created_at: ISO8601;
+  createdAt: ISO8601;
 }
 
 export interface PresignedUpload {
@@ -683,21 +414,17 @@ export interface Project {
   id: UUID;
   name: string;
   description: string;
-  scope?: string; // Plain-text scope statement used for semantic drift detection
   status: ProjectStatus;
   organizationId: UUID;
-  organization?: Organization;
   leadId?: UUID;
   lead?: User;
   milestones: Milestone[];
   ticketCount: number;
-  openTicketCount?: number;
-  resolvedThisWeek?: number;
   startDate?: ISO8601;
   targetDate?: ISO8601;
   completedAt?: ISO8601;
-  created_at: ISO8601;
-  updated_at: ISO8601;
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
 }
 
 export interface Milestone {
@@ -735,8 +462,8 @@ export interface KBArticle {
   viewCount: number;
   helpfulCount: number;
   relatedArticleIds: UUID[];
-  created_at: ISO8601;
-  updated_at: ISO8601;
+  createdAt: ISO8601;
+  updatedAt: ISO8601;
 }
 
 export interface KBCategory {
@@ -778,14 +505,13 @@ export interface Notification {
   data?: Record<string, unknown>;
   resourceType?: string;
   resourceId?: UUID;
-  created_at: ISO8601;
+  createdAt: ISO8601;
 }
 
 // ── Analytics Types ─────────────────────────────────────────────
 export interface AnalyticsFilters {
-  dateFrom?: ISO8601;
-  dateTo?: ISO8601;
-  period?: string;
+  dateFrom: ISO8601;
+  dateTo: ISO8601;
   organizationId?: UUID;
   agentId?: UUID;
   status?: TicketStatus[];
@@ -824,68 +550,15 @@ export interface AgentPerformance {
   csatScore?: number;
 }
 
-export interface MonthlyVolumeData {
-  month: string;   // e.g. "Apr 2026"
-  created: number;
-  resolved: number;
-}
-
-export interface CategoryBreakdownData {
-  category: string;   // e.g. "Technical", "Billing"
-  count: number;
-  percentage: number; // 0–100
-}
-
-export interface SeverityDistributionData {
-  priority: string;   // CRITICAL | HIGH | MEDIUM | LOW
-  count: number;
-  percentage: number;
-}
-
-export interface ResolutionBySeverityData {
-  priority: string;
-  avgHours: number;
-}
-
-export interface UserPreferences {
-  accentColor: AccentColor;
-  colorMode: ColorMode;
-  density: 'comfortable' | 'compact';
-  emailOnNewReply: boolean;
-  emailOnStatusChange: boolean;
-  emailOnMention: boolean;
-  emailDigest: boolean;
-  browserPush: boolean;
-  // agent-only fields (ignored silently on client portal)
-  emailOnTicketAssigned?: boolean;
-  emailOnSLAWarning?: boolean;
-  emailOnEscalation?: boolean;
-  emailDailyDigest?: boolean;
-}
-
-export interface UserPreferencesUpdatePayload {
-  accentColor?: AccentColor;
-  colorMode?: ColorMode;
-  density?: 'comfortable' | 'compact';
-  emailOnNewReply?: boolean;
-  emailOnStatusChange?: boolean;
-  emailOnMention?: boolean;
-  emailDigest?: boolean;
-  browserPush?: boolean;
-  emailOnTicketAssigned?: boolean;
-  emailOnSLAWarning?: boolean;
-  emailOnEscalation?: boolean;
-  emailDailyDigest?: boolean;
-}
-
 export interface DashboardSummary {
-  total: number;
+  totalTickets: number;
+  openTickets: number;
   resolvedToday: number;
   avgResolutionTime: string;
   slaComplianceRate: number;
-  by_priority: Record<TicketPriority, number>;
-  by_status: Record<TicketStatus, number>;
-  recentActivity?: ActivityItem[];
+  ticketsByPriority: Record<TicketPriority, number>;
+  ticketsByStatus: Record<TicketStatus, number>;
+  recentActivity: ActivityItem[];
 }
 
 export interface ActivityItem {
@@ -925,7 +598,7 @@ export interface AISuggestion<T = unknown> {
   confidence: number;
   reasoning?: string;
   status: AISuggestionStatus;
-  created_at: ISO8601;
+  createdAt: ISO8601;
 }
 
 export interface AIClassificationSuggestion {
@@ -977,17 +650,6 @@ export interface AIETASuggestion {
   };
 }
 
-/** Result of classifying raw text (title + description) before a ticket exists */
-export interface AITextClassificationResult {
-  category: TicketCategory;
-  priority: TicketPriority;
-  categoryConfidence: number;
-  priorityConfidence: number;
-  categoryReasoning: string;
-  priorityReasoning: string;
-  priorityFactors: string[];
-}
-
 export interface AISearchResult {
   query: string;
   results: Array<{
@@ -1011,7 +673,7 @@ export interface AuditLogEntry {
   changes?: Record<string, { from: unknown; to: unknown }>;
   metadata?: Record<string, unknown>;
   ipAddress?: string;
-  created_at: ISO8601;
+  createdAt: ISO8601;
 }
 
 // ── Realtime Types ──────────────────────────────────────────────
@@ -1044,188 +706,11 @@ export interface RoutingRule {
   assignTo: UUID;
   priority: number;
   isActive: boolean;
-  created_at: ISO8601;
+  createdAt: ISO8601;
 }
 
 export interface RoutingCondition {
   field: string;
   operator: 'equals' | 'contains' | 'in' | 'not_in';
   value: string | string[];
-}
-
-// ── AI Digest Types (client dashboard) ─────────────────────────
-export interface AIDigestAtRiskTicket {
-  ticketId: string;
-  ticketNumber: string;
-  title: string;
-  reason: string;
-  urgency: 'high' | 'medium';
-  deadlineAt?: ISO8601;
-}
-
-export interface AIDigestPattern {
-  label: string;
-  ticketCount: number;
-  tags: string[];
-  suggestion: string;
-}
-
-export interface AIDigestResponseGap {
-  ticketId: string;
-  ticketNumber: string;
-  title: string;
-  waitingDays: number;
-  waitingFor: 'client' | 'agent';
-}
-
-export interface AIDigest {
-  generatedAt: ISO8601;
-  needsAttentionCount: number;
-  needsAttentionSummary: string;
-  atRiskTickets: AIDigestAtRiskTicket[];
-  patterns: AIDigestPattern[];
-  responseGaps: AIDigestResponseGap[];
-  digestSummary: string;
-}
-
-// ── AI Knowledge Base Types ─────────────────────────────────────
-
-/** Suggested KB articles relevant to a ticket, generated by semantic search */
-export interface AIKBSuggestion {
-  articleId: UUID;
-  title: string;
-  excerpt: string;
-  score: number;
-  reasoning: string;
-}
-
-/** AI draft generated for a KB article */
-export interface AIKBDraftResult {
-  title: string;
-  excerpt: string;
-  content: string;
-  suggestedTags: string[];
-  suggestedCategoryId?: UUID;
-}
-
-/** A KB gap identified from ticket patterns */
-export interface AIKBGap {
-  id: string;
-  topic: string;
-  description: string;
-  ticketCount: number;
-  sampleTicketIds: UUID[];
-  suggestedTitle: string;
-  priority: 'high' | 'medium' | 'low';
-}
-
-/** RAG answer grounded in KB articles */
-export interface AIKBAnswer {
-  answer: string;
-  confidence: number;
-  sourceArticleIds: UUID[];
-  followUpQuestions: string[];
-  cannotAnswer: boolean;
-}
-
-// ── AI Project Types ────────────────────────────────────────────
-
-/** Health signal for a project: Green / Amber / Red */
-export type ProjectHealthColor = 'green' | 'amber' | 'red';
-
-/** Computed health score with explanation */
-export interface ProjectHealthScore {
-  projectId: UUID;
-  color: ProjectHealthColor;
-  score: number; // 0–100
-  explanation: string; // LLM-written plain-English reasoning
-  velocityTrend: 'improving' | 'stable' | 'declining';
-  slaBreachRisk: number; // 0–1 probability
-  openBlockers: number;
-  generatedAt: ISO8601;
-}
-
-/** A semantic theme cluster found inside a project's tickets */
-export interface ProjectTicketCluster {
-  id: string;
-  label: string;
-  ticketCount: number;
-  ticketIds: UUID[];
-  topKeywords: string[];
-  sentiment: 'positive' | 'neutral' | 'negative';
-}
-
-/** Scope-drift flag: ticket semantically outside declared project scope */
-export interface ProjectScopeDrift {
-  ticketId: UUID;
-  ticketTitle: string;
-  similarity: number; // 0–1 cosine vs. scope statement
-  flagged: boolean;
-  reasoning: string;
-}
-
-/** Churn risk for a client engagement */
-export interface ProjectChurnRisk {
-  projectId: UUID;
-  score: number; // 0–1
-  level: 'low' | 'medium' | 'high';
-  signals: string[]; // e.g. "Client response time increasing", "3 escalations in 7 days"
-  recommendation: string;
-}
-
-/** AI-generated weekly status report */
-export interface ProjectStatusReport {
-  projectId: UUID;
-  period: string; // e.g. "Apr 10 – Apr 17, 2026"
-  summary: string;
-  resolvedThisWeek: number;
-  openCount: number;
-  blockers: string[];
-  nextSteps: string[];
-  onTrack: boolean;
-  milestoneConfidence: string; // e.g. "85% confident milestone will be hit by Apr 25"
-  generatedAt: ISO8601;
-}
-
-/** Client-facing Q&A answer grounded in project history */
-export interface ProjectQAAnswer {
-  answer: string;
-  confidence: number;
-  sourceTicketIds: UUID[];
-  cannotAnswer: boolean;
-}
-
-/** Recommended next action for an agent on a project */
-export interface ProjectNextBestAction {
-  projectId: UUID;
-  action: string; // e.g. "Send interim status update to client"
-  reason: string;
-  urgency: 'high' | 'medium' | 'low';
-  draftMessage?: string;
-}
-
-/** Knowledge extraction result from a closed project */
-export interface ProjectKnowledgeEntry {
-  id: string;
-  projectId: UUID;
-  projectName: string;
-  summary: string;
-  problemStatement: string;
-  resolutionApproach: string;
-  blockersSeen: string[];
-  recommendations: string[];
-  created_at: ISO8601;
-}
-
-/** Milestone delivery prediction */
-export interface ProjectMilestonePrediction {
-  milestoneId: UUID;
-  milestoneName: string;
-  scheduledDate: ISO8601;
-  predictedDate: ISO8601;
-  onTrack: boolean;
-  confidenceLow: ISO8601;
-  confidenceHigh: ISO8601;
-  blockingTicketIds: UUID[];
-  reasoning: string;
 }

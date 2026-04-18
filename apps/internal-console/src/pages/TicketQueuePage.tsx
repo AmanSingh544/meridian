@@ -19,7 +19,7 @@ export const TicketQueuePage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
-  const [sortBy, setSortBy] = useState('updated_at');
+  const [sortBy, setSortBy] = useState('updatedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
 
@@ -109,10 +109,10 @@ export const TicketQueuePage: React.FC = () => {
       ),
     },
     {
-      key: 'updated_at', header: 'Updated', width: '6rem', sortable: true,
+      key: 'updatedAt', header: 'Updated', width: '6rem', sortable: true,
       render: (t: Ticket) => (
         <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-          {formatRelativeTime(t.updated_at)}
+          {formatRelativeTime(t.updatedAt)}
         </span>
       ),
     },
