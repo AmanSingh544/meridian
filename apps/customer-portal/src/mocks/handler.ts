@@ -77,6 +77,8 @@ const CLIENT_ADMIN_PERMISSIONS: Permission[] = [
   Permission.PROJECT_VIEW,
   Permission.AI_DIGEST,
   Permission.AI_KB_SUGGEST,
+  Permission.ROADMAP_VOTE,
+  Permission.ROADMAP_REQUEST,
 ];
 
 const CLIENT_USER_PERMISSIONS: Permission[] = [
@@ -90,6 +92,7 @@ const CLIENT_USER_PERMISSIONS: Permission[] = [
   Permission.SLA_VIEW,
   Permission.AI_DIGEST,
   Permission.AI_KB_SUGGEST,
+  Permission.ROADMAP_VOTE,
 ];
 
 // ── Active persona switch ─────────────────────────────────────────────────────
@@ -1614,6 +1617,166 @@ const routes: Array<{ test: (path: string, method: string) => boolean; handle: R
       };
     },
   },
+
+  // ── Roadmap ───────────────────────────────────────────────────────────────
+  // GET /roadmap
+  {
+    test: (p: string, m: string) => m === 'GET' && p.endsWith('/roadmap'),
+    handle: () => {
+      const features = [
+        { id: 'DF-001', title: 'SLA Breach Alerts', description: 'Real-time notifications when tickets approach or breach SLA thresholds.', status: 'RELEASED', upvotes: 34, quarter: 'Q1 2026', isPublic: true, category: 'Notifications', hasVoted: false, eta: '2026-02-28T00:00:00Z', assignee: 'Priya Sharma', assigneeId: 'USR-002', requestedByOrgIds: ['ORG-001', 'ORG-003'], created_at: '2025-11-01T00:00:00Z', updated_at: '2026-02-28T00:00:00Z' },
+        { id: 'DF-002', title: 'AI Ticket Suggestions', description: 'AI-powered reply suggestions, auto-classification, and routing in the ticket workspace.', status: 'RELEASED', upvotes: 52, quarter: 'Q1 2026', isPublic: true, category: 'AI', hasVoted: false, eta: '2026-03-15T00:00:00Z', assignee: 'James Okafor', assigneeId: 'USR-003', requestedByOrgIds: ['ORG-001', 'ORG-002', 'ORG-004'], created_at: '2025-10-15T00:00:00Z', updated_at: '2026-03-15T00:00:00Z' },
+        { id: 'DF-003', title: 'Client Roadmap View', description: 'Public-facing product roadmap for client portal users to see upcoming features and vote.', status: 'IN_STAGING', upvotes: 41, quarter: 'Q2 2026', isPublic: true, category: 'Portal', hasVoted: false, eta: '2026-04-30T00:00:00Z', assignee: 'Priya Sharma', assigneeId: 'USR-002', requestedByOrgIds: ['ORG-002', 'ORG-003'], created_at: '2026-01-10T00:00:00Z', updated_at: '2026-04-10T00:00:00Z' },
+        { id: 'DF-004', title: 'Onboarding Tracker', description: 'Phase-by-phase onboarding tracker visible to both internal team and client admin.', status: 'IN_QA', upvotes: 28, quarter: 'Q2 2026', isPublic: true, category: 'Onboarding', hasVoted: false, eta: '2026-04-25T00:00:00Z', assignee: 'Alex Morgan', assigneeId: 'USR-001', requestedByOrgIds: ['ORG-001'], created_at: '2026-01-20T00:00:00Z', updated_at: '2026-04-12T00:00:00Z' },
+        { id: 'DF-006', title: 'Advanced Analytics Dashboard', description: 'Expanded analytics with trend charts, agent performance tables, SLA heatmaps, and exportable reports.', status: 'IN_DEV', upvotes: 37, quarter: 'Q2 2026', isPublic: true, category: 'Analytics', hasVoted: false, eta: '2026-05-20T00:00:00Z', assignee: 'Priya Sharma', assigneeId: 'USR-002', requestedByOrgIds: ['ORG-002', 'ORG-004'], created_at: '2026-01-05T00:00:00Z', updated_at: '2026-04-14T00:00:00Z' },
+        { id: 'DF-007', title: 'Custom Branding Themes', description: 'Allow client admins to set their organisation logo, accent colour, and email template styles.', status: 'PLANNED', upvotes: 22, quarter: 'Q2 2026', isPublic: true, category: 'Portal', hasVoted: false, eta: '2026-06-15T00:00:00Z', assignee: 'Alex Morgan', assigneeId: 'USR-001', requestedByOrgIds: ['ORG-003'], created_at: '2026-02-15T00:00:00Z', updated_at: '2026-03-20T00:00:00Z' },
+        { id: 'DF-008', title: 'Two-Factor Authentication', description: 'TOTP-based 2FA for all users. Optional enforcement per organisation via workspace settings.', status: 'PLANNED', upvotes: 45, quarter: 'Q2 2026', isPublic: true, category: 'Security', hasVoted: true, eta: '2026-06-30T00:00:00Z', assignee: 'James Okafor', assigneeId: 'USR-003', requestedByOrgIds: ['ORG-001', 'ORG-002', 'ORG-003', 'ORG-004'], created_at: '2026-01-28T00:00:00Z', updated_at: '2026-03-10T00:00:00Z' },
+        { id: 'DF-009', title: 'Bulk Ticket Actions', description: 'Select multiple tickets and apply bulk status changes, reassignments, or priority updates.', status: 'BACKLOG', upvotes: 18, quarter: 'Q3 2026', isPublic: true, category: 'Tickets', hasVoted: false, eta: undefined, assignee: undefined, assigneeId: undefined, requestedByOrgIds: ['ORG-002'], created_at: '2026-03-01T00:00:00Z', updated_at: '2026-03-01T00:00:00Z' },
+        { id: 'DF-010', title: 'Webhook Integrations', description: 'Outbound webhooks on ticket lifecycle events to integrate with Jira, Slack, or custom pipelines.', status: 'BACKLOG', upvotes: 31, quarter: 'Q3 2026', isPublic: true, category: 'Integrations', hasVoted: false, eta: undefined, assignee: undefined, assigneeId: undefined, requestedByOrgIds: ['ORG-001', 'ORG-004'], created_at: '2026-02-20T00:00:00Z', updated_at: '2026-02-20T00:00:00Z' },
+        { id: 'DF-011', title: 'AI Knowledge Base Auto-Draft', description: 'After a ticket is resolved, AI drafts a KB article from the conversation thread.', status: 'BACKLOG', upvotes: 26, quarter: 'Q3 2026', isPublic: true, category: 'AI', hasVoted: false, eta: undefined, assignee: undefined, assigneeId: undefined, requestedByOrgIds: ['ORG-003'], created_at: '2026-03-10T00:00:00Z', updated_at: '2026-03-10T00:00:00Z' },
+        { id: 'DF-012', title: 'Mobile App (iOS & Android)', description: 'Native mobile apps for client portal users to submit tickets, view updates, and receive push notifications.', status: 'BACKLOG', upvotes: 63, quarter: 'Q4 2026', isPublic: true, category: 'Mobile', hasVoted: false, eta: undefined, assignee: undefined, assigneeId: undefined, requestedByOrgIds: ['ORG-001', 'ORG-002', 'ORG-003', 'ORG-004'], created_at: '2026-01-15T00:00:00Z', updated_at: '2026-01-15T00:00:00Z' },
+      ];
+      return { data: features };
+    },
+  },
+  // POST /roadmap/features/:id/vote
+  {
+    test: (p: string, m: string) => m === 'POST' && /\/roadmap\/features\/[^/]+\/vote$/.test(p),
+    handle: (url: string) => {
+      const id = url.split('/roadmap/features/')[1]?.split('/vote')[0];
+      return { data: { featureId: id, upvotes: Math.floor(Math.random() * 10) + 20, hasVoted: true } };
+    },
+  },
+  // DELETE /roadmap/features/:id/vote
+  {
+    test: (p: string, m: string) => m === 'DELETE' && /\/roadmap\/features\/[^/]+\/vote$/.test(p),
+    handle: (url: string) => {
+      const id = url.split('/roadmap/features/')[1]?.split('/vote')[0];
+      return { data: { featureId: id, upvotes: Math.floor(Math.random() * 10) + 15, hasVoted: false } };
+    },
+  },
+  // POST /roadmap/requests
+  {
+    test: (p: string, m: string) => m === 'POST' && p.endsWith('/roadmap/requests'),
+    handle: (_url: string, _method: string, body: unknown) => {
+      const payload = body as Record<string, unknown> ?? {};
+      return {
+        data: {
+          id: 'FR-' + Date.now(),
+          title: payload.title ?? 'New Feature Request',
+          description: payload.description ?? '',
+          submittedByUserId: 'CUST-001',
+          submittedByOrgId: 'ORG-002',
+          submittedByOrgName: 'Acme Corp',
+          status: 'SUBMITTED',
+          linkedFeatureId: undefined,
+          created_at: new Date().toISOString(),
+        },
+      };
+    },
+  },
+
+  // ── Onboarding (client) ───────────────────────────────────────────────────
+  // GET /onboarding/my
+  {
+    test: (p: string, m: string) => m === 'GET' && p.endsWith('/onboarding/my'),
+    handle: () => {
+      return {
+        data: {
+          id: 'ONB-001',
+          organizationId: 'ORG-002',
+          organizationName: 'Acme Corp',
+          leadAgentId: 'USR-002',
+          leadAgentName: 'Priya Sharma',
+          status: 'IN_PROGRESS',
+          health: 'ON_TRACK',
+          overallProgress: 57,
+          goLiveDate: '2026-05-30T00:00:00Z',
+          blockerCount: 0,
+          phases: [
+            {
+              id: 'PH-001', phaseNumber: 1, name: 'Kickoff & Setup', progress: 100, status: 'COMPLETED',
+              tasks: [
+                { id: 'TSK-001', title: 'Kick-off call completed', description: 'Initial discovery call with key stakeholders.', owner: 'DELIVERY', dueDate: '2026-03-10T00:00:00Z', status: 'DONE', completedAt: '2026-03-10T00:00:00Z' },
+                { id: 'TSK-002', title: 'Environment provisioned', description: 'Sandbox and production environments created and credentials shared.', owner: 'DELIVERY', dueDate: '2026-03-14T00:00:00Z', status: 'DONE', completedAt: '2026-03-13T00:00:00Z' },
+                { id: 'TSK-003', title: 'SSO configuration', description: 'SAML SSO integrated with your identity provider.', owner: 'CLIENT', dueDate: '2026-03-18T00:00:00Z', status: 'DONE', completedAt: '2026-03-17T00:00:00Z' },
+              ],
+            },
+            {
+              id: 'PH-002', phaseNumber: 2, name: 'Data Migration', progress: 25, status: 'IN_PROGRESS',
+              tasks: [
+                { id: 'TSK-004', title: 'Legacy ticket export', description: 'Export all historical tickets from your previous system.', owner: 'CLIENT', dueDate: '2026-04-05T00:00:00Z', status: 'DONE', completedAt: '2026-04-04T00:00:00Z' },
+                { id: 'TSK-005', title: 'Data mapping & transformation', description: 'Our team is mapping your legacy fields to the Meridian schema.', owner: 'DELIVERY', dueDate: '2026-04-20T00:00:00Z', status: 'IN_PROGRESS', completedAt: undefined },
+                { id: 'TSK-006', title: 'Dry-run import', description: 'Import to sandbox environment for your review.', owner: 'DELIVERY', dueDate: '2026-04-28T00:00:00Z', status: 'PENDING', completedAt: undefined },
+                { id: 'TSK-007', title: 'Confirm migrated data', description: 'Review sample records and confirm accuracy.', owner: 'CLIENT', dueDate: '2026-05-02T00:00:00Z', status: 'PENDING', completedAt: undefined },
+              ],
+            },
+            {
+              id: 'PH-003', phaseNumber: 3, name: 'UAT & Training', progress: 0, status: 'PENDING',
+              tasks: [
+                { id: 'TSK-008', title: 'UAT test plan review', description: 'Review and approve UAT scenarios covering your core workflows.', owner: 'CLIENT', dueDate: '2026-05-05T00:00:00Z', status: 'PENDING', completedAt: undefined },
+                { id: 'TSK-009', title: 'Training session - admin users', description: 'Live walkthrough for your admin users.', owner: 'DELIVERY', dueDate: '2026-05-12T00:00:00Z', status: 'PENDING', completedAt: undefined },
+                { id: 'TSK-010', title: 'Training session - end users', description: 'Self-paced video and live Q&A for your team.', owner: 'DELIVERY', dueDate: '2026-05-16T00:00:00Z', status: 'PENDING', completedAt: undefined },
+              ],
+            },
+            {
+              id: 'PH-004', phaseNumber: 4, name: 'Go-Live', progress: 0, status: 'PENDING',
+              tasks: [
+                { id: 'TSK-011', title: 'Final production import', description: 'Full data migration to your production environment.', owner: 'DELIVERY', dueDate: '2026-05-26T00:00:00Z', status: 'PENDING', completedAt: undefined },
+                { id: 'TSK-012', title: 'DNS cutover', description: 'Update your DNS records to point to the Meridian portal.', owner: 'CLIENT', dueDate: '2026-05-28T00:00:00Z', status: 'PENDING', completedAt: undefined },
+                { id: 'TSK-013', title: 'Go-live sign-off', description: 'Formal sign-off and hypercare period begins.', owner: 'CLIENT', dueDate: '2026-05-30T00:00:00Z', status: 'PENDING', completedAt: undefined },
+              ],
+            },
+          ],
+          created_at: '2026-03-01T00:00:00Z',
+          updated_at: '2026-04-15T00:00:00Z',
+        },
+      };
+    },
+  },
+  // PATCH /onboarding/:id/tasks/:taskId
+  {
+    test: (p: string, m: string) => m === 'PATCH' && /\/onboarding\/[^/]+\/tasks\/[^/]+$/.test(p),
+    handle: (_url: string, _method: string, body: unknown) => {
+      return { data: { success: true, ...(body as object ?? {}) } };
+    },
+  },
+
+  // ── AI — Roadmap ──────────────────────────────────────────────────────────
+  // GET /ai/roadmap/summary
+  {
+    test: (p: string, m: string) => m === 'GET' && p.endsWith('/ai/roadmap/summary'),
+    handle: () => ({
+      data: {
+        headline: 'Based on your organisation\'s ticket history, Two-Factor Authentication and Webhook Integrations are the features most likely to reduce your team\'s workload this quarter.',
+        topRelevantFeatureIds: ['DF-008', 'DF-010', 'DF-006'],
+        reasoning: 'Your team has raised 14 tickets related to access management this year, and your organisation is one of 4 that has upvoted 2FA. Webhook Integrations would eliminate the manual Jira sync your team does for escalations.',
+      },
+    }),
+  },
+  // POST /ai/roadmap/classify-request
+  {
+    test: (p: string, m: string) => m === 'POST' && p.endsWith('/ai/roadmap/classify-request'),
+    handle: (_url: string, _method: string, body: unknown) => {
+      const payload = body as Record<string, unknown> ?? {};
+      const title = String(payload.title ?? '').toLowerCase();
+      const isDuplicate = title.includes('2fa') || title.includes('auth') || title.includes('two-factor') || title.includes('two factor');
+      return {
+        data: {
+          isDuplicate,
+          similarFeatureId: isDuplicate ? 'DF-008' : undefined,
+          similarFeatureTitle: isDuplicate ? 'Two-Factor Authentication' : undefined,
+          similarityScore: isDuplicate ? 0.91 : 0.12,
+          suggestedQuarter: 'Q3 2026',
+          category: 'Security',
+          recommendation: isDuplicate
+            ? 'This request is very similar to an existing planned feature. Consider upvoting that instead.'
+            : 'This looks like a new request. We will review and add it to our backlog.',
+        },
+      };
+    },
+  },
+
 ];
 
 // ── Mock fetch installer ──────────────────────────────────────────────────────

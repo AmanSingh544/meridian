@@ -132,6 +132,13 @@ export enum UserRole {
  * │ BRANDING_CONFIGURE      │      ✓       │             │       │      │   ✓   │
  * │ SYSTEM_CONFIGURE        │              │             │       │      │   ✓   │
  * │ COMPLIANCE_VIEW         │              │             │       │      │   ✓   │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ DELIVERY_VIEW           │              │             │       │  ✓   │   ✓   │
+ * │ DELIVERY_MANAGE         │              │             │       │      │   ✓   │
+ * │ ONBOARDING_VIEW         │              │             │       │  ✓   │   ✓   │
+ * │ ONBOARDING_MANAGE       │              │             │       │  ✓   │   ✓   │
+ * │ ROADMAP_VOTE            │      ✓       │      ✓      │       │      │       │
+ * │ ROADMAP_REQUEST         │      ✓       │             │       │      │       │
  * └─────────────────────────┴──────────────┴─────────────┴───────┴──────┴───────┘
  */
 export enum Permission {
@@ -263,6 +270,24 @@ export enum Permission {
    * requests, SLA compliance reports, and audit data export. ADMIN only.
    */
   COMPLIANCE_VIEW = 'COMPLIANCE_VIEW',
+
+  // ── Delivery Board ────────────────────────────────────────────────────────
+  /** View the internal product delivery board (features pipeline). LEAD + ADMIN. */
+  DELIVERY_VIEW = 'DELIVERY_VIEW',
+  /** Create, edit, move, and delete features on the delivery board. ADMIN only. */
+  DELIVERY_MANAGE = 'DELIVERY_MANAGE',
+
+  // ── Onboarding ────────────────────────────────────────────────────────────
+  /** View all client onboarding projects and task progress. LEAD + ADMIN. */
+  ONBOARDING_VIEW = 'ONBOARDING_VIEW',
+  /** Update onboarding task statuses and manage blockers. LEAD + ADMIN. */
+  ONBOARDING_MANAGE = 'ONBOARDING_MANAGE',
+
+  // ── Roadmap (client-facing) ───────────────────────────────────────────────
+  /** Vote on public roadmap features. CLIENT_ADMIN + CLIENT_USER. */
+  ROADMAP_VOTE = 'ROADMAP_VOTE',
+  /** Submit new feature requests from the roadmap page. CLIENT_ADMIN only. */
+  ROADMAP_REQUEST = 'ROADMAP_REQUEST',
 }
 
 export interface User {
@@ -1227,5 +1252,181 @@ export interface ProjectMilestonePrediction {
   confidenceLow: ISO8601;
   confidenceHigh: ISO8601;
   blockingTicketIds: UUID[];
+  reasoning: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// DELIVERY BOARD TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type DeliveryStatus =
+  | 'BACKLOG'
+  | 'PLANNED'
+  | 'IN_DEV'
+  | 'IN_QA'
+  | 'IN_STAGING'
+  | 'RELEASED';
+
+export interface DeliveryFeature {
+  id: string;                         // 'FEAT-001'
+  title: string;
+  description: string;
+  status: DeliveryStatus;
+  assignee?: string;                  // display name
+  assigneeId?: string;
+  eta?: ISO8601;
+  upvotes: number;                    // aggregated from client votes
+  quarter?: string;                   // 'Q2 2026' — for roadmap grouping
+  isPublic: boolean;                  // true = visible in client roadmap
+  category?: string;                  // 'AI', 'Performance', 'UX', etc.
+  requestedByOrgIds?: string[];       // which orgs requested/voted
+  hasVoted?: boolean;                 // client-side: current user voted?
+  created_at: ISO8601;
+  updated_at: ISO8601;
+}
+
+export interface DeliveryFeatureCreatePayload {
+  title: string;
+  description: string;
+  status?: DeliveryStatus;
+  assigneeId?: string;
+  eta?: ISO8601;
+  quarter?: string;
+  isPublic?: boolean;
+  category?: string;
+}
+
+export interface DeliveryFeatureMovePayload {
+  status: DeliveryStatus;
+}
+
+// AI — Delivery Board
+export interface DeliveryRiskItem {
+  featureId: string;
+  featureTitle: string;
+  riskLevel: 'HIGH' | 'MEDIUM' | 'LOW';
+  reason: string;
+  daysUntilEta?: number;
+  recommendation: string;
+}
+
+export interface DeliveryPrioritisedFeature {
+  featureId: string;
+  featureTitle: string;
+  suggestedStatus: DeliveryStatus;
+  score: number;           // 0–100
+  reasoning: string;
+}
+
+export interface DeliveryFeatureDraft {
+  description: string;
+  suggestedQuarter: string;
+  suggestedCategory: string;
+  suggestedAssigneeRole: string;
+}
+
+export interface FeatureRequest {
+  id: string;
+  title: string;
+  description: string;
+  submittedByUserId: string;
+  submittedByOrgId: string;
+  submittedByOrgName: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'MERGED';
+  linkedFeatureId?: string;    // if merged into existing feature
+  created_at: ISO8601;
+}
+
+export interface FeatureRequestClassification {
+  isDuplicate: boolean;
+  similarFeatureId?: string;
+  similarFeatureTitle?: string;
+  similarityScore?: number;
+  suggestedQuarter?: string;
+  category: string;
+  recommendation: string;       // human-readable guidance
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ONBOARDING TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export type OnboardingHealth = 'ON_TRACK' | 'AT_RISK' | 'BLOCKED';
+export type OnboardingStatus = 'IN_PROGRESS' | 'COMPLETED' | 'ON_HOLD' | 'CANCELLED';
+export type OnboardingTaskStatus = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED';
+export type OnboardingTaskOwner = 'CLIENT' | 'DELIVERY';
+export type OnboardingPhaseStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+
+export interface OnboardingTask {
+  id: string;
+  title: string;
+  description: string;
+  owner: OnboardingTaskOwner;
+  dueDate: ISO8601;
+  status: OnboardingTaskStatus;
+  completedAt?: ISO8601;
+}
+
+export interface OnboardingPhase {
+  id: string;
+  phaseNumber: number;
+  name: string;
+  progress: number;             // 0–100
+  status: OnboardingPhaseStatus;
+  tasks: OnboardingTask[];
+}
+
+export interface OnboardingProject {
+  id: string;                   // 'ONB-001'
+  organizationId: string;
+  organizationName: string;
+  leadAgentId: string;
+  leadAgentName: string;
+  status: OnboardingStatus;
+  health: OnboardingHealth;
+  overallProgress: number;      // 0–100
+  goLiveDate: ISO8601;
+  blockerCount: number;
+  phases: OnboardingPhase[];
+  created_at: ISO8601;
+  updated_at: ISO8601;
+}
+
+export interface OnboardingTaskUpdatePayload {
+  status: OnboardingTaskStatus;
+}
+
+// AI — Onboarding
+export interface OnboardingHealthPrediction {
+  onboardingId: string;
+  health: OnboardingHealth;
+  confidence: number;           // 0–1
+  reason: string;
+  predictedGoLive: ISO8601;
+  daysVariance: number;         // positive = late, negative = early
+}
+
+export interface OnboardingBlockerSummary {
+  onboardingId: string;
+  summary: string;              // one-line plain English
+  blockerCount: number;
+  mostUrgent?: string;
+}
+
+export interface OnboardingNextAction {
+  onboardingId: string;
+  action: string;
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  ownedBy: OnboardingTaskOwner;
+  draftMessage?: string;
+}
+
+// ═══════════════════════════════════════════════════════════════════════════
+// ROADMAP AI TYPES
+// ═══════════════════════════════════════════════════════════════════════════
+
+export interface RoadmapPersonalisedSummary {
+  headline: string;
+  topRelevantFeatureIds: string[];
   reasoning: string;
 }

@@ -73,6 +73,22 @@ import type {
   LoginCredentials,
   UserRole,
   InviteUserPayload,
+  DeliveryFeature,
+  DeliveryFeatureCreatePayload,
+  DeliveryRiskItem,
+  DeliveryPrioritisedFeature,
+  DeliveryFeatureDraft,
+  OnboardingProject,
+  OnboardingTaskUpdatePayload,
+  OnboardingHealthPrediction,
+  OnboardingBlockerSummary,
+  OnboardingNextAction,
+  FeatureRequest,
+  FeatureRequestClassification,
+  RoadmapPersonalisedSummary,
+  EscalatedTicket,
+  EscalationAssignPayload,
+  EscalationResolvePayload,
 } from '@3sc/types';
 
 // ── Raw API shapes (snake_case from backend) ────────────────────
@@ -177,7 +193,7 @@ export const api = createApi({
     'Project', 'Milestone', 'KBArticle', 'KBCategory',
     'Notification', 'User', 'Organization', 'AuditLog',
     'Analytics', 'Dashboard', 'RoutingRule', 'AI',
-    'Session', 'UserPreferences',
+    'Session', 'UserPreferences', 'Delivery', 'Onboarding', 'Roadmap', 'Escalations',
   ],
   endpoints: (builder) => ({
     // ── Auth ────────────────────────────────────────────────
@@ -747,6 +763,139 @@ export const api = createApi({
       }),
       transformResponse: (response: ApiResponse<AIKBAnswer>) => response.data,
     }),
+
+    // ── Delivery Board ──────────────────────────────────────────
+    getDeliveryFeatures: builder.query<DeliveryFeature[], void>({
+      query: () => '/delivery/features',
+      transformResponse: (response: ApiResponse<DeliveryFeature[]>) => response.data,
+      providesTags: ['Delivery'],
+    }),
+    createDeliveryFeature: builder.mutation<DeliveryFeature, DeliveryFeatureCreatePayload>({
+      query: (body) => ({ url: '/delivery/features', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<DeliveryFeature>) => response.data,
+      invalidatesTags: ['Delivery'],
+    }),
+    updateDeliveryFeature: builder.mutation<DeliveryFeature, { id: string; data: Partial<DeliveryFeature> }>({
+      query: ({ id, data }) => ({ url: `/delivery/features/${id}`, method: 'PATCH', body: data }),
+      transformResponse: (response: ApiResponse<DeliveryFeature>) => response.data,
+      invalidatesTags: ['Delivery'],
+    }),
+    deleteDeliveryFeature: builder.mutation<void, string>({
+      query: (id) => ({ url: `/delivery/features/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Delivery'],
+    }),
+
+    // ── Onboarding (internal) ───────────────────────────────────
+    getOnboardingProjects: builder.query<OnboardingProject[], void>({
+      query: () => '/onboarding',
+      transformResponse: (response: ApiResponse<OnboardingProject[]>) => response.data,
+      providesTags: ['Onboarding'],
+    }),
+    getOnboardingProject: builder.query<OnboardingProject, string>({
+      query: (id) => `/onboarding/${id}`,
+      transformResponse: (response: ApiResponse<OnboardingProject>) => response.data,
+      providesTags: ['Onboarding'],
+    }),
+    updateOnboardingTask: builder.mutation<OnboardingProject, { onboardingId: string; taskId: string; data: OnboardingTaskUpdatePayload }>({
+      query: ({ onboardingId, taskId, data }) => ({
+        url: `/onboarding/${onboardingId}/tasks/${taskId}`,
+        method: 'PATCH',
+        body: data,
+      }),
+      transformResponse: (response: ApiResponse<OnboardingProject>) => response.data,
+      invalidatesTags: ['Onboarding'],
+    }),
+
+    // ── Onboarding (client) ─────────────────────────────────────
+    getMyOnboarding: builder.query<OnboardingProject, void>({
+      query: () => '/onboarding/my',
+      transformResponse: (response: ApiResponse<OnboardingProject>) => response.data,
+      providesTags: ['Onboarding'],
+    }),
+
+    // ── Roadmap ─────────────────────────────────────────────────
+    getRoadmapFeatures: builder.query<DeliveryFeature[], void>({
+      query: () => '/roadmap',
+      transformResponse: (response: ApiResponse<DeliveryFeature[]>) => response.data,
+      providesTags: ['Roadmap'],
+    }),
+    voteRoadmapFeature: builder.mutation<{ featureId: string; upvotes: number; hasVoted: boolean }, string>({
+      query: (id) => ({ url: `/roadmap/features/${id}/vote`, method: 'POST' }),
+      transformResponse: (response: ApiResponse<{ featureId: string; upvotes: number; hasVoted: boolean }>) => response.data,
+      invalidatesTags: ['Roadmap'],
+    }),
+    unvoteRoadmapFeature: builder.mutation<{ featureId: string; upvotes: number; hasVoted: boolean }, string>({
+      query: (id) => ({ url: `/roadmap/features/${id}/vote`, method: 'DELETE' }),
+      transformResponse: (response: ApiResponse<{ featureId: string; upvotes: number; hasVoted: boolean }>) => response.data,
+      invalidatesTags: ['Roadmap'],
+    }),
+    submitFeatureRequest: builder.mutation<FeatureRequest, { title: string; description: string }>({
+      query: (body) => ({ url: '/roadmap/requests', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<FeatureRequest>) => response.data,
+    }),
+
+    // ── AI — Delivery ───────────────────────────────────────────
+    getDeliveryRisk: builder.query<DeliveryRiskItem[], void>({
+      query: () => '/ai/delivery/risk',
+      transformResponse: (response: ApiResponse<DeliveryRiskItem[]>) => response.data,
+      providesTags: ['AI'],
+    }),
+    prioritiseDelivery: builder.mutation<DeliveryPrioritisedFeature[], void>({
+      query: () => ({ url: '/ai/delivery/prioritise', method: 'POST' }),
+      transformResponse: (response: ApiResponse<DeliveryPrioritisedFeature[]>) => response.data,
+    }),
+    draftDeliveryFeature: builder.mutation<DeliveryFeatureDraft, { description: string }>({
+      query: (body) => ({ url: '/ai/delivery/draft-feature', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<DeliveryFeatureDraft>) => response.data,
+    }),
+
+    // ── AI — Onboarding ─────────────────────────────────────────
+    getOnboardingHealth: builder.query<OnboardingHealthPrediction, string>({
+      query: (id) => `/ai/onboarding/${id}/health`,
+      transformResponse: (response: ApiResponse<OnboardingHealthPrediction>) => response.data,
+      providesTags: ['AI'],
+    }),
+    getOnboardingBlockerSummary: builder.mutation<OnboardingBlockerSummary, string>({
+      query: (id) => ({ url: `/ai/onboarding/${id}/blocker-summary`, method: 'POST' }),
+      transformResponse: (response: ApiResponse<OnboardingBlockerSummary>) => response.data,
+    }),
+    getOnboardingNextAction: builder.query<OnboardingNextAction, string>({
+      query: (id) => `/ai/onboarding/${id}/next-action`,
+      transformResponse: (response: ApiResponse<OnboardingNextAction>) => response.data,
+      providesTags: ['AI'],
+    }),
+
+    // ── AI — Roadmap ────────────────────────────────────────────
+    getRoadmapSummary: builder.query<RoadmapPersonalisedSummary, void>({
+      query: () => '/ai/roadmap/summary',
+      transformResponse: (response: ApiResponse<RoadmapPersonalisedSummary>) => response.data,
+      providesTags: ['AI'],
+    }),
+    classifyFeatureRequest: builder.mutation<FeatureRequestClassification, { title: string; description: string }>({
+      query: (body) => ({ url: '/ai/roadmap/classify-request', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<FeatureRequestClassification>) => response.data,
+    }),
+
+    // ── Escalations ─────────────────────────────────────────────
+    getEscalations: builder.query<EscalatedTicket[], void>({
+      query: () => '/escalations',
+      transformResponse: (response: ApiResponse<EscalatedTicket[]>) => response.data,
+      providesTags: ['Escalations'],
+    }),
+    getEscalationAgents: builder.query<{ id: string; displayName: string; currentLoad: number }[], void>({
+      query: () => '/escalations/agents',
+      transformResponse: (response: ApiResponse<{ id: string; displayName: string; currentLoad: number }[]>) => response.data,
+    }),
+    assignEscalation: builder.mutation<{ success: boolean; assigneeName: string | null }, EscalationAssignPayload>({
+      query: ({ ticketId, agentId }) => ({ url: `/escalations/${ticketId}/assign`, method: 'PATCH', body: { agentId } }),
+      transformResponse: (response: ApiResponse<{ success: boolean; assigneeName: string | null }>) => response.data,
+      invalidatesTags: ['Escalations'],
+    }),
+    resolveEscalation: builder.mutation<{ success: boolean }, EscalationResolvePayload>({
+      query: ({ ticketId, resolution }) => ({ url: `/escalations/${ticketId}/resolve`, method: 'PATCH', body: { resolution } }),
+      transformResponse: (response: ApiResponse<{ success: boolean }>) => response.data,
+      invalidatesTags: ['Escalations'],
+    }),
   }),
 });
 
@@ -843,4 +992,35 @@ export const {
   useGenerateKBDraftMutation,
   useGetKBGapsQuery,
   useAskKBMutation,
+  // Delivery Board
+  useGetDeliveryFeaturesQuery,
+  useCreateDeliveryFeatureMutation,
+  useUpdateDeliveryFeatureMutation,
+  useDeleteDeliveryFeatureMutation,
+  // Onboarding
+  useGetOnboardingProjectsQuery,
+  useGetOnboardingProjectQuery,
+  useUpdateOnboardingTaskMutation,
+  useGetMyOnboardingQuery,
+  // Roadmap
+  useGetRoadmapFeaturesQuery,
+  useVoteRoadmapFeatureMutation,
+  useUnvoteRoadmapFeatureMutation,
+  useSubmitFeatureRequestMutation,
+  // AI — Delivery
+  useGetDeliveryRiskQuery,
+  usePrioritiseDeliveryMutation,
+  useDraftDeliveryFeatureMutation,
+  // AI — Onboarding
+  useGetOnboardingHealthQuery,
+  useGetOnboardingBlockerSummaryMutation,
+  useGetOnboardingNextActionQuery,
+  // AI — Roadmap
+  useGetRoadmapSummaryQuery,
+  useClassifyFeatureRequestMutation,
+  // Escalations
+  useGetEscalationsQuery,
+  useGetEscalationAgentsQuery,
+  useAssignEscalationMutation,
+  useResolveEscalationMutation,
 } = api;

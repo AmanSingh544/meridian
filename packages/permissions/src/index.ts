@@ -20,6 +20,7 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.AI_DIGEST,
     Permission.AI_KB_SUGGEST,
     Permission.PROJECT_VIEW,
+    Permission.ROADMAP_VOTE,
   ],
 
   [UserRole.CLIENT_ADMIN]: [
@@ -43,6 +44,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROJECT_VIEW,
     Permission.AI_DIGEST,
     Permission.AI_KB_SUGGEST,
+    Permission.ROADMAP_VOTE,
+    Permission.ROADMAP_REQUEST,
   ],
 
   [UserRole.AGENT]: [
@@ -91,6 +94,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROJECT_VIEW,
     Permission.PROJECT_CREATE,
     Permission.PROJECT_EDIT,
+    Permission.DELIVERY_VIEW,
+    Permission.ONBOARDING_VIEW,
+    Permission.ONBOARDING_MANAGE,
   ],
 
   [UserRole.ADMIN]: [
@@ -133,6 +139,10 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROJECT_CREATE,
     Permission.PROJECT_EDIT,
     Permission.PROJECT_DELETE,
+    Permission.DELIVERY_VIEW,
+    Permission.DELIVERY_MANAGE,
+    Permission.ONBOARDING_VIEW,
+    Permission.ONBOARDING_MANAGE,
   ],
 };
 
@@ -315,6 +325,18 @@ export class PermissionChecker {
   canConfigureBranding(): boolean {
     return this.has(Permission.BRANDING_CONFIGURE);
   }
+
+  // ── Delivery Board ────────────────────────────────────────
+  canViewDelivery(): boolean { return this.has(Permission.DELIVERY_VIEW); }
+  canManageDelivery(): boolean { return this.has(Permission.DELIVERY_MANAGE); }
+
+  // ── Onboarding ────────────────────────────────────────────
+  canViewOnboarding(): boolean { return this.has(Permission.ONBOARDING_VIEW); }
+  canManageOnboarding(): boolean { return this.has(Permission.ONBOARDING_MANAGE); }
+
+  // ── Roadmap ───────────────────────────────────────────────
+  canVoteRoadmap(): boolean { return this.has(Permission.ROADMAP_VOTE); }
+  canRequestFeature(): boolean { return this.has(Permission.ROADMAP_REQUEST); }
 }
 
 // ── Factory Function ────────────────────────────────────────────

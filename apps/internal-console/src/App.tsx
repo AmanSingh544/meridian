@@ -30,6 +30,8 @@ const SLAConfigPage = lazy(() => import('./pages/SLAConfigPage').then(m => ({ de
 const SystemSettingsPage = lazy(() => import('./pages/SystemSettingsPage').then(m => ({ default: m.SystemSettingsPage })));
 const RoutingRulesPage = lazy(() => import('./pages/RoutingRulesPage').then(m => ({ default: m.RoutingRulesPage })));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage').then(m => ({ default: m.UserSettingsPage })));
+const DeliveryBoardPage = lazy(() => import('./pages/DeliveryBoardPage'));
+const OnboardingListPage = lazy(() => import('./pages/OnboardingListPage'));
 
 const PageLoader: React.FC = () => (
   <div style={{
@@ -130,6 +132,17 @@ const AppRoutes: React.FC = () => (
         <Route path="/projects/:id" element={
           <ProtectedRoute permission={Permission.PROJECT_VIEW}>
             <ProjectDetailPage />
+          </ProtectedRoute>
+        } />
+
+        <Route path="/delivery" element={
+          <ProtectedRoute permission={Permission.DELIVERY_VIEW}>
+            <DeliveryBoardPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/onboarding" element={
+          <ProtectedRoute permission={Permission.ONBOARDING_VIEW}>
+            <OnboardingListPage />
           </ProtectedRoute>
         } />
 

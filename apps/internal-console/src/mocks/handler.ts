@@ -53,6 +53,16 @@ import {
   MOCK_SEVERITY_DISTRIBUTION,
   MOCK_RESOLUTION_BY_SEVERITY,
   MOCK_USER_PREFERENCES,
+  MOCK_DELIVERY_FEATURES,
+  MOCK_ONBOARDING_PROJECTS,
+  MOCK_DELIVERY_RISKS,
+  MOCK_DELIVERY_PRIORITISED,
+  MOCK_DELIVERY_DRAFT,
+  MOCK_ONBOARDING_HEALTH,
+  MOCK_ONBOARDING_BLOCKERS,
+  MOCK_ONBOARDING_NEXT_ACTIONS,
+  MOCK_ESCALATIONS,
+  MOCK_AGENTS,
 } from './data';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -882,6 +892,169 @@ const routes: Array<{ test: (path: string, method: string) => boolean; handle: R
     test: (p, m) => m === 'POST' && p.includes('/attachments'),
     handle: () => ({ data: { id: `ATT-${Date.now()}`, url: '#' } }),
   },
+
+  // ── Delivery Board ────────────────────────────────────────────────────────
+  // GET /delivery/features
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/delivery/features'),
+    handle: () => ({ data: MOCK_DELIVERY_FEATURES }),
+  },
+  // POST /delivery/features
+  {
+    test: (p, m) => m === 'POST' && p.endsWith('/delivery/features'),
+    handle: (_url, _method, body) => {
+      const payload = body ? JSON.parse(body) : {};
+      const newFeature = {
+        id: `DF-${Date.now()}`,
+        assignee: undefined,
+        assigneeId: undefined,
+        eta: undefined,
+        upvotes: 0,
+        hasVoted: false,
+        requestedByOrgIds: [],
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+        ...payload,
+      };
+      MOCK_DELIVERY_FEATURES.push(newFeature);
+      return { data: newFeature };
+    },
+  },
+  // PATCH /delivery/features/:id
+  {
+    test: (p, m) => m === 'PATCH' && /\/delivery\/features\/[^/]+$/.test(p),
+    handle: (url, _method, body) => {
+      const id = url.split('/delivery/features/')[1]?.split('?')[0];
+      const idx = MOCK_DELIVERY_FEATURES.findIndex(f => f.id === id);
+      if (idx === -1) return jsonResponse({ error: 'Not found' }, 404);
+      const payload = body ? JSON.parse(body) : {};
+      MOCK_DELIVERY_FEATURES[idx] = { ...MOCK_DELIVERY_FEATURES[idx], ...payload, updated_at: new Date().toISOString() };
+      return { data: MOCK_DELIVERY_FEATURES[idx] };
+    },
+  },
+  // DELETE /delivery/features/:id
+  {
+    test: (p, m) => m === 'DELETE' && /\/delivery\/features\/[^/]+$/.test(p),
+    handle: (url) => {
+      const id = url.split('/delivery/features/')[1]?.split('?')[0];
+      const idx = MOCK_DELIVERY_FEATURES.findIndex(f => f.id === id);
+      if (idx !== -1) MOCK_DELIVERY_FEATURES.splice(idx, 1);
+      return { data: { success: true } };
+    },
+  },
+
+  // ── Onboarding (internal) ─────────────────────────────────────────────────
+  // GET /onboarding
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/onboarding'),
+    handle: () => ({ data: MOCK_ONBOARDING_PROJECTS }),
+  },
+  // GET /onboarding/:id
+  {
+    test: (p, m) => m === 'GET' && /\/onboarding\/[^/]+$/.test(p) && !p.includes('/tasks/') && !p.includes('/my'),
+    handle: (url) => {
+      const id = url.split('/onboarding/')[1]?.split('?')[0];
+      const project = MOCK_ONBOARDING_PROJECTS.find(o => o.id === id);
+      if (!project) return jsonResponse({ error: 'Not found' }, 404);
+      return { data: project };
+    },
+  },
+  // PATCH /onboarding/:id/tasks/:taskId
+  {
+    test: (p, m) => m === 'PATCH' && /\/onboarding\/[^/]+\/tasks\/[^/]+$/.test(p),
+    handle: (url, _method, body) => {
+      const parts = url.split('/');
+      const onbId = parts[parts.indexOf('onboarding') + 1];
+      const taskId = parts[parts.indexOf('tasks') + 1]?.split('?')[0];
+      const project = MOCK_ONBOARDING_PROJECTS.find(o => o.id === onbId);
+      if (!project) return jsonResponse({ error: 'Not found' }, 404);
+      const payload = body ? JSON.parse(body) : {};
+      for (const phase of project.phases) {
+        const task = phase.tasks.find(t => t.id === taskId);
+        if (task) {
+          Object.assign(task, payload);
+          if (payload.status === 'DONE' && !task.completedAt) {
+            task.completedAt = new Date().toISOString();
+          }
+          // recalc phase progress
+          const done = phase.tasks.filter(t => t.status === 'DONE').length;
+          phase.progress = Math.round((done / phase.tasks.length) * 100);
+          break;
+        }
+      }
+      project.updated_at = new Date().toISOString();
+      return { data: project };
+    },
+  },
+
+  // ── AI — Delivery ─────────────────────────────────────────────────────────
+  // GET /ai/delivery/risk
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/ai/delivery/risk'),
+    handle: () => ({ data: MOCK_DELIVERY_RISKS }),
+  },
+  // POST /ai/delivery/prioritise
+  {
+    test: (p, m) => m === 'POST' && p.endsWith('/ai/delivery/prioritise'),
+    handle: () => ({ data: MOCK_DELIVERY_PRIORITISED }),
+  },
+  // POST /ai/delivery/draft-feature
+  {
+    test: (p, m) => m === 'POST' && p.endsWith('/ai/delivery/draft-feature'),
+    handle: () => ({ data: MOCK_DELIVERY_DRAFT }),
+  },
+
+  // ── AI — Onboarding ───────────────────────────────────────────────────────
+  // GET /ai/onboarding/:id/health
+  {
+    test: (p, m) => m === 'GET' && /\/ai\/onboarding\/[^/]+\/health$/.test(p),
+    handle: (url) => {
+      const id = url.split('/ai/onboarding/')[1]?.split('/health')[0];
+      return { data: MOCK_ONBOARDING_HEALTH[id] ?? null };
+    },
+  },
+  // POST /ai/onboarding/:id/blocker-summary
+  {
+    test: (p, m) => m === 'POST' && /\/ai\/onboarding\/[^/]+\/blocker-summary$/.test(p),
+    handle: (url) => {
+      const id = url.split('/ai/onboarding/')[1]?.split('/blocker-summary')[0];
+      return { data: MOCK_ONBOARDING_BLOCKERS[id] ?? null };
+    },
+  },
+  // GET /ai/onboarding/:id/next-action
+  {
+    test: (p, m) => m === 'GET' && /\/ai\/onboarding\/[^/]+\/next-action$/.test(p),
+    handle: (url) => {
+      const id = url.split('/ai/onboarding/')[1]?.split('/next-action')[0];
+      return { data: MOCK_ONBOARDING_NEXT_ACTIONS[id] ?? null };
+    },
+  },
+
+  // ── Escalations ───────────────────────────────────────────────────────────
+  // GET /escalations
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/escalations'),
+    handle: () => ({ data: MOCK_ESCALATIONS }),
+  },
+  // GET /escalations/agents
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/escalations/agents'),
+    handle: () => ({ data: MOCK_AGENTS }),
+  },
+  // PATCH /escalations/:id/assign
+  {
+    test: (p, m) => m === 'PATCH' && /\/escalations\/[^/]+\/assign$/.test(p),
+    handle: (_url, body) => {
+      const { agentId } = body as unknown as { agentId: string };
+      const agent = MOCK_AGENTS.find(a => a.id === agentId);
+      return { data: { success: true, assigneeName: agent?.displayName ?? null } };
+    },
+  },
+  // PATCH /escalations/:id/resolve
+  {
+    test: (p, m) => m === 'PATCH' && /\/escalations\/[^/]+\/resolve$/.test(p),
+    handle: () => ({ data: { success: true } }),
+  },
 ];
 
 // ── Mock fetch installer ──────────────────────────────────────────────────────
@@ -930,7 +1103,9 @@ export function installMockHandler(): void {
       path.startsWith('/ai/') ||
       path.startsWith('/comments') ||
       path.startsWith('/attachments') ||
-      path.startsWith('/projects');
+      path.startsWith('/projects') ||
+      path.startsWith('/delivery') ||
+      path.startsWith('/onboarding');
 
     // if (!isApiPath) {
     //   return _realFetch(input, init);
@@ -959,9 +1134,9 @@ export function installMockHandler(): void {
       }
     }
 
-    // No route matched — let it through to the real network
+    // No route matched — return a 501 to surface unhandled paths
     console.warn('[Mock] No mock for:', method, path, '— passing through');
-    // return _realFetch(input, init);
+    return jsonResponse({ error: 'No mock handler' }, 501);
   };
 
   console.info(

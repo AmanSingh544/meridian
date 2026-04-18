@@ -6210,3 +6210,205 @@ GET /api/v1/analytics/agent-performance
 ---
 
 *Addendum A10 — Feature expansion: Escalations, SLA Policies, System Settings, Routing (Extended), Branding, Compliance, User Preferences, Analytics (Extended). Last updated: 2026-04-18.*
+
+---
+
+## Addendum A11 — Delivery Board, Onboarding Tracker, Product Roadmap + AI
+
+*Added: 2026-04-19*
+
+---
+
+### Delivery Board Endpoints
+
+#### `GET /delivery/features`
+**Auth:** DELIVERY_VIEW (LEAD, ADMIN)
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `status` | DeliveryStatus | No | Filter by column |
+| `quarter` | string | No | e.g. `Q2 2026` |
+| `isPublic` | boolean | No | Filter public/private |
+
+**Response `200 OK`:** `{ "data": DeliveryFeature[] }`
+
+---
+
+#### `POST /delivery/features`
+**Auth:** DELIVERY_MANAGE (ADMIN)
+
+**Request body:** `DeliveryFeatureCreatePayload`
+
+**Response `201 Created`:** `{ "data": DeliveryFeature }`
+
+---
+
+#### `PATCH /delivery/features/:id`
+**Auth:** DELIVERY_MANAGE (full edit, ADMIN) or DELIVERY_VIEW (move/status only, LEAD)
+
+**Request body (ADMIN):** Partial `DeliveryFeature`
+**Request body (LEAD move only):** `{ "status": DeliveryStatus }`
+
+**Response `200 OK`:** `{ "data": DeliveryFeature }`
+
+---
+
+#### `DELETE /delivery/features/:id`
+**Auth:** DELIVERY_MANAGE (ADMIN)
+
+**Response `204 No Content`**
+
+---
+
+### Onboarding Endpoints (Internal)
+
+#### `GET /onboarding`
+**Auth:** ONBOARDING_VIEW (LEAD, ADMIN)
+
+**Response `200 OK`:** `{ "data": OnboardingProject[] }`
+
+---
+
+#### `GET /onboarding/:id`
+**Auth:** ONBOARDING_VIEW
+
+**Response `200 OK`:** `{ "data": OnboardingProject }`
+
+---
+
+#### `PATCH /onboarding/:id/tasks/:taskId`
+**Auth:** ONBOARDING_MANAGE (LEAD, ADMIN)
+
+**Request body:** `{ "status": OnboardingTaskStatus }`
+
+**Response `200 OK`:** `{ "data": OnboardingTask }`
+
+---
+
+### Onboarding Endpoints (Client Portal)
+
+#### `GET /onboarding/my`
+**Auth:** Any authenticated client user (scoped to their org)
+
+**Response `200 OK`:** `{ "data": OnboardingProject }`
+
+---
+
+#### `PATCH /onboarding/:id/tasks/:taskId` *(client)*
+**Auth:** CLIENT_ADMIN (CLIENT-owned tasks only)
+
+**Request body:** `{ "status": OnboardingTaskStatus }`
+
+**Response `200 OK`:** `{ "data": OnboardingTask }`
+
+---
+
+### Roadmap Endpoints (Client Portal)
+
+#### `GET /roadmap`
+**Auth:** Any authenticated client user
+
+Returns only features where `isPublic = true`.
+
+**Response `200 OK`:** `{ "data": DeliveryFeature[] }` (includes `hasVoted` per user)
+
+---
+
+#### `POST /roadmap/features/:id/vote`
+**Auth:** ROADMAP_VOTE (CLIENT_ADMIN, CLIENT_USER)
+
+**Response `200 OK`:** `{ "data": { "upvotes": number, "hasVoted": true } }`
+
+---
+
+#### `DELETE /roadmap/features/:id/vote`
+**Auth:** ROADMAP_VOTE
+
+**Response `200 OK`:** `{ "data": { "upvotes": number, "hasVoted": false } }`
+
+---
+
+#### `POST /roadmap/requests`
+**Auth:** ROADMAP_REQUEST (CLIENT_ADMIN)
+
+**Request body:** `{ "title": string, "description": string }`
+
+**Response `201 Created`:** `{ "data": FeatureRequest }`
+
+---
+
+### AI — Delivery Board
+
+#### `GET /ai/delivery/risk`
+**Auth:** AI_PROJECT_INSIGHTS (LEAD, ADMIN)
+
+Returns at-risk features in IN_DEV / IN_QA / IN_STAGING with ETA analysis.
+
+**Response `200 OK`:** `{ "data": DeliveryRiskItem[] }`
+
+---
+
+#### `POST /ai/delivery/prioritise`
+**Auth:** AI_PROJECT_INSIGHTS (LEAD, ADMIN)
+
+Ranks BACKLOG and PLANNED features by client demand + strategic value.
+
+**Request body:** `{}` (uses server-side feature + vote data)
+
+**Response `200 OK`:** `{ "data": DeliveryPrioritisedFeature[] }`
+
+---
+
+#### `POST /ai/delivery/draft-feature`
+**Auth:** AI_PROJECT_REPORTS (LEAD, ADMIN)
+
+**Request body:** `{ "title": string }`
+
+**Response `200 OK`:** `{ "data": DeliveryFeatureDraft }`
+
+---
+
+### AI — Onboarding
+
+#### `GET /ai/onboarding/:id/health`
+**Auth:** AI_PROJECT_INSIGHTS (internal); any authenticated client (their own)
+
+**Response `200 OK`:** `{ "data": OnboardingHealthPrediction }`
+
+---
+
+#### `POST /ai/onboarding/:id/blocker-summary`
+**Auth:** AI_PROJECT_REPORTS (LEAD, ADMIN)
+
+**Response `200 OK`:** `{ "data": OnboardingBlockerSummary }`
+
+---
+
+#### `GET /ai/onboarding/:id/next-action`
+**Auth:** AI_PROJECT_INSIGHTS (internal); CLIENT_ADMIN (their own onboarding)
+
+**Response `200 OK`:** `{ "data": OnboardingNextAction }`
+
+---
+
+### AI — Roadmap
+
+#### `GET /ai/roadmap/summary`
+**Auth:** AI_DIGEST (CLIENT_ADMIN, CLIENT_USER)
+
+Personalised summary based on the org's ticket history and voted features.
+
+**Response `200 OK`:** `{ "data": RoadmapPersonalisedSummary }`
+
+---
+
+#### `POST /ai/roadmap/classify-request`
+**Auth:** ROADMAP_REQUEST (CLIENT_ADMIN)
+
+**Request body:** `{ "title": string, "description": string }`
+
+**Response `200 OK`:** `{ "data": FeatureRequestClassification }`
+
+---
+
+*Addendum A11 — Delivery Board, Onboarding Tracker, Product Roadmap + AI. Last updated: 2026-04-19.*

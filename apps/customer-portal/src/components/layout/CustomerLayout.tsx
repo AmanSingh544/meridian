@@ -13,6 +13,8 @@ const NAV_ITEMS = [
   { path: '/tickets', label: 'Tickets', icon: '🎫', perm: Permission.TICKET_VIEW_OWN },
   { path: '/knowledge', label: 'Knowledge Base', icon: '📚', perm: Permission.KB_VIEW },
   { path: '/projects', label: 'Projects', icon: '📁', perm: Permission.PROJECT_VIEW },
+  { path: '/onboarding', label: 'Onboarding', icon: '🛫', perm: null },
+  { path: '/roadmap', label: 'Roadmap', icon: '🗺️', perm: Permission.ROADMAP_VOTE },
   { path: '/notifications', label: 'Notifications', icon: '🔔', perm: null },
   // REPORT_VIEW replaces old ANALYTICS_VIEW — CLIENT_ADMIN only
   { path: '/analytics', label: 'Analytics', icon: '📈', perm: Permission.REPORT_VIEW },

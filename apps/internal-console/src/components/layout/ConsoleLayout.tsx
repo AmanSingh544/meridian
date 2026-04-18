@@ -29,6 +29,8 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/search',      label: 'Search',       icon: '🔍' },
   { path: '/analytics',   label: 'Analytics',    icon: '📈', permission: Permission.REPORT_VIEW },
   { path: '/knowledge',   label: 'Knowledge Base', icon: '📚', permission: Permission.KB_VIEW },
+  { path: '/delivery',    label: 'Delivery Board', icon: '🚀', permission: Permission.DELIVERY_VIEW },
+  { path: '/onboarding',  label: 'Onboarding',     icon: '🛫', permission: Permission.ONBOARDING_VIEW },
 
   // ── Administration ─────────────────────────────────────────────
   { path: '/users',         label: 'Users',         icon: '👥', permission: Permission.MEMBER_VIEW,      section: 'Admin' },

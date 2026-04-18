@@ -29,6 +29,8 @@ const OrganizationSettingsPage = lazy(() => import('./pages/OrganizationSettings
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
 const AuditLogPage = lazy(() => import('./pages/AuditLogPage').then(m => ({ default: m.AuditLogPage })));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage').then(m => ({ default: m.UserSettingsPage })));
+const OnboardingTrackerPage = lazy(() => import('./pages/OnboardingTrackerPage'));
+const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
 
 const PageLoader: React.FC = () => (
   <div style={{
@@ -132,6 +134,16 @@ const AppRoutes: React.FC = () => (
         <Route path="/analytics" element={
           <ProtectedRoute permission={Permission.REPORT_VIEW}>
             <AnalyticsPage />
+          </ProtectedRoute>
+        } />
+
+        {/* Onboarding tracker — CLIENT_ADMIN and CLIENT_USER */}
+        <Route path="/onboarding" element={<OnboardingTrackerPage />} />
+
+        {/* Product Roadmap — all authenticated users who can vote */}
+        <Route path="/roadmap" element={
+          <ProtectedRoute permissions={[Permission.ROADMAP_VOTE, Permission.ROADMAP_REQUEST]}>
+            <RoadmapPage />
           </ProtectedRoute>
         } />
 
