@@ -21,7 +21,7 @@ export const AuditLogPage: React.FC = () => {
       key: 'timestamp', header: 'Timestamp', width: '11rem',
       render: (e: AuditLogEntry) => (
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem' }}>
-          {formatDateTime(e.created_at)}
+          {formatDateTime(e.createdAt)}
         </span>
       ),
     },

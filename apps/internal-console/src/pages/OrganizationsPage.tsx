@@ -79,10 +79,10 @@ export const OrganizationsPage: React.FC = () => {
       ),
     },
     {
-      key: 'created_at', header: 'Created', width: '10rem',
+      key: 'createdAt', header: 'Created', width: '10rem',
       render: (o: Organization) => (
         <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
-          {formatDateTime(o.created_at)}
+          {formatDateTime(o.createdAt)}
         </span>
       ),
     },

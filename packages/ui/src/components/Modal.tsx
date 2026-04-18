@@ -138,8 +138,6 @@ export interface ConfirmDialogProps {
   cancelLabel?: string;
   variant?: 'danger' | 'primary';
   loading?: boolean;
-  /** Optional extra content rendered below the message (e.g. a reason textarea) */
-  children?: React.ReactNode;
 }
 
 export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
@@ -152,7 +150,6 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
   cancelLabel = 'Cancel',
   variant = 'primary',
   loading = false,
-  children,
 }) => (
   <Modal
     isOpen={isOpen}
@@ -182,6 +179,5 @@ export const ConfirmDialog: React.FC<ConfirmDialogProps> = ({
     }}>
       {message}
     </p>
-    {children}
   </Modal>
 );

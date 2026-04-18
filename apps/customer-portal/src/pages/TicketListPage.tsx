@@ -6,7 +6,7 @@ import {
   Button, DataTable, SearchInput, StatusBadge, PriorityBadge,
   SLABadge, Pagination, Select, EmptyState, ErrorState,
 } from '@3sc/ui';
-import { Ticket, TicketFilters, TicketStatus, TicketPriority } from '@3sc/types';
+import type { Ticket, TicketFilters, TicketStatus, TicketPriority } from '@3sc/types';
 import { formatRelativeTime, truncate } from '@3sc/utils';
 
 export const TicketListPage: React.FC = () => {
@@ -16,7 +16,7 @@ export const TicketListPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [statusFilter, setStatusFilter] = useState<string>('');
   const [priorityFilter, setPriorityFilter] = useState<string>('');
-  const [sortBy, setSortBy] = useState('updated_at');
+  const [sortBy, setSortBy] = useState('updatedAt');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
   const [page, setPage] = useState(1);
 
@@ -83,13 +83,13 @@ export const TicketListPage: React.FC = () => {
         t.sla ? <SLABadge state={t.sla.resolutionState} /> : <span style={{ color: 'var(--color-text-muted)' }}>—</span>,
     },
     {
-      key: 'updated_at',
+      key: 'updatedAt',
       header: 'Updated',
       width: '8rem',
       sortable: true,
       render: (t: Ticket) => (
         <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
-          {formatRelativeTime(t.updated_at)}
+          {formatRelativeTime(t.updatedAt)}
         </span>
       ),
     },
@@ -127,11 +127,11 @@ export const TicketListPage: React.FC = () => {
           <Select
             options={[
               { value: '', label: 'All Statuses' },
-              { value: TicketStatus.OPEN, label: 'Open' },
-              { value: TicketStatus.ACKNOWLEDGED, label: 'Acknowledged' },
-              { value: TicketStatus.IN_PROGRESS, label: 'In Progress' },
-              { value: TicketStatus.RESOLVED, label: 'Resolved' },
-              { value: TicketStatus.CLOSED, label: 'Closed' },
+              { value: 'open', label: 'Open' },
+              { value: 'acknowledged', label: 'Acknowledged' },
+              { value: 'in_progress', label: 'In Progress' },
+              { value: 'resolved', label: 'Resolved' },
+              { value: 'closed', label: 'Closed' },
             ]}
             value={statusFilter}
             onChange={(e) => { setStatusFilter(e.target.value); setPage(1); }}
@@ -141,10 +141,10 @@ export const TicketListPage: React.FC = () => {
           <Select
             options={[
               { value: '', label: 'All Priorities' },
-              { value: TicketPriority.LOW, label: 'Low' },
-              { value: TicketPriority.MEDIUM, label: 'Medium' },
-              { value: TicketPriority.HIGH, label: 'High' },
-              { value: TicketPriority.CRITICAL, label: 'Critical' },
+              { value: 'low', label: 'Low' },
+              { value: 'medium', label: 'Medium' },
+              { value: 'high', label: 'High' },
+              { value: 'critical', label: 'Critical' },
             ]}
             value={priorityFilter}
             onChange={(e) => { setPriorityFilter(e.target.value); setPage(1); }}

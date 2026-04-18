@@ -104,7 +104,7 @@ export const NotificationsPage: React.FC = () => {
                 fontSize: '0.75rem', color: 'var(--color-text-muted)',
                 whiteSpace: 'nowrap', flexShrink: 0,
               }}>
-                {formatRelativeTime(n.created_at)}
+                {formatRelativeTime(n.createdAt)}
               </span>
               {!n.isRead && (
                 <span style={{
