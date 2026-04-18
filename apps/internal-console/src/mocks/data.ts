@@ -63,6 +63,13 @@ const ADMIN_PERMISSIONS: Permission[] = [
   Permission.AUDIT_VIEW,
   Permission.WORKSPACE_CONFIGURE,
   Permission.PROJECT_DELETE,
+
+  // added by  aman
+  Permission.SYSTEM_CONFIGURE,
+  Permission.ESCALATION_VIEW ,
+  Permission.ROUTING_VIEW ,
+  Permission.BRANDING_CONFIGURE,
+  Permission.COMPLIANCE_VIEW
 ];
 
 export const MOCK_USERS: User[] = [
