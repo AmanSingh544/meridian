@@ -17,6 +17,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_VIEW,
     Permission.KB_VIEW,
     Permission.SLA_VIEW,
+    Permission.AI_DIGEST,
+    Permission.AI_KB_SUGGEST,
+    Permission.PROJECT_VIEW,
   ],
 
   [UserRole.CLIENT_ADMIN]: [
@@ -36,6 +39,10 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.KB_VIEW,
     Permission.SLA_VIEW,
     Permission.WORKSPACE_CONFIGURE,
+    Permission.BRANDING_CONFIGURE,
+    Permission.PROJECT_VIEW,
+    Permission.AI_DIGEST,
+    Permission.AI_KB_SUGGEST,
   ],
 
   [UserRole.AGENT]: [
@@ -47,9 +54,12 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTACHMENT_UPLOAD,
     Permission.AI_SUGGEST,
     Permission.AI_FEEDBACK,
+    Permission.AI_KB_SUGGEST,
     Permission.KB_VIEW,
     Permission.SLA_VIEW,
+    Permission.ESCALATION_VIEW,
     Permission.MEMBER_VIEW,
+    Permission.PROJECT_VIEW,
   ],
 
   [UserRole.LEAD]: [
@@ -65,13 +75,22 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTACHMENT_DELETE,
     Permission.SLA_VIEW,
     Permission.SLA_CONFIGURE,
+    Permission.ESCALATION_VIEW,
     Permission.ESCALATION_CONFIGURE,
+    Permission.ROUTING_VIEW,
     Permission.REPORT_VIEW,
     Permission.REPORT_EXPORT,
     Permission.AI_SUGGEST,
     Permission.AI_FEEDBACK,
+    Permission.AI_KB_SUGGEST,
+    Permission.AI_PROJECT_INSIGHTS,
+    Permission.AI_PROJECT_REPORTS,
+    Permission.AI_PROJECT_QA,
     Permission.KB_VIEW,
     Permission.MEMBER_VIEW,
+    Permission.PROJECT_VIEW,
+    Permission.PROJECT_CREATE,
+    Permission.PROJECT_EDIT,
   ],
 
   [UserRole.ADMIN]: [
@@ -88,11 +107,18 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ATTACHMENT_DELETE,
     Permission.SLA_VIEW,
     Permission.SLA_CONFIGURE,
+    Permission.ESCALATION_VIEW,
     Permission.ESCALATION_CONFIGURE,
+    Permission.ROUTING_VIEW,
     Permission.REPORT_VIEW,
     Permission.REPORT_EXPORT,
     Permission.AI_SUGGEST,
     Permission.AI_FEEDBACK,
+    Permission.AI_DIGEST,
+    Permission.AI_KB_SUGGEST,
+    Permission.AI_PROJECT_INSIGHTS,
+    Permission.AI_PROJECT_REPORTS,
+    Permission.AI_PROJECT_QA,
     Permission.KB_VIEW,
     Permission.KB_MANAGE,
     Permission.MEMBER_INVITE,
@@ -100,6 +126,9 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_VIEW,
     Permission.AUDIT_VIEW,
     Permission.WORKSPACE_CONFIGURE,
+    Permission.BRANDING_CONFIGURE,
+    Permission.SYSTEM_CONFIGURE,
+    Permission.COMPLIANCE_VIEW,
     Permission.PROJECT_VIEW,
     Permission.PROJECT_CREATE,
     Permission.PROJECT_EDIT,
@@ -257,6 +286,34 @@ export class PermissionChecker {
 
   canManageProjects(): boolean {
     return this.hasAny(Permission.PROJECT_CREATE, Permission.PROJECT_EDIT);
+  }
+
+  // ── Escalations ─────────────────────────────────────────────
+  canViewEscalations(): boolean {
+    return this.has(Permission.ESCALATION_VIEW);
+  }
+
+  canConfigureEscalationRules(): boolean {
+    return this.has(Permission.ESCALATION_CONFIGURE);
+  }
+
+  // ── Routing ─────────────────────────────────────────────────
+  canViewRouting(): boolean {
+    return this.has(Permission.ROUTING_VIEW);
+  }
+
+  // ── System / Compliance ──────────────────────────────────────
+  canConfigureSystem(): boolean {
+    return this.has(Permission.SYSTEM_CONFIGURE);
+  }
+
+  canViewCompliance(): boolean {
+    return this.has(Permission.COMPLIANCE_VIEW);
+  }
+
+  // ── Branding ─────────────────────────────────────────────────
+  canConfigureBranding(): boolean {
+    return this.has(Permission.BRANDING_CONFIGURE);
   }
 }
 

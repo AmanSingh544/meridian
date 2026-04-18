@@ -2,15 +2,17 @@ import React, { useState, useRef, useEffect } from 'react';
 import type { Comment, User } from '@3sc/types';
 import { Avatar } from './Avatar';
 import { Badge } from './Badge';
-import { formatRelativeTime } from '@3sc/utils';
+import { formatRelativeTime, formatFileSize, getFileIcon } from '@3sc/utils';
 
 export interface ThreadedCommentsProps {
   comments: Comment[];
   /** Users available to @mention — backend should scope this to org members visible to the current user */
   mentionableUsers?: User[];
   onReply?: (parentId: string, content: string, mentionedUserIds: string[]) => void;
-  onAddComment?: (content: string, isInternal: boolean, mentionedUserIds: string[]) => void;
+  onAddComment?: (content: string, isInternal: boolean, mentionedUserIds: string[], files: File[]) => void;
   showInternalToggle?: boolean;
+  /** Allow file attachments in the comment box */
+  allowAttachments?: boolean;
   currentUserId?: string;
 }
 
@@ -318,10 +320,13 @@ export const ThreadedComments: React.FC<ThreadedCommentsProps> = ({
   onReply,
   onAddComment,
   showInternalToggle = false,
+  allowAttachments = true,
 }) => {
   const [newComment, setNewComment] = useState('');
   const [newMentions, setNewMentions] = useState<string[]>([]);
   const [isInternal, setIsInternal] = useState(false);
+  const [attachedFiles, setAttachedFiles] = useState<File[]>([]);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Collect all authors for mention highlighting in existing comments
   const allUsers: User[] = [
@@ -334,12 +339,31 @@ export const ThreadedComments: React.FC<ThreadedCommentsProps> = ({
   const rootComments = comments.filter((c) => !c.parentId);
   const getReplies = (parentId: string) => comments.filter((c) => c.parentId === parentId);
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    if (!e.target.files) return;
+    const incoming = Array.from(e.target.files);
+    setAttachedFiles((prev) => {
+      const combined = [...prev, ...incoming];
+      // deduplicate by name+size
+      return combined.filter((f, i, arr) =>
+        arr.findIndex((x) => x.name === f.name && x.size === f.size) === i
+      ).slice(0, 5); // max 5 attachments
+    });
+    // Reset the input so the same file can be re-selected
+    e.target.value = '';
+  };
+
+  const removeFile = (idx: number) => {
+    setAttachedFiles((prev) => prev.filter((_, i) => i !== idx));
+  };
+
   const submitComment = () => {
     if (!newComment.trim() || !onAddComment) return;
-    onAddComment(newComment.trim(), isInternal, newMentions);
+    onAddComment(newComment.trim(), isInternal, newMentions, attachedFiles);
     setNewComment('');
     setNewMentions([]);
     setIsInternal(false);
+    setAttachedFiles([]);
   };
 
   return (
@@ -364,13 +388,70 @@ export const ThreadedComments: React.FC<ThreadedCommentsProps> = ({
             onMentionsChange={setNewMentions}
             mentionableUsers={mentionableUsers}
           />
-          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem' }}>
-            {showInternalToggle ? (
-              <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
-                <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
-                Internal note
-              </label>
-            ) : <span />}
+
+          {/* Attached files preview */}
+          {attachedFiles.length > 0 && (
+            <div style={{ marginTop: '0.5rem', display: 'flex', flexDirection: 'column', gap: '0.25rem' }}>
+              {attachedFiles.map((f, i) => (
+                <div key={i} style={{
+                  display: 'flex', alignItems: 'center', gap: '0.5rem',
+                  padding: '0.25rem 0.625rem',
+                  background: 'var(--color-bg-subtle)',
+                  border: '1px solid var(--color-border)',
+                  borderRadius: 'var(--radius-sm)',
+                  fontSize: '0.8125rem',
+                }}>
+                  <span>{getFileIcon(f.type)}</span>
+                  <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{f.name}</span>
+                  <span style={{ color: 'var(--color-text-muted)', fontSize: '0.75rem', flexShrink: 0 }}>{formatFileSize(f.size)}</span>
+                  <button
+                    onClick={() => removeFile(i)}
+                    style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', padding: 0, lineHeight: 1 }}
+                  >✕</button>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginTop: '0.5rem', gap: '0.5rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+              {showInternalToggle && (
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.8125rem', cursor: 'pointer' }}>
+                  <input type="checkbox" checked={isInternal} onChange={(e) => setIsInternal(e.target.checked)} />
+                  Internal note
+                </label>
+              )}
+              {allowAttachments && (
+                <>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    style={{ display: 'none' }}
+                    onChange={handleFileChange}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => fileInputRef.current?.click()}
+                    title="Attach files"
+                    style={{
+                      background: 'none', border: 'none', cursor: 'pointer',
+                      color: 'var(--color-text-muted)', fontSize: '1rem',
+                      padding: '0.125rem 0.25rem',
+                      borderRadius: 'var(--radius-sm)',
+                      display: 'flex', alignItems: 'center', gap: '0.25rem',
+                    }}
+                    onMouseEnter={(e) => (e.currentTarget.style.background = 'var(--color-bg-subtle)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.background = 'none')}
+                  >
+                    <span>📎</span>
+                    {attachedFiles.length > 0 && (
+                      <span style={{ fontSize: '0.75rem', fontWeight: 600 }}>{attachedFiles.length}</span>
+                    )}
+                  </button>
+                </>
+              )}
+            </div>
             <button
               onClick={submitComment}
               disabled={!newComment.trim()}

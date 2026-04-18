@@ -1,85 +1,233 @@
 import React, { useState } from 'react';
-import {
-  useGetTicketVolumeQuery,
-  useGetSLAComplianceQuery,
-  useGetResolutionTrendsQuery,
-} from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, MetricCard, Button, Skeleton, ErrorState, PermissionGate, Badge } from '@3sc/ui';
+import { Card, MetricCard, Button, Skeleton, PermissionGate, Badge } from '@3sc/ui';
 import { Permission } from '@3sc/types';
-import type { TicketVolumeData, SLAComplianceData, ResolutionTrendData } from '@3sc/types';
+import type { SLAComplianceData } from '@3sc/types';
+import {
+  useGetMonthlyVolumeQuery,
+  useGetCategoryBreakdownQuery,
+  useGetSeverityDistributionQuery,
+  useGetResolutionBySeverityQuery,
+  useGetSLAComplianceQuery,
+} from '@3sc/api';
 
-// ── Mock data — replace with live API when ready ──────────────────
-const ticketVolumeMock: TicketVolumeData[] = [
-  { date: '2026-04-07', created: 12, resolved: 8, closed: 5 },
-  { date: '2026-04-08', created: 9, resolved: 11, closed: 7 },
-  { date: '2026-04-09', created: 15, resolved: 10, closed: 6 },
-  { date: '2026-04-10', created: 7, resolved: 13, closed: 9 },
-  { date: '2026-04-11', created: 18, resolved: 9, closed: 4 },
-  { date: '2026-04-12', created: 11, resolved: 12, closed: 8 },
-  { date: '2026-04-13', created: 14, resolved: 10, closed: 6 },
-];
+// ── Color maps ───────────────────────────────────────────────────────────────
 
-const slaMock: SLAComplianceData[] = [
-  { period: 'Week 1 Apr', responseCompliance: 94, resolutionCompliance: 88, totalTickets: 72, breachedTickets: 8 },
-  { period: 'Week 2 Apr', responseCompliance: 91, resolutionCompliance: 85, totalTickets: 86, breachedTickets: 12 },
-  { period: 'Week 3 Apr', responseCompliance: 96, resolutionCompliance: 92, totalTickets: 65, breachedTickets: 5 },
-];
+const PRIORITY_COLORS: Record<string, string> = {
+  CRITICAL: '#ef4444',
+  HIGH:     '#f97316',
+  MEDIUM:   '#f59e0b',
+  LOW:      '#22c55e',
+};
 
-const resolutionMock: ResolutionTrendData[] = [
-  { period: 'Week 1 Apr', avgResolutionHours: 5.2, medianResolutionHours: 4.1, p95ResolutionHours: 14.0 },
-  { period: 'Week 2 Apr', avgResolutionHours: 6.8, medianResolutionHours: 5.5, p95ResolutionHours: 18.2 },
-  { period: 'Week 3 Apr', avgResolutionHours: 4.5, medianResolutionHours: 3.8, p95ResolutionHours: 11.5 },
-];
+const CATEGORY_COLORS = ['#6366f1', '#22c55e', '#f59e0b', '#3b82f6', '#94a3b8'];
 
-const dateRangeOptions = [
-  { label: 'Last 7 days', value: '7d' },
-  { label: 'Last 30 days', value: '30d' },
-  { label: 'Last 90 days', value: '90d' },
-];
+// ── Chart primitives ─────────────────────────────────────────────────────────
 
-function formatDate(dateStr: string): string {
-  return new Date(dateStr).toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+interface MonthlyVolumeChartProps {
+  data: Array<{ month: string; created: number; resolved: number }>;
 }
+
+const MonthlyVolumeChart: React.FC<MonthlyVolumeChartProps> = ({ data }) => {
+  const max = Math.max(...data.flatMap((d) => [d.created, d.resolved]), 1);
+  const H = 110;
+
+  return (
+    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.25rem', height: H + 28 }}>
+      {data.map((d) => (
+        <div key={d.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
+          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: H }}>
+            <div
+              title={`Created: ${d.created}`}
+              style={{
+                width: '100%', flex: 1,
+                height: `${(d.created / max) * H}px`,
+                background: 'var(--color-brand-400)',
+                borderRadius: '3px 3px 0 0',
+                transition: 'height 0.4s ease',
+                minHeight: 2,
+              }}
+            />
+            <div
+              title={`Resolved: ${d.resolved}`}
+              style={{
+                width: '100%', flex: 1,
+                height: `${(d.resolved / max) * H}px`,
+                background: '#22c55e',
+                borderRadius: '3px 3px 0 0',
+                transition: 'height 0.4s ease',
+                minHeight: 2,
+              }}
+            />
+          </div>
+          <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{d.month}</span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+interface DonutSlice { label: string; value: number; color: string }
+
+const DonutChart: React.FC<{ slices: DonutSlice[] }> = ({ slices }) => {
+  const total = slices.reduce((s, d) => s + d.value, 0);
+  let angle = 0;
+  const gradient = slices.map((s) => {
+    const start = angle;
+    angle += (s.value / total) * 360;
+    return `${s.color} ${start.toFixed(1)}deg ${angle.toFixed(1)}deg`;
+  }).join(', ');
+
+  return (
+    <div style={{ display: 'flex', gap: '1.25rem', alignItems: 'center' }}>
+      <div style={{
+        width: 88, height: 88, flexShrink: 0,
+        borderRadius: '50%',
+        background: `conic-gradient(${gradient})`,
+        position: 'relative',
+      }}>
+        <div style={{
+          position: 'absolute', inset: '22%',
+          background: 'var(--color-bg)',
+          borderRadius: '50%',
+        }} />
+      </div>
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', flex: 1 }}>
+        {slices.map((s) => (
+          <div key={s.label} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.8125rem' }}>
+            <span style={{ width: 8, height: 8, borderRadius: '50%', background: s.color, flexShrink: 0 }} />
+            <span style={{ flex: 1, color: 'var(--color-text-secondary)' }}>{s.label}</span>
+            <span style={{ fontWeight: 600, fontFamily: 'var(--font-mono)', color: 'var(--color-text)' }}>
+              {Math.round((s.value / total) * 100)}%
+            </span>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
+interface HorizBarRow { label: string; value: number; color: string }
+
+const HorizBarChart: React.FC<{ rows: HorizBarRow[]; suffix?: string }> = ({ rows, suffix = '' }) => {
+  const max = Math.max(...rows.map((r) => r.value), 1);
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
+      {rows.map((row) => (
+        <div key={row.label} style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+          <span style={{
+            width: '4.5rem', flexShrink: 0,
+            fontSize: '0.8125rem', color: 'var(--color-text-secondary)',
+            textAlign: 'right',
+          }}>
+            {row.label}
+          </span>
+          <div style={{
+            flex: 1, height: '0.75rem',
+            background: 'var(--color-bg-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            overflow: 'hidden',
+          }}>
+            <div style={{
+              width: `${(row.value / max) * 100}%`,
+              height: '100%',
+              background: row.color,
+              borderRadius: 'var(--radius-sm)',
+              transition: 'width 0.5s ease',
+              minWidth: row.value > 0 ? 4 : 0,
+            }} />
+          </div>
+          <span style={{
+            width: '3rem', flexShrink: 0,
+            fontSize: '0.8125rem', fontWeight: 600,
+            color: 'var(--color-text)',
+            fontFamily: 'var(--font-mono)',
+          }}>
+            {row.value}{suffix}
+          </span>
+        </div>
+      ))}
+    </div>
+  );
+};
+
+const ChartCard: React.FC<{
+  title: string;
+  subtitle?: string;
+  loading?: boolean;
+  legend?: Array<{ label: string; color: string }>;
+  children: React.ReactNode;
+}> = ({ title, subtitle, loading, legend, children }) => (
+  <Card>
+    <div style={{ marginBottom: '1rem' }}>
+      <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
+        <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
+          {title}
+        </h3>
+        {legend && (
+          <div style={{ display: 'flex', gap: '0.875rem' }}>
+            {legend.map((l) => (
+              <div key={l.label} style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                <span style={{ width: 8, height: 8, borderRadius: 2, background: l.color }} />
+                {l.label}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+      {subtitle && (
+        <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>{subtitle}</p>
+      )}
+    </div>
+    {loading ? <Skeleton height="8rem" /> : children}
+  </Card>
+);
+
+// ── Compliance badge ─────────────────────────────────────────────────────────
 
 function ComplianceBadge({ value }: { value: number }) {
   const color = value >= 90 ? '#15803d' : value >= 75 ? '#b45309' : '#dc2626';
-  const bg = value >= 90 ? '#dcfce7' : value >= 75 ? '#fef3c7' : '#fee2e2';
+  const bg    = value >= 90 ? '#dcfce7' : value >= 75 ? '#fef3c7' : '#fee2e2';
   return <Badge color={color} bgColor={bg}>{value}%</Badge>;
 }
+
+// ── Main component ───────────────────────────────────────────────────────────
+
+const DATE_RANGE_OPTIONS = [
+  { label: '7d',  full: 'Last 7 days' },
+  { label: '30d', full: 'Last 30 days' },
+  { label: '90d', full: 'Last 90 days' },
+];
 
 export const AnalyticsPage: React.FC = () => {
   useDocumentTitle('Analytics');
   const permissions = usePermissions();
-  const [range, setRange] = useState('7d');
+  const [range, setRange] = useState('30d');
 
-  const now = new Date().toISOString();
-  const from = new Date(Date.now() - (range === '7d' ? 7 : range === '30d' ? 30 : 90) * 86400000).toISOString();
-  const analyticsFilters = { dateFrom: from, dateTo: now };
+  const filters = { period: range };
 
-  // Live queries — commented out until API is ready
-  // const { data: volumeData, isLoading: volLoading, error: volError } = useGetTicketVolumeQuery(analyticsFilters);
-  // const { data: slaData, isLoading: slaLoading, error: slaError } = useGetSLAComplianceQuery(analyticsFilters);
-  // const { data: resData, isLoading: resLoading, error: resError } = useGetResolutionTrendsQuery(analyticsFilters);
-  const { data: volumeData, isLoading: volLoading, error: volError } = { data: ticketVolumeMock, isLoading: false, error: null };
-  const { data: slaData, isLoading: slaLoading, error: slaError } = { data: slaMock, isLoading: false, error: null };
-  const { data: resData, isLoading: resLoading, error: resError } = { data: resolutionMock, isLoading: false, error: null };
+  const { data: monthlyVolume = [], isLoading: loadingVolume }   = useGetMonthlyVolumeQuery(filters);
+  const { data: categoryData  = [], isLoading: loadingCategory } = useGetCategoryBreakdownQuery(filters);
+  const { data: severityData  = [], isLoading: loadingSeverity } = useGetSeverityDistributionQuery(filters);
+  const { data: resolutionData = [], isLoading: loadingResolution } = useGetResolutionBySeverityQuery(filters);
+  const { data: slaData       = [], isLoading: loadingSLA }      = useGetSLAComplianceQuery(filters);
 
-  const totalCreated = (volumeData ?? []).reduce((s, d) => s + d.created, 0);
-  const totalResolved = (volumeData ?? []).reduce((s, d) => s + d.resolved, 0);
-  const avgResponse = slaData && slaData.length > 0
-    ? Math.round(slaData.reduce((s, d) => s + d.responseCompliance, 0) / slaData.length)
+  // KPI summaries derived from query data
+  const totalCreated  = monthlyVolume.reduce((s, d) => s + d.created, 0);
+  const totalResolved = monthlyVolume.reduce((s, d) => s + d.resolved, 0);
+  const avgSLA = slaData.length
+    ? Math.round(slaData.reduce((s: number, d: SLAComplianceData) => s + d.responseCompliance, 0) / slaData.length)
     : 0;
-  const avgResolution = resData && resData.length > 0
-    ? (resData.reduce((s, d) => s + d.avgResolutionHours, 0) / resData.length).toFixed(1)
+  const avgResH = resolutionData.length
+    ? (resolutionData.reduce((s, d) => s + d.avgHours, 0) / resolutionData.length).toFixed(1)
     : '—';
 
   const handleExport = () => {
-    // TODO: wire up analytics export API when endpoint is ready
-    const csv = [
-      'Date,Created,Resolved,Closed',
-      ...(volumeData ?? []).map((d) => `${d.date},${d.created},${d.resolved},${d.closed}`),
-    ].join('\n');
+    const rows = [
+      ['Month', 'Created', 'Resolved'],
+      ...monthlyVolume.map((d) => [d.month, d.created, d.resolved]),
+    ];
+    const csv = rows.map((r) => r.join(',')).join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
@@ -89,8 +237,28 @@ export const AnalyticsPage: React.FC = () => {
     URL.revokeObjectURL(url);
   };
 
+  // Map API shapes to chart shapes
+  const categorySlices = categoryData.map((d, i) => ({
+    label: d.category,
+    value: d.count,
+    color: CATEGORY_COLORS[i % CATEGORY_COLORS.length],
+  }));
+
+  const severityRows = severityData.map((d) => ({
+    label: d.priority.charAt(0) + d.priority.slice(1).toLowerCase(),
+    value: d.count,
+    color: PRIORITY_COLORS[d.priority] ?? '#94a3b8',
+  }));
+
+  const resolutionRows = resolutionData.map((d) => ({
+    label: d.priority.charAt(0) + d.priority.slice(1).toLowerCase(),
+    value: parseFloat(d.avgHours.toFixed(1)),
+    color: PRIORITY_COLORS[d.priority] ?? '#94a3b8',
+  }));
+
   return (
     <div>
+      {/* Header */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
@@ -101,28 +269,33 @@ export const AnalyticsPage: React.FC = () => {
           </p>
         </div>
         <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
-          {/* Date range selector */}
-          <div style={{ display: 'flex', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)', overflow: 'hidden' }}>
-            {dateRangeOptions.map((opt) => (
+          <div style={{
+            display: 'flex',
+            background: 'var(--color-bg-subtle)',
+            borderRadius: 'var(--radius-md)',
+            border: '1px solid var(--color-border)',
+            overflow: 'hidden',
+          }}>
+            {DATE_RANGE_OPTIONS.map((opt) => (
               <button
-                key={opt.value}
-                onClick={() => setRange(opt.value)}
+                key={opt.label}
+                onClick={() => setRange(opt.label)}
                 style={{
-                  padding: '0.375rem 0.75rem',
+                  padding: '0.375rem 0.875rem',
                   fontSize: '0.8125rem',
                   border: 'none',
                   borderRight: '1px solid var(--color-border)',
                   cursor: 'pointer',
-                  background: range === opt.value ? 'var(--color-brand-600)' : 'transparent',
-                  color: range === opt.value ? '#fff' : 'var(--color-text-secondary)',
-                  fontWeight: range === opt.value ? 600 : 400,
+                  background: range === opt.label ? 'var(--color-brand-600)' : 'transparent',
+                  color: range === opt.label ? '#fff' : 'var(--color-text-secondary)',
+                  fontWeight: range === opt.label ? 600 : 400,
+                  transition: 'background 0.15s',
                 }}
               >
-                {opt.label}
+                {opt.full}
               </button>
             ))}
           </div>
-          {/* Export — gated on REPORT_EXPORT (CLIENT_ADMIN, LEAD, ADMIN) */}
           <PermissionGate permission={Permission.REPORT_EXPORT}>
             <Button variant="secondary" size="sm" onClick={handleExport}>
               ⬇ Export CSV
@@ -131,58 +304,50 @@ export const AnalyticsPage: React.FC = () => {
         </div>
       </div>
 
-      {/* Summary Metrics */}
+      {/* KPI row */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(13rem, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <MetricCard title="Tickets Created" value={totalCreated} icon="🎫" color="var(--color-brand-500)" />
-        <MetricCard title="Tickets Resolved" value={totalResolved} icon="✅" color="var(--color-success)" />
-        <MetricCard title="Avg Response SLA" value={`${avgResponse}%`} icon="📊" color="var(--color-info)" />
-        <MetricCard title="Avg Resolution Time" value={`${avgResolution}h`} icon="⏱" color="var(--color-warning)" />
+        <MetricCard title="Tickets Created"  value={loadingVolume ? '…' : totalCreated}   icon="🎫" color="var(--color-brand-500)" />
+        <MetricCard title="Tickets Resolved" value={loadingVolume ? '…' : totalResolved}  icon="✅" color="var(--color-success)" />
+        <MetricCard title="Avg Response SLA" value={loadingSLA ? '…' : `${avgSLA}%`}      icon="📊" color="var(--color-info)" />
+        <MetricCard title="Avg Resolution"   value={loadingResolution ? '…' : `${avgResH}h`} icon="⏱" color="var(--color-warning)" />
       </div>
 
-      {/* Ticket Volume */}
-      <Card style={{ marginBottom: '1.25rem' }}>
-        <h3 style={{ margin: '0 0 1.25rem', fontSize: '0.9375rem', fontWeight: 600 }}>Ticket Volume</h3>
-        {volLoading ? (
-          <Skeleton height="10rem" />
-        ) : volError ? (
-          <ErrorState title="Failed to load volume data" />
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                  {['Date', 'Created', 'Resolved', 'Closed', 'Net'].map((h) => (
-                    <th key={h} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(volumeData ?? []).map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <td style={{ padding: '0.625rem 0.75rem' }}>{formatDate(row.date)}</td>
-                    <td style={{ padding: '0.625rem 0.75rem' }}>{row.created}</td>
-                    <td style={{ padding: '0.625rem 0.75rem', color: 'var(--color-success)' }}>{row.resolved}</td>
-                    <td style={{ padding: '0.625rem 0.75rem', color: 'var(--color-text-muted)' }}>{row.closed}</td>
-                    <td style={{ padding: '0.625rem 0.75rem' }}>
-                      <span style={{ color: row.created - row.resolved > 0 ? 'var(--color-danger)' : 'var(--color-success)', fontWeight: 600 }}>
-                        {row.created - row.resolved > 0 ? '+' : ''}{row.created - row.resolved}
-                      </span>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
+      {/* 4-chart grid */}
+      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem', marginBottom: '1.5rem' }}>
 
-      {/* SLA Compliance */}
-      <Card style={{ marginBottom: '1.25rem' }}>
-        <h3 style={{ margin: '0 0 1.25rem', fontSize: '0.9375rem', fontWeight: 600 }}>SLA Compliance</h3>
-        {slaLoading ? (
-          <Skeleton height="8rem" />
-        ) : slaError ? (
-          <ErrorState title="Failed to load SLA data" />
+        <ChartCard
+          title="Tickets by Month"
+          subtitle="Created vs Resolved — last 7 months"
+          loading={loadingVolume}
+          legend={[
+            { label: 'Created',  color: 'var(--color-brand-400)' },
+            { label: 'Resolved', color: '#22c55e' },
+          ]}
+        >
+          <MonthlyVolumeChart data={monthlyVolume} />
+        </ChartCard>
+
+        <ChartCard title="Category Breakdown" subtitle="Share of tickets by category" loading={loadingCategory}>
+          {categorySlices.length > 0 && <DonutChart slices={categorySlices} />}
+        </ChartCard>
+
+        <ChartCard title="Severity Distribution" subtitle="Ticket count by severity" loading={loadingSeverity}>
+          <HorizBarChart rows={severityRows} />
+        </ChartCard>
+
+        <ChartCard title="Avg Resolution Time" subtitle="Hours from open → resolved, by severity" loading={loadingResolution}>
+          <HorizBarChart rows={resolutionRows} suffix="h" />
+        </ChartCard>
+
+      </div>
+
+      {/* SLA compliance detail */}
+      <Card>
+        <h3 style={{ margin: '0 0 1rem', fontSize: '0.9375rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
+          SLA Compliance Detail
+        </h3>
+        {loadingSLA ? (
+          <Skeleton height="6rem" />
         ) : (
           <div style={{ overflowX: 'auto' }}>
             <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
@@ -194,45 +359,23 @@ export const AnalyticsPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody>
-                {(slaData ?? []).map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <td style={{ padding: '0.625rem 0.75rem' }}>{row.period}</td>
+                {slaData.map((row: SLAComplianceData, i: number) => (
+                  <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}
+                    onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = 'var(--color-bg-subtle)'; }}
+                    onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
+                  >
+                    <td style={{ padding: '0.625rem 0.75rem', fontWeight: 500 }}>{row.period}</td>
                     <td style={{ padding: '0.625rem 0.75rem' }}><ComplianceBadge value={row.responseCompliance} /></td>
                     <td style={{ padding: '0.625rem 0.75rem' }}><ComplianceBadge value={row.resolutionCompliance} /></td>
-                    <td style={{ padding: '0.625rem 0.75rem' }}>{row.totalTickets}</td>
-                    <td style={{ padding: '0.625rem 0.75rem', color: 'var(--color-danger)' }}>{row.breachedTickets}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </Card>
-
-      {/* Resolution Trends */}
-      <Card>
-        <h3 style={{ margin: '0 0 1.25rem', fontSize: '0.9375rem', fontWeight: 600 }}>Resolution Trends</h3>
-        {resLoading ? (
-          <Skeleton height="8rem" />
-        ) : resError ? (
-          <ErrorState title="Failed to load resolution data" />
-        ) : (
-          <div style={{ overflowX: 'auto' }}>
-            <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.8125rem' }}>
-              <thead>
-                <tr style={{ borderBottom: '2px solid var(--color-border)' }}>
-                  {['Period', 'Avg Resolution', 'Median', 'P95'].map((h) => (
-                    <th key={h} style={{ textAlign: 'left', padding: '0.5rem 0.75rem', color: 'var(--color-text-muted)', fontWeight: 600 }}>{h}</th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {(resData ?? []).map((row, i) => (
-                  <tr key={i} style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    <td style={{ padding: '0.625rem 0.75rem' }}>{row.period}</td>
-                    <td style={{ padding: '0.625rem 0.75rem' }}>{row.avgResolutionHours.toFixed(1)}h</td>
-                    <td style={{ padding: '0.625rem 0.75rem' }}>{row.medianResolutionHours.toFixed(1)}h</td>
-                    <td style={{ padding: '0.625rem 0.75rem', color: 'var(--color-text-muted)' }}>{row.p95ResolutionHours.toFixed(1)}h</td>
+                    <td style={{ padding: '0.625rem 0.75rem', fontFamily: 'var(--font-mono)' }}>{row.totalTickets}</td>
+                    <td style={{ padding: '0.625rem 0.75rem' }}>
+                      <span style={{
+                        color: row.breachedTickets > 0 ? 'var(--color-danger)' : 'var(--color-success)',
+                        fontWeight: 600, fontFamily: 'var(--font-mono)',
+                      }}>
+                        {row.breachedTickets}
+                      </span>
+                    </td>
                   </tr>
                 ))}
               </tbody>

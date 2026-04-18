@@ -3,7 +3,9 @@ import { useParams, useNavigate } from 'react-router-dom';
 import {
   useGetTicketQuery, useGetCommentsQuery,
   useTransitionTicketMutation, useCreateCommentMutation,
+  useCreateAttachmentMutation,
   useGetAISummaryQuery, useUpdateTicketMutation,
+  useGetUsersQuery, useGetProjectsQuery,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions, useTicketTransitions } from '@3sc/hooks';
 import {
@@ -12,34 +14,133 @@ import {
   AIBanner, ErrorState, Skeleton, Badge, Drawer,
   ConfirmDialog, Select, Input, TextArea, PermissionGate,
 } from '@3sc/ui';
-import { TicketStatus, TicketPriority, TicketCategory, Permission } from '@3sc/types';
+import { TicketStatus, TicketPriority, TicketCategory, Permission, UserRole } from '@3sc/types';
 import { getStatusLabel, formatDateTime, getStatusColor } from '@3sc/utils';
 import type { TicketUpdatePayload } from '@3sc/types';
+
+// ── Transition helper text ────────────────────────────────────────────────────
+
+const TRANSITION_DESCRIPTIONS: Partial<Record<TicketStatus, string>> = {
+  [TicketStatus.CLOSED]: 'Closing the ticket marks it as complete. You can reopen it later if the issue returns.',
+  [TicketStatus.OPEN]: 'Reopening the ticket will notify your support team that the issue has returned.',
+  [TicketStatus.RESOLVED]: 'Mark this ticket as resolved once the issue has been fixed.',
+  [TicketStatus.IN_PROGRESS]: 'Mark this ticket as being actively worked on.',
+  [TicketStatus.ACKNOWLEDGED]: 'Acknowledge that this ticket has been received and reviewed.',
+};
+
+// ── Status history helpers (derived from ticket timestamps) ───────────────────
+
+interface StatusEvent {
+  status: TicketStatus;
+  label: string;
+  timestamp: string;
+  color: string;
+}
+
+function deriveStatusHistory(ticket: {
+  status: TicketStatus;
+  created_at: string;
+  resolved_at?: string;
+  closed_at?: string;
+}): StatusEvent[] {
+  const events: StatusEvent[] = [
+    { status: TicketStatus.OPEN, label: 'Ticket Created', timestamp: ticket.created_at, color: getStatusColor(TicketStatus.OPEN) },
+  ];
+
+  if (
+    ticket.status === TicketStatus.ACKNOWLEDGED ||
+    ticket.status === TicketStatus.IN_PROGRESS ||
+    ticket.status === TicketStatus.RESOLVED ||
+    ticket.status === TicketStatus.CLOSED
+  ) {
+    if (ticket.status !== TicketStatus.OPEN) {
+      events.push({
+        status: TicketStatus.ACKNOWLEDGED,
+        label: 'Acknowledged',
+        timestamp: ticket.created_at, // backend would supply this; we approximate
+        color: getStatusColor(TicketStatus.ACKNOWLEDGED),
+      });
+    }
+  }
+
+  if (
+    ticket.status === TicketStatus.IN_PROGRESS ||
+    ticket.status === TicketStatus.RESOLVED ||
+    ticket.status === TicketStatus.CLOSED
+  ) {
+    events.push({
+      status: TicketStatus.IN_PROGRESS,
+      label: 'In Progress',
+      timestamp: ticket.created_at,
+      color: getStatusColor(TicketStatus.IN_PROGRESS),
+    });
+  }
+
+  if (ticket.resolved_at) {
+    events.push({
+      status: TicketStatus.RESOLVED,
+      label: 'Resolved',
+      timestamp: ticket.resolved_at,
+      color: getStatusColor(TicketStatus.RESOLVED),
+    });
+  }
+
+  if (ticket.closed_at) {
+    events.push({
+      status: TicketStatus.CLOSED,
+      label: 'Closed',
+      timestamp: ticket.closed_at,
+      color: getStatusColor(TicketStatus.CLOSED),
+    });
+  }
+
+  // Deduplicate: keep only up to and including the current status
+  const statusOrder: TicketStatus[] = [
+    TicketStatus.OPEN,
+    TicketStatus.ACKNOWLEDGED,
+    TicketStatus.IN_PROGRESS,
+    TicketStatus.RESOLVED,
+    TicketStatus.CLOSED,
+  ];
+  const currentIdx = statusOrder.indexOf(ticket.status);
+  return events.filter((e) => statusOrder.indexOf(e.status) <= currentIdx);
+}
+
+// ── Main component ─────────────────────────────────────────────────────────────
 
 export const TicketDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const permissions = usePermissions();
 
+  // ── Queries ───────────────────────────────────────────────────────────────
   const { data: ticket, isLoading, error, refetch } = useGetTicketQuery(id!);
   const { data: comments = [] } = useGetCommentsQuery(id!);
-  const [transitionTicket, { isLoading: transitioning }] = useTransitionTicketMutation();
-  const [createComment] = useCreateCommentMutation();
-  const [updateTicket, { isLoading: updating }] = useUpdateTicketMutation();
+  const { data: usersPage } = useGetUsersQuery({}, { skip: !permissions.has(Permission.TICKET_ASSIGN) });
+  const { data: projectsPage } = useGetProjectsQuery({ page: 1, page_size: 50 });
   const { data: aiSummary, isLoading: summaryLoading } = useGetAISummaryQuery(id!, {
     skip: !permissions.canUseAI(),
   });
 
+  // ── Mutations ─────────────────────────────────────────────────────────────
+  const [transitionTicket, { isLoading: transitioning }] = useTransitionTicketMutation();
+  const [createComment] = useCreateCommentMutation();
+  const [createAttachment] = useCreateAttachmentMutation();
+  const [updateTicket, { isLoading: updating }] = useUpdateTicketMutation();
+
+  // ── UI state ──────────────────────────────────────────────────────────────
   const [showSummary, setShowSummary] = useState(false);
   const [confirmTransition, setConfirmTransition] = useState<TicketStatus | null>(null);
+  const [reopenReason, setReopenReason] = useState('');
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
 
-  // Edit form state
+  // ── Edit form state ───────────────────────────────────────────────────────
   const [editTitle, setEditTitle] = useState('');
   const [editDescription, setEditDescription] = useState('');
   const [editPriority, setEditPriority] = useState<TicketPriority>(TicketPriority.MEDIUM);
   const [editCategory, setEditCategory] = useState<TicketCategory>(TicketCategory.SUPPORT);
+  const [editAssignedTo, setEditAssignedTo] = useState('');
 
   useDocumentTitle(ticket ? `${ticket.ticketNumber} - ${ticket.title}` : 'Ticket');
 
@@ -47,19 +148,50 @@ export const TicketDetailPage: React.FC = () => {
     ticket?.status ?? TicketStatus.OPEN,
   );
 
+  // ── Handlers ──────────────────────────────────────────────────────────────
+
   const handleTransition = async () => {
     if (!confirmTransition || !id) return;
+    const isReopen = confirmTransition === TicketStatus.OPEN;
     try {
-      await transitionTicket({ ticketId: id, toStatus: confirmTransition }).unwrap();
+      await transitionTicket({
+        ticketId: id,
+        toStatus: confirmTransition,
+        comment: isReopen && reopenReason.trim() ? reopenReason.trim() : undefined,
+      }).unwrap();
       setConfirmTransition(null);
+      setReopenReason('');
     } catch {
       // Error handled by RTK Query
     }
   };
 
-  const handleAddComment = async (content: string, isInternal?: boolean) => {
+  const handleAddComment = async (content: string, isInternal?: boolean, attachmentFiles?: File[]) => {
     if (!id) return;
-    await createComment({ ticket_id: id, message: content, user_id: '1', isInternal });
+
+    let attachment_ids: string[] = [];
+
+    if (attachmentFiles && attachmentFiles.length > 0) {
+      const results = await Promise.all(
+        attachmentFiles.map((file) =>
+          createAttachment({
+            file_name: file.name,
+            file_type: file.type,
+            file_path: `/uploads/${file.name}`,
+            metadata: {},
+          }).unwrap()
+        )
+      );
+      attachment_ids = results.map((r) => String(r?.data?.id)).filter(Boolean);
+    }
+
+    await createComment({
+      ticket_id: id,
+      message: content,
+      user_id: '1',
+      isInternal,
+      attachment_ids,
+    });
   };
 
   const openEditDrawer = () => {
@@ -68,6 +200,7 @@ export const TicketDetailPage: React.FC = () => {
     setEditDescription(ticket.description);
     setEditPriority(ticket.priority);
     setEditCategory(ticket.category);
+    setEditAssignedTo(ticket.assignedTo ?? '');
     setShowEditDrawer(true);
   };
 
@@ -78,6 +211,7 @@ export const TicketDetailPage: React.FC = () => {
       description: editDescription,
       priority: editPriority,
       category: editCategory,
+      assignedTo: editAssignedTo || undefined,
     };
     try {
       await updateTicket({ id, payload }).unwrap();
@@ -86,6 +220,8 @@ export const TicketDetailPage: React.FC = () => {
       // Error handled by RTK Query
     }
   };
+
+  // ── Loading / error states ────────────────────────────────────────────────
 
   if (error) return <ErrorState onRetry={refetch} />;
   if (isLoading) return (
@@ -102,16 +238,29 @@ export const TicketDetailPage: React.FC = () => {
     ? availableTransitions
     : availableTransitions.filter((s) => s === TicketStatus.OPEN || s === TicketStatus.CLOSED);
 
-  // Determine which comments to show
+  // Comments visibility
   const visibleComments = permissions.canCreateInternalComments()
     ? (showInternalNotes ? comments : comments.filter((c) => !c.isInternal))
     : comments.filter((c) => !c.isInternal);
 
   const internalCount = comments.filter((c) => c.isInternal).length;
 
+  // Agent users for the assignee dropdown
+  const agentUsers = (usersPage?.data ?? []).filter(
+    (u) => u.role === UserRole.AGENT || u.role === UserRole.LEAD || u.role === UserRole.ADMIN
+  );
+
+  const assigneeOptions = [
+    { value: '', label: 'Unassigned' },
+    ...agentUsers.map((u) => ({ value: u.id, label: u.displayName })),
+  ];
+
+  const statusHistory = deriveStatusHistory(ticket);
+  const isReopenTransition = confirmTransition === TicketStatus.OPEN;
+
   return (
     <div>
-      {/* Header */}
+      {/* ── Header ── */}
       <div style={{ marginBottom: '1.5rem' }}>
         <button
           onClick={() => navigate('/tickets')}
@@ -123,6 +272,7 @@ export const TicketDetailPage: React.FC = () => {
         >
           ← Back to tickets
         </button>
+
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.25rem' }}>
@@ -136,13 +286,13 @@ export const TicketDetailPage: React.FC = () => {
               {ticket.title}
             </h1>
           </div>
+
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {permissions.canUseAI() && (
               <Button variant="ghost" size="sm" onClick={() => setShowSummary(true)}>
                 🤖 AI Summary
               </Button>
             )}
-            {/* Edit ticket button — gated on ticket:edit */}
             <PermissionGate permission={Permission.TICKET_EDIT}>
               <Button variant="secondary" size="sm" onClick={openEditDrawer}>
                 ✏️ Edit
@@ -162,9 +312,12 @@ export const TicketDetailPage: React.FC = () => {
         </div>
       </div>
 
+      {/* ── 2-column layout ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 20rem', gap: '1.5rem', alignItems: 'flex-start' }}>
-        {/* Main Content */}
+
+        {/* ── Left: main content ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
           {/* Description */}
           <Card>
             <h3 style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', fontWeight: 600 }}>Description</h3>
@@ -190,13 +343,12 @@ export const TicketDetailPage: React.FC = () => {
             )}
           </Card>
 
-          {/* Comments */}
+          {/* Conversation */}
           <Card>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600 }}>
                 Conversation ({visibleComments.filter((c) => !c.isInternal).length})
               </h3>
-              {/* Internal notes toggle — only for users with COMMENT_INTERNAL (internal staff) */}
               <PermissionGate permission={Permission.COMMENT_INTERNAL}>
                 <button
                   onClick={() => setShowInternalNotes(!showInternalNotes)}
@@ -204,8 +356,7 @@ export const TicketDetailPage: React.FC = () => {
                     background: showInternalNotes ? '#fef3c7' : 'var(--color-bg-subtle)',
                     border: `1px solid ${showInternalNotes ? '#f59e0b' : 'var(--color-border)'}`,
                     borderRadius: 'var(--radius-sm)',
-                    cursor: 'pointer',
-                    fontSize: '0.75rem',
+                    cursor: 'pointer', fontSize: '0.75rem',
                     padding: '0.25rem 0.625rem',
                     color: showInternalNotes ? '#b45309' : 'var(--color-text-muted)',
                   }}
@@ -216,14 +367,18 @@ export const TicketDetailPage: React.FC = () => {
             </div>
             <ThreadedComments
               comments={visibleComments}
-              onAddComment={permissions.canCreateComments() ? handleAddComment : undefined}
+              onAddComment={permissions.canCreateComments()
+                ? (content, isInternal, _mentionIds, files) => handleAddComment(content, isInternal, files)
+                : undefined}
               showInternalToggle={permissions.canCreateInternalComments()}
+              allowAttachments={permissions.has(Permission.ATTACHMENT_UPLOAD)}
             />
           </Card>
         </div>
 
-        {/* Sidebar */}
+        {/* ── Right: sidebar ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
           {/* SLA */}
           {ticket.sla && (
             <Card padding="0">
@@ -242,8 +397,16 @@ export const TicketDetailPage: React.FC = () => {
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', fontSize: '0.8125rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Category</span>
-                <Badge>{ticket.category}</Badge>
+                <Badge>{ticket.category.replace(/_/g, ' ')}</Badge>
               </div>
+              {ticket.projectId && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Project</span>
+                  <span style={{ fontWeight: 500 }}>
+                    {projectsPage?.data.find((p) => p.id === ticket.projectId)?.name ?? ticket.projectId}
+                  </span>
+                </div>
+              )}
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                 <span style={{ color: 'var(--color-text-muted)' }}>Created</span>
                 <span>{formatDateTime(ticket.created_at)}</span>
@@ -256,6 +419,12 @@ export const TicketDetailPage: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between' }}>
                   <span style={{ color: 'var(--color-text-muted)' }}>Assigned to</span>
                   <span>{ticket.assignee.displayName}</span>
+                </div>
+              )}
+              {ticket.creator && (
+                <div style={{ display: 'flex', justifyContent: 'space-between' }}>
+                  <span style={{ color: 'var(--color-text-muted)' }}>Submitted by</span>
+                  <span>{ticket.creator.displayName}</span>
                 </div>
               )}
               {ticket.tags && ticket.tags.length > 0 && (
@@ -271,38 +440,25 @@ export const TicketDetailPage: React.FC = () => {
             </div>
           </Card>
 
-          {/* Status Timeline */}
+          {/* Status Timeline — richer version */}
           <Card>
             <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.8125rem', fontWeight: 600 }}>Timeline</h4>
             <Timeline>
-              <TimelineItem
-                title="Ticket Created"
-                timestamp={formatDateTime(ticket.created_at)}
-                color={getStatusColor(TicketStatus.OPEN)}
-                isLast={!ticket.resolved_at}
-              />
-              {ticket.resolved_at && (
+              {statusHistory.map((event, idx) => (
                 <TimelineItem
-                  title="Resolved"
-                  timestamp={formatDateTime(ticket.resolved_at)}
-                  color={getStatusColor(TicketStatus.RESOLVED)}
-                  isLast={!ticket.closed_at}
+                  key={event.status}
+                  title={event.label}
+                  timestamp={formatDateTime(event.timestamp)}
+                  color={event.color}
+                  isLast={idx === statusHistory.length - 1}
                 />
-              )}
-              {ticket.closed_at && (
-                <TimelineItem
-                  title="Closed"
-                  timestamp={formatDateTime(ticket.closed_at)}
-                  color={getStatusColor(TicketStatus.CLOSED)}
-                  isLast
-                />
-              )}
+              ))}
             </Timeline>
           </Card>
         </div>
       </div>
 
-      {/* Edit Ticket Drawer */}
+      {/* ── Edit Ticket Drawer ── */}
       <Drawer isOpen={showEditDrawer} onClose={() => setShowEditDrawer(false)} title="Edit Ticket">
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           <Input
@@ -322,7 +478,7 @@ export const TicketDetailPage: React.FC = () => {
             label="Priority"
             value={editPriority}
             onChange={(e) => setEditPriority(e.target.value as TicketPriority)}
-            options={Object.values(TicketPriority).map((p) => ({ value: p, label: p }))}
+            options={Object.values(TicketPriority).map((p) => ({ value: p, label: p.charAt(0) + p.slice(1).toLowerCase() }))}
           />
           <Select
             label="Category"
@@ -330,20 +486,24 @@ export const TicketDetailPage: React.FC = () => {
             onChange={(e) => setEditCategory(e.target.value as TicketCategory)}
             options={Object.values(TicketCategory).map((c) => ({ value: c, label: c.replace(/_/g, ' ') }))}
           />
+          <PermissionGate permission={Permission.TICKET_ASSIGN}>
+            <Select
+              label="Assignee"
+              value={editAssignedTo}
+              onChange={(e) => setEditAssignedTo(e.target.value)}
+              options={assigneeOptions}
+            />
+          </PermissionGate>
           <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
             <Button variant="ghost" onClick={() => setShowEditDrawer(false)}>Cancel</Button>
-            <Button
-              onClick={handleSaveEdit}
-              loading={updating}
-              disabled={!editTitle.trim()}
-            >
+            <Button onClick={handleSaveEdit} loading={updating} disabled={!editTitle.trim()}>
               Save Changes
             </Button>
           </div>
         </div>
       </Drawer>
 
-      {/* AI Summary Drawer */}
+      {/* ── AI Summary Drawer ── */}
       <Drawer isOpen={showSummary} onClose={() => setShowSummary(false)} title="AI Thread Summary">
         {summaryLoading ? (
           <AIBanner title="" description="" loading />
@@ -370,15 +530,31 @@ export const TicketDetailPage: React.FC = () => {
         )}
       </Drawer>
 
-      {/* Transition Confirmation */}
+      {/* ── Transition Confirmation ── */}
       <ConfirmDialog
         isOpen={!!confirmTransition}
-        onClose={() => setConfirmTransition(null)}
+        onClose={() => { setConfirmTransition(null); setReopenReason(''); }}
         onConfirm={handleTransition}
-        title={`${confirmTransition === TicketStatus.OPEN ? 'Reopen' : getStatusLabel(confirmTransition!)} Ticket`}
-        message={`Are you sure you want to change the status to "${getStatusLabel(confirmTransition!)}"?`}
+        title={`${isReopenTransition ? 'Reopen' : getStatusLabel(confirmTransition!)} Ticket`}
+        message={
+          TRANSITION_DESCRIPTIONS[confirmTransition!] ??
+          `Are you sure you want to change the status to "${getStatusLabel(confirmTransition!)}"?`
+        }
         loading={transitioning}
-      />
+      >
+        {/* Extra reopen reason field rendered inside confirm dialog */}
+        {isReopenTransition && (
+          <div style={{ marginTop: '1rem' }}>
+            <TextArea
+              label="Reason for reopening (optional)"
+              value={reopenReason}
+              onChange={(e) => setReopenReason(e.target.value)}
+              placeholder="e.g. The issue has returned after the last update..."
+              rows={3}
+            />
+          </div>
+        )}
+      </ConfirmDialog>
     </div>
   );
 };

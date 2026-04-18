@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { NavLink, Outlet, useNavigate } from 'react-router-dom';
+import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
 import { Avatar, ThemeToggle } from '@3sc/ui';
@@ -118,35 +118,56 @@ export const CustomerLayout: React.FC = () => {
 
           {/* User Section */}
           <div style={{
-            padding: '1rem 1.25rem',
+            padding: '0.875rem 1rem',
             borderTop: '1px solid var(--color-border)',
-            display: 'flex',
-            alignItems: 'center',
-            gap: '0.75rem',
           }}>
-            <Avatar name={session?.displayName || 'User'} size={32} />
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div style={{
-                fontSize: '0.8125rem', fontWeight: 600,
-                overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
-              }}>
-                {session?.displayName}
-              </div>
-              <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-                {session?.email}
-              </div>
-            </div>
-            <button
-              onClick={handleLogout}
-              title="Sign out"
-              style={{
-                background: 'none', border: 'none', cursor: 'pointer',
-                fontSize: '1rem', color: 'var(--color-text-muted)',
-                padding: '0.25rem',
-              }}
+            {/* Settings link */}
+            <NavLink
+              to="/settings"
+              onClick={() => isMobile && setSidebarOpen(false)}
+              style={({ isActive }) => ({
+                display: 'flex', alignItems: 'center', gap: '0.625rem',
+                padding: '0.5rem 0.625rem',
+                borderRadius: 'var(--radius-md)',
+                fontSize: '0.8125rem',
+                fontWeight: isActive ? 600 : 400,
+                color: isActive ? 'var(--color-brand-700)' : 'var(--color-text-secondary)',
+                background: isActive ? 'var(--color-brand-50)' : 'transparent',
+                textDecoration: 'none', marginBottom: '0.5rem',
+              })}
             >
-              ↪
-            </button>
+              <span style={{ fontSize: '1rem', width: '1.5rem', textAlign: 'center' }}>⚙️</span>
+              Account Settings
+            </NavLink>
+
+            <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', padding: '0.25rem 0.625rem' }}>
+              <Link to="/settings" style={{ textDecoration: 'none', flexShrink: 0 }}>
+                <Avatar name={session?.displayName || 'User'} size={30} />
+              </Link>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div style={{
+                  fontSize: '0.8125rem', fontWeight: 600,
+                  overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap',
+                  color: 'var(--color-text)',
+                }}>
+                  {session?.displayName}
+                </div>
+                <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {session?.email}
+                </div>
+              </div>
+              <button
+                onClick={handleLogout}
+                title="Sign out"
+                style={{
+                  background: 'none', border: 'none', cursor: 'pointer',
+                  fontSize: '1rem', color: 'var(--color-text-muted)',
+                  padding: '0.25rem',
+                }}
+              >
+                ↪
+              </button>
+            </div>
           </div>
         </aside>
       )}

@@ -1,10 +1,231 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { useGetOrganizationsQuery } from '@3sc/api';
 import { useDocumentTitle, useSession } from '@3sc/hooks';
 import {
-  Card, Button, Input, Skeleton, ErrorState, PermissionGate, Badge,
+  Card, Button, Input, Skeleton, ErrorState, PermissionGate, Badge, useToast,
 } from '@3sc/ui';
 import { Permission } from '@3sc/types';
+
+// ── Branding accent options ───────────────────────────────────────
+const ACCENT_PRESETS = [
+  { label: 'Indigo',  value: '#6366f1' },
+  { label: 'Blue',    value: '#3b82f6' },
+  { label: 'Violet',  value: '#8b5cf6' },
+  { label: 'Rose',    value: '#f43f5e' },
+  { label: 'Amber',   value: '#f59e0b' },
+  { label: 'Emerald', value: '#10b981' },
+  { label: 'Slate',   value: '#475569' },
+];
+
+// ── Branding Section ──────────────────────────────────────────────
+
+interface BrandingState {
+  portalDisplayName: string;
+  primaryColor: string;
+  logoUrl: string;
+  logoPreview: string | null;
+}
+
+const BrandingSection: React.FC<{ disabled: boolean }> = ({ disabled }) => {
+  const { toast } = useToast();
+  const fileRef = useRef<HTMLInputElement>(null);
+
+  const [branding, setBranding] = useState<BrandingState>({
+    portalDisplayName: 'Support Portal',
+    primaryColor: '#6366f1',
+    logoUrl: '',
+    logoPreview: null,
+  });
+  const [saving, setSaving] = useState(false);
+  const [dirty, setDirty] = useState(false);
+  const [customColor, setCustomColor] = useState('');
+
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) { toast('Logo must be under 2MB', 'error'); return; }
+    const reader = new FileReader();
+    reader.onload = ev => {
+      setBranding(prev => ({ ...prev, logoPreview: ev.target?.result as string }));
+      setDirty(true);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleSave = async () => {
+    setSaving(true);
+    await new Promise(r => setTimeout(r, 600));
+    setSaving(false);
+    setDirty(false);
+    toast('Branding saved', 'success');
+  };
+
+  const handleRemoveLogo = () => {
+    setBranding(prev => ({ ...prev, logoPreview: null, logoUrl: '' }));
+    setDirty(true);
+    if (fileRef.current) fileRef.current.value = '';
+  };
+
+  return (
+    <Card style={{ marginBottom: '1.25rem' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
+        <div>
+          <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600 }}>Portal Branding</h3>
+          <p style={{ margin: '0.125rem 0 0', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+            Customise how this portal looks to your team
+          </p>
+        </div>
+        <PermissionGate permission={Permission.BRANDING_CONFIGURE}>
+          {dirty && (
+            <Button size="sm" onClick={handleSave} loading={saving}>Save branding</Button>
+          )}
+        </PermissionGate>
+      </div>
+
+      {/* Logo upload */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--color-text)' }}>
+          Organization Logo
+        </label>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem' }}>
+          {/* Preview */}
+          <div style={{
+            width: '4rem', height: '4rem', borderRadius: 'var(--radius-md)',
+            border: '2px dashed var(--color-border)',
+            background: 'var(--color-bg-subtle)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            overflow: 'hidden', flexShrink: 0,
+          }}>
+            {branding.logoPreview ? (
+              <img src={branding.logoPreview} alt="Logo preview" style={{ width: '100%', height: '100%', objectFit: 'contain' }} />
+            ) : (
+              <span style={{ fontSize: '1.5rem', opacity: 0.3 }}>🏢</span>
+            )}
+          </div>
+
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+            <div style={{ display: 'flex', gap: '0.5rem' }}>
+              <PermissionGate permission={Permission.BRANDING_CONFIGURE}>
+                <button
+                  onClick={() => fileRef.current?.click()}
+                  disabled={disabled}
+                  style={{
+                    padding: '0.375rem 0.75rem', fontSize: '0.8125rem', fontWeight: 500,
+                    background: 'var(--color-bg)', border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-sm)', cursor: disabled ? 'not-allowed' : 'pointer',
+                    color: 'var(--color-text)', opacity: disabled ? 0.5 : 1,
+                  }}
+                >
+                  Upload logo
+                </button>
+              </PermissionGate>
+              {branding.logoPreview && (
+                <button
+                  onClick={handleRemoveLogo}
+                  style={{
+                    padding: '0.375rem 0.75rem', fontSize: '0.8125rem',
+                    background: 'none', border: '1px solid var(--color-border)',
+                    borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: '#dc2626',
+                  }}
+                >
+                  Remove
+                </button>
+              )}
+            </div>
+            <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+              PNG, JPG, SVG or WebP. Max 2MB. Recommended 200×200px.
+            </p>
+          </div>
+        </div>
+        <input ref={fileRef} type="file" accept="image/png,image/jpeg,image/svg+xml,image/webp" style={{ display: 'none' }} onChange={handleLogoChange} />
+      </div>
+
+      {/* Portal display name */}
+      <div style={{ marginBottom: '1.25rem' }}>
+        <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--color-text)' }}>
+          Portal Display Name
+        </label>
+        <input
+          value={branding.portalDisplayName}
+          disabled={disabled}
+          onChange={e => { setBranding(prev => ({ ...prev, portalDisplayName: e.target.value })); setDirty(true); }}
+          placeholder="e.g. Acme Support Hub"
+          style={{
+            width: '100%', padding: '0.5rem 0.625rem',
+            border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
+            background: disabled ? 'var(--color-bg-subtle)' : 'var(--color-bg)',
+            color: 'var(--color-text)', fontSize: '0.875rem', outline: 'none', boxSizing: 'border-box',
+          }}
+        />
+        <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+          Shown in the browser tab and portal header.
+        </p>
+      </div>
+
+      {/* Primary color */}
+      <div>
+        <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.5rem', color: 'var(--color-text)' }}>
+          Primary Color
+        </label>
+        <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', marginBottom: '0.75rem' }}>
+          {ACCENT_PRESETS.map(preset => (
+            <button
+              key={preset.value}
+              disabled={disabled}
+              onClick={() => { setBranding(prev => ({ ...prev, primaryColor: preset.value })); setDirty(true); }}
+              title={preset.label}
+              style={{
+                width: '2rem', height: '2rem', borderRadius: '50%',
+                background: preset.value, border: 'none',
+                cursor: disabled ? 'not-allowed' : 'pointer',
+                outline: branding.primaryColor === preset.value ? `3px solid ${preset.value}` : '3px solid transparent',
+                outlineOffset: '2px',
+                transition: 'outline var(--transition-fast)',
+                opacity: disabled ? 0.5 : 1,
+              }}
+            />
+          ))}
+
+          {/* Custom hex input */}
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <input
+              type="color"
+              value={branding.primaryColor}
+              disabled={disabled}
+              onChange={e => { setBranding(prev => ({ ...prev, primaryColor: e.target.value })); setDirty(true); }}
+              style={{ width: '2rem', height: '2rem', borderRadius: '50%', border: 'none', cursor: disabled ? 'not-allowed' : 'pointer', padding: 0, background: 'none' }}
+            />
+            <span style={{ fontSize: '0.75rem', fontFamily: 'var(--font-mono)', color: 'var(--color-text-secondary)' }}>
+              {branding.primaryColor}
+            </span>
+          </div>
+        </div>
+
+        {/* Live preview strip */}
+        <div style={{
+          padding: '0.75rem 1rem',
+          background: branding.primaryColor,
+          borderRadius: 'var(--radius-md)',
+          display: 'flex', alignItems: 'center', gap: '0.75rem',
+        }}>
+          {branding.logoPreview ? (
+            <img src={branding.logoPreview} alt="" style={{ width: '1.75rem', height: '1.75rem', borderRadius: '4px', objectFit: 'contain', background: 'rgba(255,255,255,0.2)' }} />
+          ) : (
+            <div style={{ width: '1.75rem', height: '1.75rem', borderRadius: '4px', background: 'rgba(255,255,255,0.25)', display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '0.875rem' }}>
+              🏢
+            </div>
+          )}
+          <span style={{ fontWeight: 700, fontSize: '0.9375rem', color: '#fff', fontFamily: 'var(--font-display)' }}>
+            {branding.portalDisplayName || 'Support Portal'}
+          </span>
+          <span style={{ marginLeft: 'auto', fontSize: '0.6875rem', color: 'rgba(255,255,255,0.7)', fontWeight: 500 }}>
+            Preview
+          </span>
+        </div>
+      </div>
+    </Card>
+  );
+};
 
 // ── Mock data — replace with live API when ready ──────────────────
 const orgMock = {
@@ -125,6 +346,9 @@ export const OrganizationSettingsPage: React.FC = () => {
           </div>
         )}
       </Card>
+
+      {/* Branding */}
+      <BrandingSection disabled={!session || false} />
 
       {/* Tenant Info (read-only) */}
       <Card style={{ marginBottom: '1.25rem' }}>
