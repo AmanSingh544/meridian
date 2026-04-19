@@ -89,6 +89,18 @@ import type {
   EscalatedTicket,
   EscalationAssignPayload,
   EscalationResolvePayload,
+  // User management extensions
+  Skill,
+  UserSkill,
+  UserWorkload,
+  UserWorkloadUpdatePayload,
+  PermissionOverride,
+  PermissionOverridePayload,
+  AssignmentScoringWeights,
+  AssignmentScoringWeightsPayload,
+  AgentAssignSuggestion,
+  SkillGap,
+  Permission,
 } from '@3sc/types';
 
 // ── Raw API shapes (snake_case from backend) ────────────────────
@@ -639,6 +651,16 @@ export const api = createApi({
       providesTags: ['RoutingRule'],
     }),
 
+    createRoutingRule: builder.mutation<RoutingRule, Omit<RoutingRule, 'id' | 'created_at'>>({
+      query: (body) => ({
+        url: '/routing-rules',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: ApiResponse<RoutingRule>) => response.data,
+      invalidatesTags: ['RoutingRule'],
+    }),
+
     updateRoutingRule: builder.mutation<RoutingRule, { id: string; payload: Partial<RoutingRule> }>({
       query: ({ id, payload }) => ({
         url: `/routing-rules/${id}`,
@@ -646,6 +668,14 @@ export const api = createApi({
         body: payload,
       }),
       transformResponse: (response: ApiResponse<RoutingRule>) => response.data,
+      invalidatesTags: ['RoutingRule'],
+    }),
+
+    deleteRoutingRule: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/routing-rules/${id}`,
+        method: 'DELETE',
+      }),
       invalidatesTags: ['RoutingRule'],
     }),
 
@@ -896,6 +926,153 @@ export const api = createApi({
       transformResponse: (response: ApiResponse<{ success: boolean }>) => response.data,
       invalidatesTags: ['Escalations'],
     }),
+
+    // ── User Skills ─────────────────────────────────────────────
+    /** Get skills assigned to a specific user */
+    getUserSkills: builder.query<UserSkill[], string>({
+      query: (userId) => `/users/${userId}/skills`,
+      transformResponse: (response: ApiResponse<UserSkill[]>) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'User', id }],
+    }),
+    /** Replace a user's full skill list (ADMIN/LEAD only) */
+    updateUserSkills: builder.mutation<UserSkill[], { userId: string; skillIds: { skillId: string; level: string }[] }>({
+      query: ({ userId, skillIds }) => ({ url: `/users/${userId}/skills`, method: 'PATCH', body: { skills: skillIds } }),
+      transformResponse: (response: ApiResponse<UserSkill[]>) => response.data,
+      invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
+    }),
+
+    // ── Skill Taxonomy ──────────────────────────────────────────
+    /** Get the global skill taxonomy list */
+    getSkills: builder.query<Skill[], { category?: string; search?: string } | void>({
+      query: (params) => ({ url: '/skills', params: params ?? {} }),
+      transformResponse: (response: ApiResponse<Skill[]>) => response.data,
+      providesTags: ['User'],
+    }),
+    /** ADMIN: add a new skill to the global taxonomy */
+    createSkill: builder.mutation<Skill, { name: string; category: string; description?: string }>({
+      query: (body) => ({ url: '/skills', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<Skill>) => response.data,
+      invalidatesTags: ['User'],
+    }),
+
+    // ── User Workload ───────────────────────────────────────────
+    /** Get live workload metrics for a user */
+    getUserWorkload: builder.query<UserWorkload, string>({
+      query: (userId) => `/users/${userId}/workload`,
+      transformResponse: (response: ApiResponse<UserWorkload>) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'User', id }],
+    }),
+    /** Update max capacity or availability status (ADMIN/LEAD) */
+    updateUserWorkload: builder.mutation<UserWorkload, { userId: string; data: UserWorkloadUpdatePayload }>({
+      query: ({ userId, data }) => ({ url: `/users/${userId}/workload`, method: 'PATCH', body: data }),
+      transformResponse: (response: ApiResponse<UserWorkload>) => response.data,
+      invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
+    }),
+    /** Get aggregated workload summary for all agents (LEAD/ADMIN dashboard widget) */
+    getWorkloadSummary: builder.query<{
+      totalAgents: number;
+      availableAgents: number;
+      busyAgents: number;
+      awayAgents: number;
+      offlineAgents: number;
+      avgUtilization: number;
+      overloadedAgents: number;
+    }, void>({
+      query: () => '/users/workload-summary',
+      transformResponse: (response: ApiResponse<{
+        totalAgents: number;
+        availableAgents: number;
+        busyAgents: number;
+        awayAgents: number;
+        offlineAgents: number;
+        avgUtilization: number;
+        overloadedAgents: number;
+      }>) => response.data,
+      providesTags: ['User'],
+    }),
+
+    // ── User Permission Overrides ───────────────────────────────
+    /** Get a user's effective permission list + override breakdown (ADMIN only) */
+    getUserPermissions: builder.query<{ effective: Permission[]; overrides: PermissionOverride[] }, string>({
+      query: (userId) => `/users/${userId}/permissions`,
+      transformResponse: (response: ApiResponse<{ effective: Permission[]; overrides: PermissionOverride[] }>) => response.data,
+      providesTags: (_result, _error, id) => [{ type: 'User', id }],
+    }),
+    /** ADMIN: add or remove a permission override on a user */
+    updateUserPermission: builder.mutation<{ effective: Permission[]; overrides: PermissionOverride[] }, { userId: string; payload: PermissionOverridePayload }>({
+      query: ({ userId, payload }) => ({ url: `/users/${userId}/permissions`, method: 'PATCH', body: payload }),
+      transformResponse: (response: ApiResponse<{ effective: Permission[]; overrides: PermissionOverride[] }>) => response.data,
+      invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
+    }),
+    /** CLIENT_ADMIN: toggle a permission on/off for one of their org members (ceiling-enforced server-side) */
+    toggleTeamMemberPermission: builder.mutation<{ effective: Permission[] }, { memberId: string; permission: Permission; enabled: boolean }>({
+      query: ({ memberId, permission, enabled }) => ({
+        url: `/team/members/${memberId}/permissions`,
+        method: 'PATCH',
+        body: { permission, enabled },
+      }),
+      transformResponse: (response: ApiResponse<{ effective: Permission[] }>) => response.data,
+      invalidatesTags: ['User'],
+    }),
+
+    // ── Client Team Management ──────────────────────────────────
+    /** CLIENT_ADMIN: get org-scoped member list (never includes internal 3SC staff) */
+    getTeamMembers: builder.query<PaginatedResponse<User>, { page?: number; search?: string; role?: string }>({
+      query: (params) => ({ url: '/team/members', params }),
+      providesTags: ['User'],
+    }),
+    /** CLIENT_ADMIN: change a member's role within [CLIENT_ADMIN, CLIENT_USER] */
+    updateTeamMemberRole: builder.mutation<User, { memberId: string; role: 'CLIENT_ADMIN' | 'CLIENT_USER' }>({
+      query: ({ memberId, role }) => ({ url: `/team/members/${memberId}/role`, method: 'PATCH', body: { role } }),
+      transformResponse: (response: ApiResponse<User>) => response.data,
+      invalidatesTags: ['User'],
+    }),
+    /** CLIENT_ADMIN: deactivate a member (soft delete only) */
+    deactivateTeamMember: builder.mutation<{ success: boolean }, string>({
+      query: (memberId) => ({ url: `/team/members/${memberId}`, method: 'DELETE' }),
+      transformResponse: (response: ApiResponse<{ success: boolean }>) => response.data,
+      invalidatesTags: ['User'],
+    }),
+
+    // ── Assignment Scoring Weights ──────────────────────────────
+    /** Get the current global assignment scoring weights */
+    getScoringWeights: builder.query<AssignmentScoringWeights, void>({
+      query: () => '/users/scoring-weights',
+      transformResponse: (response: ApiResponse<AssignmentScoringWeights>) => response.data,
+      providesTags: ['User'],
+    }),
+    /** ADMIN: update the global scoring weights */
+    updateScoringWeights: builder.mutation<AssignmentScoringWeights, AssignmentScoringWeightsPayload>({
+      query: (body) => ({ url: '/users/scoring-weights', method: 'PATCH', body }),
+      transformResponse: (response: ApiResponse<AssignmentScoringWeights>) => response.data,
+      invalidatesTags: ['User'],
+    }),
+
+    // ── AI — Assignment Suggestions ─────────────────────────────
+    /** Get top-3 agent suggestions for a ticket, ranked by scoring formula */
+    getAssignSuggestions: builder.query<AgentAssignSuggestion[], string>({
+      query: (ticketId) => `/ai/users/assign-suggest/${ticketId}`,
+      transformResponse: (response: ApiResponse<AgentAssignSuggestion[]>) => response.data,
+      providesTags: ['AI'],
+    }),
+    /** Get open tickets with no skill-matched agent (LEAD/ADMIN) */
+    getSkillGaps: builder.query<SkillGap[], void>({
+      query: () => '/ai/users/skill-gaps',
+      transformResponse: (response: ApiResponse<SkillGap[]>) => response.data,
+      providesTags: ['AI'],
+    }),
+    /** Suggest skills for an agent based on their ticket resolution history */
+    suggestAgentSkills: builder.mutation<{ suggestedSkills: Skill[]; reasoning: string }, string>({
+      query: (userId) => ({ url: `/ai/users/suggest-skills/${userId}`, method: 'POST' }),
+      transformResponse: (response: ApiResponse<{ suggestedSkills: Skill[]; reasoning: string }>) => response.data,
+    }),
+
+    // ── Password Reset (ADMIN) ──────────────────────────────────
+    /** ADMIN: trigger a password reset email for any user */
+    adminResetPassword: builder.mutation<{ success: boolean }, string>({
+      query: (userId) => ({ url: `/users/${userId}/reset-password`, method: 'POST' }),
+      transformResponse: (response: ApiResponse<{ success: boolean }>) => response.data,
+    }),
   }),
 });
 
@@ -973,7 +1150,9 @@ export const {
   useGetAuditLogsQuery,
   // Routing
   useGetRoutingRulesQuery,
+  useCreateRoutingRuleMutation,
   useUpdateRoutingRuleMutation,
+  useDeleteRoutingRuleMutation,
   // AI
   useGetAIDigestQuery,
   useGetAIClassificationQuery,
@@ -1023,4 +1202,31 @@ export const {
   useGetEscalationAgentsQuery,
   useAssignEscalationMutation,
   useResolveEscalationMutation,
+  // User Skills
+  useGetUserSkillsQuery,
+  useUpdateUserSkillsMutation,
+  // Skill Taxonomy
+  useGetSkillsQuery,
+  useCreateSkillMutation,
+  // Workload
+  useGetUserWorkloadQuery,
+  useUpdateUserWorkloadMutation,
+  useGetWorkloadSummaryQuery,
+  // Permission Overrides
+  useGetUserPermissionsQuery,
+  useUpdateUserPermissionMutation,
+  useToggleTeamMemberPermissionMutation,
+  // Client Team Management
+  useGetTeamMembersQuery,
+  useUpdateTeamMemberRoleMutation,
+  useDeactivateTeamMemberMutation,
+  // Scoring Weights
+  useGetScoringWeightsQuery,
+  useUpdateScoringWeightsMutation,
+  // AI — Assignment
+  useGetAssignSuggestionsQuery,
+  useGetSkillGapsQuery,
+  useSuggestAgentSkillsMutation,
+  // Password Reset
+  useAdminResetPasswordMutation,
 } = api;

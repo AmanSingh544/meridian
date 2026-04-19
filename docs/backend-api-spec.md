@@ -6215,200 +6215,1271 @@ GET /api/v1/analytics/agent-performance
 
 ## Addendum A11 — Delivery Board, Onboarding Tracker, Product Roadmap + AI
 
-*Added: 2026-04-19*
+*Added: 2026-04-19. Revised: 2026-04-19 — full atomic spec with complete request/response schemas, business rules, error codes, and AI implementation context.*
 
 ---
 
-### Delivery Board Endpoints
+### A11.0 — Architecture & Context
 
-#### `GET /delivery/features`
-**Auth:** DELIVERY_VIEW (LEAD, ADMIN)
+This addendum covers **20 new endpoints** across 5 feature domains:
+
+| Domain | Caller | Endpoints |
+|---|---|---|
+| Delivery Board | Internal Console (LEAD, ADMIN) | CRUD on features + move + delete |
+| Onboarding (internal) | Internal Console (LEAD, ADMIN) | List all orgs' onboarding projects, update tasks |
+| Onboarding (client) | Customer Portal (CLIENT_ADMIN, CLIENT_USER) | View own onboarding, update CLIENT-owned tasks |
+| Product Roadmap | Customer Portal (CLIENT_ADMIN, CLIENT_USER) | View public roadmap, vote, submit requests |
+| AI | Both apps | Risk analysis, prioritisation, drafting, health, next action, classify, summarise |
+
+**Multi-tenancy:** All endpoints are tenant-scoped via `tenant_id` (automatically injected by the frontend RTK Query base query). Internal staff (AGENT/LEAD/ADMIN) have cross-tenant read access where their permission allows.
+
+**Shared `DeliveryFeature` object:** The same `delivery_features` table serves both the **internal Delivery Board** (all features) and the **client Roadmap** (only `is_public = true`). The `has_voted` boolean on `GET /roadmap` is computed per-user — join the `feature_votes` table filtered by the requesting user's ID.
+
+**Escalations `GET /escalations/agents`:** This endpoint (new, added with the Escalations page refactor) returns the list of available agents for assignment. The frontend's `AssignDropdown` component populates from this endpoint. **The existing spec §19 does not cover this endpoint — it is added here.**
+
+---
+
+### A11.1 — New & Updated Permissions
+
+These permission values must exist in the backend's permission enum/registry:
+
+| Permission | Description | Roles |
+|---|---|---|
+| `DELIVERY_VIEW` | Read delivery features board | LEAD, ADMIN |
+| `DELIVERY_MANAGE` | Create, edit, move, delete delivery features | ADMIN |
+| `ONBOARDING_VIEW` | View all onboarding projects (internal) | LEAD, ADMIN |
+| `ONBOARDING_MANAGE` | Update any task status (internal) | LEAD, ADMIN |
+| `ROADMAP_VOTE` | Vote/unvote on public roadmap features | CLIENT_ADMIN, CLIENT_USER |
+| `ROADMAP_REQUEST` | Submit a new feature request | CLIENT_ADMIN |
+| `AI_DIGEST` | AI roadmap summary (client-facing) | CLIENT_ADMIN, CLIENT_USER |
+| `AI_PROJECT_INSIGHTS` | AI delivery risk + onboarding health + next action | LEAD, ADMIN |
+| `AI_PROJECT_REPORTS` | AI blocker summary + delivery draft + prioritise | LEAD, ADMIN |
+
+---
+
+### A11.2 — Escalations Agent List (Gap in §19)
+
+This endpoint was missing from §19. It is called by `GET /escalations/agents` on the Escalations page to populate the assign-agent dropdown.
+
+#### `GET /api/v1/escalations/agents`
+
+**Auth:** `TICKET_ASSIGN`
+
+**Business rules:**
+- Returns active agents for the same tenant.
+- `currentLoad` = count of tickets currently in `IN_PROGRESS` status assigned to that agent.
+- Used by the `AssignDropdown` component to show workload badges (green ≤2, amber ≤4, red >4).
+- ADMIN + LEAD only — agents cannot see this list.
+
+**Query Parameters:** `tenant_id` (auto-injected)
+
+**Response `200 OK`:**
+```json
+{
+  "data": [
+    { "id": "USR-002", "displayName": "Priya Sharma",  "currentLoad": 2 },
+    { "id": "USR-003", "displayName": "James Okafor",  "currentLoad": 4 },
+    { "id": "USR-004", "displayName": "Nina Patel",    "currentLoad": 1 },
+    { "id": "USR-005", "displayName": "Arjun Tiwari",  "currentLoad": 3 }
+  ]
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `TICKET_ASSIGN` |
+
+---
+
+### A11.3 — Delivery Board
+
+#### Context for AI / Backend Implementation
+
+The Delivery Board is a **Kanban-style view** for 3SC internal staff showing all product features in a pipeline. Features move left-to-right through six statuses: `BACKLOG → PLANNED → IN_DEV → IN_QA → IN_STAGING → RELEASED`. Every feature has an `is_public` flag — when true it appears on the client-facing Product Roadmap. The `upvotes` count is the aggregated total of votes from all client users across all orgs.
+
+---
+
+#### `GET /api/v1/delivery/features`
+
+**Auth:** `DELIVERY_VIEW` (LEAD, ADMIN)
+
+**Business rules:**
+- Returns all delivery features for the tenant, across all statuses.
+- The client roadmap (`GET /roadmap`) is a filtered subset of this same table where `is_public = true`. Do **not** create a separate table.
+- Results ordered by `upvotes DESC` within each status, then `created_at ASC`.
+
+**Query Parameters:**
 
 | Param | Type | Required | Description |
 |---|---|---|---|
-| `status` | DeliveryStatus | No | Filter by column |
-| `quarter` | string | No | e.g. `Q2 2026` |
-| `isPublic` | boolean | No | Filter public/private |
+| `tenant_id` | string | Yes | Auto-injected |
+| `status` | string | No | One of `BACKLOG`, `PLANNED`, `IN_DEV`, `IN_QA`, `IN_STAGING`, `RELEASED` |
+| `quarter` | string | No | e.g. `Q2 2026` — exact match |
+| `is_public` | boolean | No | `true` / `false` |
+| `category` | string | No | Exact match on category string |
 
-**Response `200 OK`:** `{ "data": DeliveryFeature[] }`
+**Response `200 OK`:**
+```json
+{
+  "data": [
+    {
+      "id": "FEAT-001",
+      "title": "SLA Breach Alerts",
+      "description": "Real-time notifications when tickets approach or breach SLA thresholds.",
+      "status": "RELEASED",
+      "assignee": "Priya Sharma",
+      "assigneeId": "USR-002",
+      "eta": "2026-02-28T00:00:00Z",
+      "upvotes": 34,
+      "quarter": "Q1 2026",
+      "isPublic": true,
+      "category": "Notifications",
+      "requestedByOrgIds": ["ORG-001", "ORG-003"],
+      "created_at": "2025-11-01T00:00:00Z",
+      "updated_at": "2026-02-28T00:00:00Z"
+    }
+  ]
+}
+```
+
+> `hasVoted` is **not** returned here — it is only computed for `GET /roadmap` (client endpoint). Internal staff do not vote.
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `DELIVERY_VIEW` |
 
 ---
 
-#### `POST /delivery/features`
-**Auth:** DELIVERY_MANAGE (ADMIN)
+#### `POST /api/v1/delivery/features`
 
-**Request body:** `DeliveryFeatureCreatePayload`
+**Auth:** `DELIVERY_MANAGE` (ADMIN)
 
-**Response `201 Created`:** `{ "data": DeliveryFeature }`
+**Business rules:**
+- Creates a new feature. Default `status` is `BACKLOG` if not provided.
+- `upvotes` initialised to `0`.
+- `is_public` defaults to `false` if not specified.
+- The feature is immediately available in the Delivery Board. It only appears on the client Roadmap once `is_public` is set to `true` (via `PATCH`).
+
+**Request Body:**
+```json
+{
+  "title": "Two-Factor Authentication",
+  "description": "TOTP-based 2FA for all users. Optional enforcement per-organisation.",
+  "status": "BACKLOG",
+  "category": "Security",
+  "quarter": "Q3 2026",
+  "is_public": false,
+  "assignee_id": "USR-002",
+  "eta": "2026-09-30T00:00:00Z"
+}
+```
+
+**Field Validation:**
+- `title` — required, 3–200 chars
+- `description` — optional, max 2000 chars
+- `status` — optional, must be valid `DeliveryStatus` enum value; defaults to `BACKLOG`
+- `category` — optional, free-text string (e.g. `"AI"`, `"Security"`)
+- `quarter` — optional, format `Q[1-4] YYYY` (e.g. `"Q3 2026"`)
+- `is_public` — optional boolean, default `false`
+- `assignee_id` — optional, must be valid AGENT/LEAD/ADMIN user ID
+- `eta` — optional ISO 8601 datetime
+
+**Response `201 Created`:** Full `DeliveryFeature` object (same schema as GET above).
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `DELIVERY_MANAGE` |
+| `VALIDATION_ERROR` | 400 | Missing `title` or invalid field value |
+| `ASSIGNEE_NOT_FOUND` | 404 | `assignee_id` not found |
 
 ---
 
-#### `PATCH /delivery/features/:id`
-**Auth:** DELIVERY_MANAGE (full edit, ADMIN) or DELIVERY_VIEW (move/status only, LEAD)
+#### `PATCH /api/v1/delivery/features/:id`
 
-**Request body (ADMIN):** Partial `DeliveryFeature`
-**Request body (LEAD move only):** `{ "status": DeliveryStatus }`
+**Auth:** `DELIVERY_MANAGE` (ADMIN) for full edit; `DELIVERY_VIEW` (LEAD) for status move only.
 
-**Response `200 OK`:** `{ "data": DeliveryFeature }`
+**Business rules:**
+- ADMIN can update any field.
+- LEAD can only send `{ "status": "<DeliveryStatus>" }` — any other fields in the body from a LEAD must be rejected with `403 INSUFFICIENT_PERMISSION`.
+- Moving a feature from `RELEASED` back to any earlier status is **allowed** (e.g. hotfix scenarios).
+- When `is_public` transitions `false → true`, the feature becomes visible on the client Roadmap immediately.
+- When `is_public` transitions `true → false`, votes are **preserved** in the DB but hidden from clients. If re-published, votes resume showing.
+- Updating `upvotes` directly via this endpoint is **forbidden** — votes are mutated only via `POST /roadmap/features/:id/vote` and `DELETE /roadmap/features/:id/vote`.
+
+**Path Params:** `id` — feature ID (e.g. `FEAT-001`)
+
+**Request Body (ADMIN — any combination of fields):**
+```json
+{
+  "title": "Updated title",
+  "description": "Updated description",
+  "status": "IN_DEV",
+  "category": "Security",
+  "quarter": "Q3 2026",
+  "is_public": true,
+  "assignee_id": "USR-003",
+  "eta": "2026-09-30T00:00:00Z"
+}
+```
+
+**Request Body (LEAD — status move only):**
+```json
+{ "status": "IN_QA" }
+```
+
+**Response `200 OK`:** Full updated `DeliveryFeature` object.
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Lacks `DELIVERY_VIEW` or LEAD trying to update non-status field |
+| `NOT_FOUND` | 404 | Feature ID not found |
+| `VALIDATION_ERROR` | 400 | Invalid `status` value or other constraint |
+| `UPVOTES_IMMUTABLE` | 422 | Body includes `upvotes` field — reject |
 
 ---
 
-#### `DELETE /delivery/features/:id`
-**Auth:** DELIVERY_MANAGE (ADMIN)
+#### `DELETE /api/v1/delivery/features/:id`
+
+**Auth:** `DELIVERY_MANAGE` (ADMIN only)
+
+**Business rules:**
+- Hard delete. The feature is removed from the Delivery Board and the client Roadmap immediately.
+- All associated votes (`feature_votes` table rows for this feature) must also be deleted (cascade).
+- If any `FeatureRequest` has `linked_feature_id` pointing to this feature, set those to `null` (do not cascade-delete the requests).
+- A `RELEASED` feature can be deleted (admin decision to remove from changelog).
+
+**Path Params:** `id` — feature ID
 
 **Response `204 No Content`**
 
----
+**Error Codes:**
 
-### Onboarding Endpoints (Internal)
-
-#### `GET /onboarding`
-**Auth:** ONBOARDING_VIEW (LEAD, ADMIN)
-
-**Response `200 OK`:** `{ "data": OnboardingProject[] }`
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `DELIVERY_MANAGE` |
+| `NOT_FOUND` | 404 | Feature ID not found |
 
 ---
 
-#### `GET /onboarding/:id`
-**Auth:** ONBOARDING_VIEW
+### A11.4 — Onboarding (Internal Console)
 
-**Response `200 OK`:** `{ "data": OnboardingProject }`
+#### Context for AI / Backend Implementation
 
----
-
-#### `PATCH /onboarding/:id/tasks/:taskId`
-**Auth:** ONBOARDING_MANAGE (LEAD, ADMIN)
-
-**Request body:** `{ "status": OnboardingTaskStatus }`
-
-**Response `200 OK`:** `{ "data": OnboardingTask }`
+The Onboarding tracker represents a structured project created by 3SC staff when a new client organisation goes live. Each `OnboardingProject` belongs to exactly one `Organisation`. It has multiple `OnboardingPhase` objects (ordered by `phase_number`), each containing `OnboardingTask` objects. Tasks have an `owner` field (`CLIENT` or `DELIVERY`) — only CLIENT-owned tasks can be checked off by client users; DELIVERY tasks are managed by 3SC staff. Progress is computed (not stored): `phase.progress = (done_tasks / total_tasks) * 100`, `overall_progress = average of phase progresses`.
 
 ---
 
-### Onboarding Endpoints (Client Portal)
+#### `GET /api/v1/onboarding`
 
-#### `GET /onboarding/my`
-**Auth:** Any authenticated client user (scoped to their org)
+**Auth:** `ONBOARDING_VIEW` (LEAD, ADMIN)
 
-**Response `200 OK`:** `{ "data": OnboardingProject }`
+**Business rules:**
+- Returns all onboarding projects for the tenant (cross-org view for internal staff).
+- Results ordered by `health` (BLOCKED first, AT_RISK second, ON_TRACK last), then by `go_live_date ASC`.
+- The `phases` array and their `tasks` array must be fully nested in the response — no separate call needed to load phases/tasks.
+- `blocker_count` = count of tasks with `status = BLOCKED` across all phases.
+- `overall_progress` and `phase.progress` are computed server-side, not stored columns.
 
----
+**Query Parameters:**
 
-#### `PATCH /onboarding/:id/tasks/:taskId` *(client)*
-**Auth:** CLIENT_ADMIN (CLIENT-owned tasks only)
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `tenant_id` | string | Yes | Auto-injected |
+| `status` | string | No | `IN_PROGRESS`, `COMPLETED`, `ON_HOLD`, `CANCELLED` |
+| `health` | string | No | `ON_TRACK`, `AT_RISK`, `BLOCKED` |
 
-**Request body:** `{ "status": OnboardingTaskStatus }`
+**Response `200 OK`:**
+```json
+{
+  "data": [
+    {
+      "id": "ONB-001",
+      "organizationId": "ORG-001",
+      "organizationName": "TechNova Ltd",
+      "leadAgentId": "USR-002",
+      "leadAgentName": "Priya Sharma",
+      "status": "IN_PROGRESS",
+      "health": "ON_TRACK",
+      "overallProgress": 62,
+      "goLiveDate": "2026-06-01T00:00:00Z",
+      "blockerCount": 0,
+      "phases": [
+        {
+          "id": "PH-001",
+          "phaseNumber": 1,
+          "name": "Discovery & Scoping",
+          "progress": 100,
+          "status": "COMPLETED",
+          "tasks": [
+            {
+              "id": "TASK-001",
+              "title": "Complete requirements workshop",
+              "description": "3-hour session to capture all integration points.",
+              "owner": "DELIVERY",
+              "dueDate": "2026-03-15T00:00:00Z",
+              "status": "DONE",
+              "completedAt": "2026-03-14T00:00:00Z"
+            }
+          ]
+        }
+      ],
+      "created_at": "2026-02-01T00:00:00Z",
+      "updated_at": "2026-04-10T00:00:00Z"
+    }
+  ]
+}
+```
 
-**Response `200 OK`:** `{ "data": OnboardingTask }`
+**Error Codes:**
 
----
-
-### Roadmap Endpoints (Client Portal)
-
-#### `GET /roadmap`
-**Auth:** Any authenticated client user
-
-Returns only features where `isPublic = true`.
-
-**Response `200 OK`:** `{ "data": DeliveryFeature[] }` (includes `hasVoted` per user)
-
----
-
-#### `POST /roadmap/features/:id/vote`
-**Auth:** ROADMAP_VOTE (CLIENT_ADMIN, CLIENT_USER)
-
-**Response `200 OK`:** `{ "data": { "upvotes": number, "hasVoted": true } }`
-
----
-
-#### `DELETE /roadmap/features/:id/vote`
-**Auth:** ROADMAP_VOTE
-
-**Response `200 OK`:** `{ "data": { "upvotes": number, "hasVoted": false } }`
-
----
-
-#### `POST /roadmap/requests`
-**Auth:** ROADMAP_REQUEST (CLIENT_ADMIN)
-
-**Request body:** `{ "title": string, "description": string }`
-
-**Response `201 Created`:** `{ "data": FeatureRequest }`
-
----
-
-### AI — Delivery Board
-
-#### `GET /ai/delivery/risk`
-**Auth:** AI_PROJECT_INSIGHTS (LEAD, ADMIN)
-
-Returns at-risk features in IN_DEV / IN_QA / IN_STAGING with ETA analysis.
-
-**Response `200 OK`:** `{ "data": DeliveryRiskItem[] }`
-
----
-
-#### `POST /ai/delivery/prioritise`
-**Auth:** AI_PROJECT_INSIGHTS (LEAD, ADMIN)
-
-Ranks BACKLOG and PLANNED features by client demand + strategic value.
-
-**Request body:** `{}` (uses server-side feature + vote data)
-
-**Response `200 OK`:** `{ "data": DeliveryPrioritisedFeature[] }`
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `ONBOARDING_VIEW` |
 
 ---
 
-#### `POST /ai/delivery/draft-feature`
-**Auth:** AI_PROJECT_REPORTS (LEAD, ADMIN)
+#### `GET /api/v1/onboarding/:id`
 
-**Request body:** `{ "title": string }`
+**Auth:** `ONBOARDING_VIEW`
 
-**Response `200 OK`:** `{ "data": DeliveryFeatureDraft }`
+**Path Params:** `id` — onboarding project ID (e.g. `ONB-001`)
 
----
+**Response `200 OK`:** Single `OnboardingProject` object, same schema as the list item above.
 
-### AI — Onboarding
+**Error Codes:**
 
-#### `GET /ai/onboarding/:id/health`
-**Auth:** AI_PROJECT_INSIGHTS (internal); any authenticated client (their own)
-
-**Response `200 OK`:** `{ "data": OnboardingHealthPrediction }`
-
----
-
-#### `POST /ai/onboarding/:id/blocker-summary`
-**Auth:** AI_PROJECT_REPORTS (LEAD, ADMIN)
-
-**Response `200 OK`:** `{ "data": OnboardingBlockerSummary }`
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `ONBOARDING_VIEW` |
+| `NOT_FOUND` | 404 | Onboarding project not found |
 
 ---
 
-#### `GET /ai/onboarding/:id/next-action`
-**Auth:** AI_PROJECT_INSIGHTS (internal); CLIENT_ADMIN (their own onboarding)
+#### `PATCH /api/v1/onboarding/:id/tasks/:taskId`
 
-**Response `200 OK`:** `{ "data": OnboardingNextAction }`
+**Auth:** `ONBOARDING_MANAGE` (LEAD, ADMIN) for any task. `CLIENT_ADMIN` for CLIENT-owned tasks only (see §A11.5).
+
+**Business rules:**
+- Internal staff (ONBOARDING_MANAGE) can update **any** task regardless of `owner`.
+- Client users (CLIENT_ADMIN, CLIENT_USER) can only update tasks where `owner = CLIENT` — reject with 403 if they attempt a DELIVERY-owned task.
+- Allowed `status` transitions for internal staff: any value in `OnboardingTaskStatus` (`PENDING`, `IN_PROGRESS`, `DONE`, `BLOCKED`).
+- When `status` transitions to `DONE`, set `completed_at = now()` automatically.
+- When `status` transitions away from `DONE`, clear `completed_at` (set to null).
+- After any task update, recompute and persist `phase.progress` and `onboarding.overall_progress` (or compute them at read time — consistent with your chosen strategy).
+- Also recompute `blocker_count` on the parent `OnboardingProject`.
+- Emit a WebSocket event `onboarding:task_updated` (see §16) to notify other viewers of the same onboarding project in real time.
+
+**Path Params:**
+- `id` — onboarding project ID
+- `taskId` — task ID
+
+**Request Body:**
+```json
+{ "status": "IN_PROGRESS" }
+```
+
+**Response `200 OK`:**
+```json
+{
+  "data": {
+    "id": "TASK-003",
+    "title": "Data mapping & transformation",
+    "description": "Map 47 custom fields from legacy CRM.",
+    "owner": "DELIVERY",
+    "dueDate": "2026-04-20T00:00:00Z",
+    "status": "IN_PROGRESS",
+    "completedAt": null
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Lacks `ONBOARDING_MANAGE`, or client tried to update a DELIVERY task |
+| `NOT_FOUND` | 404 | Onboarding project or task not found |
+| `INVALID_STATUS` | 400 | `status` value not in enum |
 
 ---
 
-### AI — Roadmap
+### A11.5 — Onboarding (Customer Portal)
 
-#### `GET /ai/roadmap/summary`
-**Auth:** AI_DIGEST (CLIENT_ADMIN, CLIENT_USER)
+#### Context for AI / Backend Implementation
 
-Personalised summary based on the org's ticket history and voted features.
-
-**Response `200 OK`:** `{ "data": RoadmapPersonalisedSummary }`
+Client users access a **read-only view of their own organisation's onboarding project** via the Customer Portal. `GET /onboarding/my` is scoped entirely to the caller's `tenant_id` — no org ID is needed in the request. CLIENT_ADMIN users may also check off tasks that are `owner = CLIENT`, enabling them to mark their own team's deliverables as done.
 
 ---
 
-#### `POST /ai/roadmap/classify-request`
-**Auth:** ROADMAP_REQUEST (CLIENT_ADMIN)
+#### `GET /api/v1/onboarding/my`
 
-**Request body:** `{ "title": string, "description": string }`
+**Auth:** Any authenticated client user (`CLIENT_ADMIN`, `CLIENT_USER`)
 
-**Response `200 OK`:** `{ "data": FeatureRequestClassification }`
+**Business rules:**
+- Scoped automatically to the caller's `tenant_id` — no query param needed.
+- Returns the **single** active onboarding project for the org. If the org has no onboarding project, return `404` with code `ONBOARDING_NOT_FOUND`.
+- If the org has multiple onboarding projects (e.g. re-onboarding), return the most recently created one that is not `COMPLETED` or `CANCELLED`. If all are completed, return the most recently completed one.
+- The response shape is identical to `GET /onboarding/:id` (full nested phases + tasks).
+- `has_voted` is not relevant here — that field only appears on roadmap responses.
+
+**Response `200 OK`:** `OnboardingProject` object (same schema as §A11.4).
+
+**Response `404`:**
+```json
+{
+  "code": "ONBOARDING_NOT_FOUND",
+  "message": "No onboarding project found for your organisation."
+}
+```
+
+**Note:** The frontend shows a friendly "Onboarding not set up yet — contact your account manager" empty state when `404` is received. Return `404` (not `200` with null) so the frontend can distinguish "not found" from "loading error".
 
 ---
 
-*Addendum A11 — Delivery Board, Onboarding Tracker, Product Roadmap + AI. Last updated: 2026-04-19.*
+### A11.6 — Product Roadmap (Customer Portal)
+
+#### Context for AI / Backend Implementation
+
+The Product Roadmap is a public-facing view of the `delivery_features` table, filtered to `is_public = true`. Client users can **upvote** features they want prioritised, and **submit new feature requests**. Votes are stored in a join table `feature_votes (feature_id, user_id, org_id, created_at)` — unique constraint on `(feature_id, user_id)`. The `upvotes` count on `DeliveryFeature` is the aggregate `COUNT(*)` of this join table per feature. The `has_voted` boolean is computed per-request by checking if the calling user's ID exists in `feature_votes` for that feature.
+
+---
+
+#### `GET /api/v1/roadmap`
+
+**Auth:** Any authenticated client user (`CLIENT_ADMIN`, `CLIENT_USER`)
+
+**Business rules:**
+- Returns only features where `is_public = true`.
+- Results **grouped by `quarter`** on the frontend — the backend returns a flat array sorted by `quarter ASC NULLS LAST`, then `upvotes DESC` within each quarter.
+- For each feature, compute `has_voted` by checking `feature_votes` where `feature_id = f.id AND user_id = <caller_id>`.
+- Do **not** return `requestedByOrgIds` to client users (internal-only field) — omit or set to null in client responses.
+- If `AI_DIGEST` permission present, the client may also call `GET /ai/roadmap/summary` for personalised highlights (separate endpoint).
+
+**Query Parameters:**
+
+| Param | Type | Required | Description |
+|---|---|---|---|
+| `tenant_id` | string | Yes | Auto-injected |
+| `status` | string | No | Filter by `DeliveryStatus` value |
+| `category` | string | No | Exact match |
+| `quarter` | string | No | e.g. `Q2 2026` |
+
+**Response `200 OK`:**
+```json
+{
+  "data": [
+    {
+      "id": "FEAT-001",
+      "title": "SLA Breach Alerts",
+      "description": "Real-time notifications when tickets approach or breach SLA thresholds.",
+      "status": "RELEASED",
+      "assignee": "Priya Sharma",
+      "assigneeId": "USR-002",
+      "eta": "2026-02-28T00:00:00Z",
+      "upvotes": 34,
+      "quarter": "Q1 2026",
+      "isPublic": true,
+      "category": "Notifications",
+      "hasVoted": false,
+      "created_at": "2025-11-01T00:00:00Z",
+      "updated_at": "2026-02-28T00:00:00Z"
+    }
+  ]
+}
+```
+
+> `requestedByOrgIds` is intentionally **omitted** from this response (client-facing).
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Unauthenticated or not a client user |
+
+---
+
+#### `POST /api/v1/roadmap/features/:id/vote`
+
+**Auth:** `ROADMAP_VOTE` (CLIENT_ADMIN, CLIENT_USER)
+
+**Business rules:**
+- Inserts a row into `feature_votes (feature_id, user_id, org_id)`.
+- Unique constraint on `(feature_id, user_id)` — if the user already voted, return `409 ALREADY_VOTED`.
+- Increments `features.upvotes` counter (or recompute from join table — consistent with your chosen strategy).
+- Adds the caller's `org_id` to `features.requested_by_org_ids` array if not already present.
+
+**Path Params:** `id` — feature ID
+
+**Response `200 OK`:**
+```json
+{
+  "data": {
+    "featureId": "FEAT-003",
+    "upvotes": 42,
+    "hasVoted": true
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `ROADMAP_VOTE` |
+| `NOT_FOUND` | 404 | Feature not found or `is_public = false` |
+| `ALREADY_VOTED` | 409 | User has already voted on this feature |
+
+---
+
+#### `DELETE /api/v1/roadmap/features/:id/vote`
+
+**Auth:** `ROADMAP_VOTE`
+
+**Business rules:**
+- Removes the `feature_votes` row for `(feature_id, caller_user_id)`.
+- Decrements `features.upvotes` (or recompute). Never go below 0.
+- Does **not** remove the org from `requested_by_org_ids` (other users from the same org may still have voted).
+- If the user has not voted, return `409 NOT_VOTED`.
+
+**Path Params:** `id` — feature ID
+
+**Response `200 OK`:**
+```json
+{
+  "data": {
+    "featureId": "FEAT-003",
+    "upvotes": 41,
+    "hasVoted": false
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `ROADMAP_VOTE` |
+| `NOT_FOUND` | 404 | Feature not found |
+| `NOT_VOTED` | 409 | User has not voted on this feature — nothing to remove |
+
+---
+
+#### `POST /api/v1/roadmap/requests`
+
+**Auth:** `ROADMAP_REQUEST` (CLIENT_ADMIN only)
+
+**Business rules:**
+- Creates a new `FeatureRequest` record scoped to the caller's org.
+- Status starts as `PENDING`. 3SC ADMIN staff can later change it to `ACCEPTED`, `REJECTED`, or `MERGED`.
+- When `MERGED`, `linked_feature_id` points to the existing or newly created `DeliveryFeature`.
+- The frontend calls `POST /ai/roadmap/classify-request` **before** this endpoint to get a pre-flight duplicate check and classification. However, this endpoint must perform its own deduplication logic independently — do not rely on the AI classification having been called.
+- Deduplication: if a request with the same `title` (case-insensitive) from the same org was submitted within the last 30 days and is still `PENDING`, return `409 DUPLICATE_REQUEST`.
+
+**Request Body:**
+```json
+{
+  "title": "Bulk export tickets to CSV",
+  "description": "We need to export all tickets for a given date range to CSV for our compliance team."
+}
+```
+
+**Field Validation:**
+- `title` — required, 5–200 chars
+- `description` — optional, max 3000 chars
+
+**Response `201 Created`:**
+```json
+{
+  "data": {
+    "id": "REQ-001",
+    "title": "Bulk export tickets to CSV",
+    "description": "We need to export all tickets for a given date range...",
+    "submittedByUserId": "CUST-001",
+    "submittedByOrgId": "ORG-002",
+    "submittedByOrgName": "Acme Corp",
+    "status": "PENDING",
+    "linkedFeatureId": null,
+    "created_at": "2026-04-19T12:00:00Z"
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `ROADMAP_REQUEST` |
+| `VALIDATION_ERROR` | 400 | `title` missing or too short/long |
+| `DUPLICATE_REQUEST` | 409 | Same title submitted from same org within 30 days |
+
+---
+
+### A11.7 — AI: Delivery Board
+
+#### Context for AI / Backend Implementation
+
+All Delivery Board AI endpoints operate on the internal `delivery_features` table. They do **not** need `tenant_id` scoping beyond the standard multi-tenant middleware — the features table is already org-scoped. These endpoints are triggered manually by LEAD/ADMIN from the Delivery Board UI (not on a schedule). Results are displayed in a modal or as card overlays — they are **not persisted** to the DB; compute fresh each time.
+
+---
+
+#### `GET /api/v1/ai/delivery/risk`
+
+**Auth:** `AI_PROJECT_INSIGHTS` (LEAD, ADMIN)
+
+**Business rules:**
+- Analyses features in statuses `IN_DEV`, `IN_QA`, `IN_STAGING` that have an `eta` set.
+- A feature is HIGH risk if: `eta` is within 7 days and status is not RELEASED, OR `eta` has already passed.
+- A feature is MEDIUM risk if: `eta` is within 14 days and `upvotes >= 10` (high demand, slipping).
+- A feature is LOW risk if: in `IN_QA` or `IN_STAGING` with `eta` still >14 days away.
+- Features with no `eta` set are excluded from risk analysis.
+- The `reason` string should be LLM-generated and human-readable (e.g. "ETA passed 3 days ago with no release. 34 client upvotes affected.").
+- The `recommendation` string is an actionable suggestion (e.g. "Immediately assign to a senior dev or reschedule ETA. Notify clients who voted.").
+
+**Response `200 OK`:**
+```json
+{
+  "data": [
+    {
+      "featureId": "FEAT-005",
+      "featureTitle": "AI Knowledge Base Auto-Draft",
+      "riskLevel": "HIGH",
+      "reason": "ETA was 2026-04-15 (4 days ago). Feature is still IN_QA. 28 upvotes affected.",
+      "daysUntilEta": -4,
+      "recommendation": "Assign a reviewer immediately or reschedule ETA. Proactively notify client orgs who voted."
+    }
+  ]
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `AI_PROJECT_INSIGHTS` |
+
+---
+
+#### `POST /api/v1/ai/delivery/prioritise`
+
+**Auth:** `AI_PROJECT_INSIGHTS` (LEAD, ADMIN)
+
+**Business rules:**
+- Operates on features in `BACKLOG` and `PLANNED` statuses only.
+- Scoring factors (AI must weigh all of these):
+  1. `upvotes` — direct client demand signal
+  2. Number of distinct orgs in `requested_by_org_ids` — breadth of demand
+  3. Strategic alignment: features in the `AI` or `Security` category score higher (configurable)
+  4. Feature age: older BACKLOG items get a slight urgency boost
+  5. Implementation complexity: inferred from description length + category (short + `Portal` = simpler)
+- `score` is 0–100 normalised across all returned items.
+- `suggestedStatus` is always `PLANNED` (move from BACKLOG) or `IN_DEV` (move from PLANNED). Never skip statuses.
+- `reasoning` must be a human-readable explanation referencing the specific factors (e.g. "Ranked #1 because 52 upvotes across 4 orgs — highest demand in cohort. Suggested for immediate development.").
+
+**Request Body:** `{}` (empty — backend fetches features internally)
+
+**Response `200 OK`:**
+```json
+{
+  "data": [
+    {
+      "featureId": "FEAT-008",
+      "featureTitle": "Bulk Ticket Actions",
+      "suggestedStatus": "IN_DEV",
+      "score": 87,
+      "reasoning": "Ranked #1: 48 upvotes across 3 orgs, oldest BACKLOG item (6 months), low implementation complexity (UI workflow)."
+    }
+  ]
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `AI_PROJECT_INSIGHTS` |
+| `INSUFFICIENT_DATA` | 422 | No BACKLOG/PLANNED features to analyse |
+
+---
+
+#### `POST /api/v1/ai/delivery/draft-feature`
+
+**Auth:** `AI_PROJECT_REPORTS` (LEAD, ADMIN)
+
+**Business rules:**
+- Takes a raw feature title string and generates a structured draft.
+- The AI must infer `suggested_category` from the title keywords (e.g. "Two-factor" → "Security").
+- `suggested_quarter` is relative to today's date — suggest 1–2 quarters out depending on apparent complexity.
+- `suggested_assignee_role` is a role hint (e.g. `"Senior Backend Engineer"`, `"UX Designer"`) based on the feature type — not a user ID.
+- This endpoint is a **draft assist** tool — the output pre-fills the "Add Feature" modal. Nothing is persisted automatically.
+
+**Request Body:**
+```json
+{ "title": "Two-Factor Authentication" }
+```
+
+**Field Validation:**
+- `title` — required, 3–200 chars
+
+**Response `200 OK`:**
+```json
+{
+  "data": {
+    "description": "TOTP/FIDO2-based two-factor authentication for all user accounts, with optional per-organisation enforcement and recovery codes.",
+    "suggestedQuarter": "Q3 2026",
+    "suggestedCategory": "Security",
+    "suggestedAssigneeRole": "Senior Backend Engineer"
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `AI_PROJECT_REPORTS` |
+| `VALIDATION_ERROR` | 400 | `title` missing or too short |
+| `AI_UNAVAILABLE` | 503 | LLM call failed — return cached/fallback response if possible |
+
+---
+
+### A11.8 — AI: Onboarding
+
+#### Context for AI / Backend Implementation
+
+Onboarding AI endpoints are per-onboarding-project (`:id` path param). They analyse the nested phases and tasks structure of an `OnboardingProject` to produce health predictions and recommendations. The AI must have access to: task statuses, due dates, blocker count, go-live date, and overall progress. These are **not persisted** — computed fresh per request (results can be cached with a short TTL, e.g. 5 minutes).
+
+---
+
+#### `GET /api/v1/ai/onboarding/:id/health`
+
+**Auth:** `AI_PROJECT_INSIGHTS` (LEAD, ADMIN) or any authenticated client user (scoped to their own org's onboarding only)
+
+**Business rules:**
+- Client users can call this with the ID of their own org's onboarding project. If they pass another org's ID, return `403`.
+- `health` is one of `ON_TRACK`, `AT_RISK`, `BLOCKED`.
+- `predicted_go_live` is the AI's estimated actual go-live date based on current velocity (task completion rate).
+- `days_variance` is positive when predicted late (e.g. +12), negative when predicted early (e.g. -3).
+- `confidence` is 0–1. Lower confidence when there are very few completed tasks (not enough data).
+- Classification rules (AI can override with reasoning):
+  - `BLOCKED` — any task with `status = BLOCKED` that is on the critical path (i.e. blocking a DELIVERY task in the current phase)
+  - `AT_RISK` — `days_variance > 7`, or `overall_progress < expected_progress_by_now` by more than 15%
+  - `ON_TRACK` — otherwise
+
+**Path Params:** `id` — onboarding project ID
+
+**Response `200 OK`:**
+```json
+{
+  "data": {
+    "onboardingId": "ONB-001",
+    "health": "ON_TRACK",
+    "confidence": 0.82,
+    "reason": "All phases progressing at expected velocity. Data migration (Phase 2) is 25% complete with 18 days remaining — on schedule.",
+    "predictedGoLive": "2026-06-01T00:00:00Z",
+    "daysVariance": 0
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Client user requesting another org's onboarding |
+| `NOT_FOUND` | 404 | Onboarding project not found |
+| `INSUFFICIENT_DATA` | 422 | Not enough task completion data for prediction (< 2 tasks completed) |
+
+---
+
+#### `POST /api/v1/ai/onboarding/:id/blocker-summary`
+
+**Auth:** `AI_PROJECT_REPORTS` (LEAD, ADMIN)
+
+**Business rules:**
+- Finds all tasks with `status = BLOCKED` and generates a plain-English summary.
+- `most_urgent` is the single most critical blocked task — determined by: (1) is it on the critical path? (2) how many days overdue is its `due_date`?
+- `blocker_count` is a simple count of all `BLOCKED` tasks across all phases.
+- If `blocker_count = 0`, still return `200` with an appropriate summary.
+
+**Path Params:** `id` — onboarding project ID
+
+**Request Body:** `{}` (empty)
+
+**Response `200 OK`:**
+```json
+{
+  "data": {
+    "onboardingId": "ONB-002",
+    "summary": "2 tasks are blocked on data migration. Root cause is an unresolved custom field mapping issue requiring client IT sign-off.",
+    "blockerCount": 2,
+    "mostUrgent": "Data mapping & transformation — blocked 8 days. Client IT contact has not responded to the last 2 emails."
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `AI_PROJECT_REPORTS` |
+| `NOT_FOUND` | 404 | Onboarding project not found |
+
+---
+
+#### `GET /api/v1/ai/onboarding/:id/next-action`
+
+**Auth:** `AI_PROJECT_INSIGHTS` (LEAD, ADMIN) or `CLIENT_ADMIN` (own org's onboarding only)
+
+**Business rules:**
+- Returns a single, most important recommended next action.
+- Priority assignment: `HIGH` if any BLOCKED task or `days_variance > 7`; `MEDIUM` if `AT_RISK`; `LOW` if `ON_TRACK`.
+- `owned_by` tells the frontend whether to surface this to the client or to the delivery agent (`DELIVERY` = action for 3SC team, `CLIENT` = action for client team).
+- `draft_message` is an optional ready-to-send email/message body the agent can copy. Generate this for DELIVERY-owned actions only (not surfaced to client users).
+- Client users can call this for their own onboarding — they see `action`, `priority`, `owned_by`. They do **not** receive `draft_message` (omit from client responses).
+
+**Path Params:** `id` — onboarding project ID
+
+**Response `200 OK` (internal view):**
+```json
+{
+  "data": {
+    "onboardingId": "ONB-001",
+    "action": "Chase client to begin dry-run sign-off review. Data mapping finishes this week — schedule the review call now to avoid a gap.",
+    "priority": "MEDIUM",
+    "ownedBy": "DELIVERY",
+    "draftMessage": "Hi team, the data mapping work is wrapping up this week. Could we schedule a 30-minute call to walk through the dry-run results and confirm everything looks correct? Let me know your availability. Best, Priya"
+  }
+}
+```
+
+**Response `200 OK` (client view — `draft_message` omitted):**
+```json
+{
+  "data": {
+    "onboardingId": "ONB-001",
+    "action": "Your team needs to review and sign off on the dry-run data migration results before we can proceed.",
+    "priority": "MEDIUM",
+    "ownedBy": "CLIENT"
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Client user requesting another org's onboarding |
+| `NOT_FOUND` | 404 | Onboarding project not found |
+
+---
+
+### A11.9 — AI: Roadmap (Customer Portal)
+
+#### Context for AI / Backend Implementation
+
+Roadmap AI endpoints are **client-facing** — called from the Customer Portal. They personalise the roadmap experience based on the calling org's ticket history and vote history. The AI has access to: features voted on by the org, open tickets for the org (especially FEATURE_REQUEST category), and the org's top-voted categories.
+
+---
+
+#### `GET /api/v1/ai/roadmap/summary`
+
+**Auth:** `AI_DIGEST` (CLIENT_ADMIN, CLIENT_USER)
+
+**Business rules:**
+- Generates a personalised summary for the calling org's users.
+- `top_relevant_feature_ids` — IDs of up to 5 features most relevant to this org. Relevance is computed by:
+  1. Features the org has already voted on (highest weight)
+  2. Features in categories matching the org's most common ticket categories
+  3. Features with upcoming ETAs (next 90 days)
+  4. Features with the highest overall upvote count (tiebreaker)
+- `headline` — 1–2 sentence summary explaining what's most relevant (e.g. "3 features in your most-requested categories are coming in Q2 2026.").
+- `reasoning` — more detailed explanation for transparency.
+- This endpoint is called once per roadmap page load (cached with 1-hour TTL per org).
+- Do **not** expose which other orgs have voted or their ticket data.
+
+**Response `200 OK`:**
+```json
+{
+  "data": {
+    "headline": "2 of your most-requested features are coming in Q2 2026, including Client Roadmap View and Custom Branding Themes.",
+    "topRelevantFeatureIds": ["FEAT-003", "FEAT-006", "FEAT-009", "FEAT-010", "FEAT-012"],
+    "reasoning": "These features were selected based on your organisation's votes (3), your top ticket categories (Portal, AI), and upcoming delivery dates."
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `AI_DIGEST` |
+| `AI_UNAVAILABLE` | 503 | LLM unavailable — return `null` gracefully; frontend handles this silently |
+
+---
+
+#### `POST /api/v1/ai/roadmap/classify-request`
+
+**Auth:** `ROADMAP_REQUEST` (CLIENT_ADMIN)
+
+**Business rules:**
+- Pre-flight check called **before** the user submits a feature request.
+- Checks for duplicates: semantic similarity against existing features in `delivery_features` and pending requests in `feature_requests`.
+- `is_duplicate = true` if any existing feature or request has similarity score ≥ 0.85.
+- `similar_feature_id` and `similar_feature_title` — the closest match if `is_duplicate = true`.
+- `similarity_score` — float 0–1, cosine similarity between the submitted text and the closest match.
+- `suggested_quarter` — inferred from feature complexity and current roadmap load.
+- `category` — inferred from title/description keywords.
+- `recommendation` — human-readable guidance string shown in the UI (e.g. "This looks very similar to 'Bulk export tickets to CSV' already on our roadmap. You can vote for it instead of submitting a new request.").
+- This endpoint does **not** create any record — it is purely analytical.
+
+**Request Body:**
+```json
+{
+  "title": "Export tickets to spreadsheet",
+  "description": "We want to download all our tickets as an Excel file for our finance team."
+}
+```
+
+**Response `200 OK`:**
+```json
+{
+  "data": {
+    "isDuplicate": true,
+    "similarFeatureId": "FEAT-009",
+    "similarFeatureTitle": "Bulk Ticket Actions (includes CSV export)",
+    "similarityScore": 0.91,
+    "suggestedQuarter": "Q3 2026",
+    "category": "Tickets",
+    "recommendation": "This request is very similar to 'Bulk Ticket Actions' already on our roadmap (91% match). We recommend voting for that feature instead of submitting a new request."
+  }
+}
+```
+
+**Error Codes:**
+
+| Code | HTTP | Description |
+|---|---|---|
+| `FORBIDDEN` | 403 | Caller lacks `ROADMAP_REQUEST` |
+| `VALIDATION_ERROR` | 400 | `title` missing |
+| `AI_UNAVAILABLE` | 503 | Return a safe default: `{ "isDuplicate": false, "category": "Other", "recommendation": "Request submitted for review." }` |
+
+---
+
+### A11.10 — Complete Type Definitions
+
+All types referenced in this addendum. Append to §18 of the main spec.
+
+```typescript
+// ── DeliveryStatus ──────────────────────────────────────────────
+type DeliveryStatus = 'BACKLOG' | 'PLANNED' | 'IN_DEV' | 'IN_QA' | 'IN_STAGING' | 'RELEASED';
+
+// ── DeliveryFeature ─────────────────────────────────────────────
+interface DeliveryFeature {
+  id: string;                         // 'FEAT-001'
+  title: string;
+  description: string;
+  status: DeliveryStatus;
+  assignee?: string;                  // display name of assigned internal agent
+  assigneeId?: string;                // UUID of assigned internal agent
+  eta?: string;                       // ISO 8601 — expected release date
+  upvotes: number;                    // aggregated count from feature_votes table
+  quarter?: string;                   // 'Q2 2026' — for roadmap grouping
+  isPublic: boolean;                  // true = visible in client roadmap
+  category?: string;                  // 'AI', 'Security', 'Portal', etc.
+  requestedByOrgIds?: string[];       // which org IDs have voted (internal only, omit from /roadmap)
+  hasVoted?: boolean;                 // client-side only: current user has voted?
+  created_at: string;                 // ISO 8601
+  updated_at: string;                 // ISO 8601
+}
+
+// ── DeliveryFeatureCreatePayload ────────────────────────────────
+interface DeliveryFeatureCreatePayload {
+  title: string;
+  description?: string;
+  status?: DeliveryStatus;            // default: BACKLOG
+  assigneeId?: string;
+  eta?: string;
+  quarter?: string;
+  isPublic?: boolean;                 // default: false
+  category?: string;
+}
+
+// ── AI — Delivery ───────────────────────────────────────────────
+interface DeliveryRiskItem {
+  featureId: string;
+  featureTitle: string;
+  riskLevel: 'HIGH' | 'MEDIUM' | 'LOW';
+  reason: string;                     // LLM-generated plain-English explanation
+  daysUntilEta?: number;              // negative = already past ETA
+  recommendation: string;             // actionable next step
+}
+
+interface DeliveryPrioritisedFeature {
+  featureId: string;
+  featureTitle: string;
+  suggestedStatus: DeliveryStatus;    // PLANNED or IN_DEV
+  score: number;                      // 0–100
+  reasoning: string;                  // LLM-generated explanation of ranking
+}
+
+interface DeliveryFeatureDraft {
+  description: string;
+  suggestedQuarter: string;           // e.g. 'Q3 2026'
+  suggestedCategory: string;          // e.g. 'Security'
+  suggestedAssigneeRole: string;      // e.g. 'Senior Backend Engineer' (role hint, not user ID)
+}
+
+// ── OnboardingTaskStatus / Owner ────────────────────────────────
+type OnboardingHealth      = 'ON_TRACK' | 'AT_RISK' | 'BLOCKED';
+type OnboardingStatus      = 'IN_PROGRESS' | 'COMPLETED' | 'ON_HOLD' | 'CANCELLED';
+type OnboardingTaskStatus  = 'PENDING' | 'IN_PROGRESS' | 'DONE' | 'BLOCKED';
+type OnboardingTaskOwner   = 'CLIENT' | 'DELIVERY';
+type OnboardingPhaseStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
+
+interface OnboardingTask {
+  id: string;
+  title: string;
+  description: string;
+  owner: OnboardingTaskOwner;
+  dueDate: string;                    // ISO 8601
+  status: OnboardingTaskStatus;
+  completedAt?: string;               // ISO 8601, set automatically when status → DONE
+}
+
+interface OnboardingPhase {
+  id: string;
+  phaseNumber: number;                // 1-indexed, used for display
+  name: string;
+  progress: number;                   // 0–100, computed: (DONE tasks / total tasks) * 100
+  status: OnboardingPhaseStatus;
+  tasks: OnboardingTask[];
+}
+
+interface OnboardingProject {
+  id: string;                         // 'ONB-001'
+  organizationId: string;
+  organizationName: string;
+  leadAgentId: string;
+  leadAgentName: string;
+  status: OnboardingStatus;
+  health: OnboardingHealth;
+  overallProgress: number;            // 0–100, computed: average of phase.progress
+  goLiveDate: string;                 // ISO 8601
+  blockerCount: number;               // computed: count of BLOCKED tasks across all phases
+  phases: OnboardingPhase[];
+  created_at: string;
+  updated_at: string;
+}
+
+// ── AI — Onboarding ─────────────────────────────────────────────
+interface OnboardingHealthPrediction {
+  onboardingId: string;
+  health: OnboardingHealth;
+  confidence: number;                 // 0–1
+  reason: string;                     // LLM-generated explanation
+  predictedGoLive: string;            // ISO 8601
+  daysVariance: number;               // positive = late, negative = early
+}
+
+interface OnboardingBlockerSummary {
+  onboardingId: string;
+  summary: string;                    // plain-English overview
+  blockerCount: number;
+  mostUrgent?: string;                // description of the single most critical blocker
+}
+
+interface OnboardingNextAction {
+  onboardingId: string;
+  action: string;                     // what to do next
+  priority: 'HIGH' | 'MEDIUM' | 'LOW';
+  ownedBy: OnboardingTaskOwner;       // who should act: CLIENT or DELIVERY
+  draftMessage?: string;              // ready-to-send message (omit from client responses)
+}
+
+// ── Roadmap ─────────────────────────────────────────────────────
+interface FeatureRequest {
+  id: string;                         // 'REQ-001'
+  title: string;
+  description: string;
+  submittedByUserId: string;
+  submittedByOrgId: string;
+  submittedByOrgName: string;
+  status: 'PENDING' | 'ACCEPTED' | 'REJECTED' | 'MERGED';
+  linkedFeatureId?: string;           // set when status = MERGED
+  created_at: string;
+}
+
+interface FeatureRequestClassification {
+  isDuplicate: boolean;
+  similarFeatureId?: string;
+  similarFeatureTitle?: string;
+  similarityScore?: number;           // 0–1 cosine similarity
+  suggestedQuarter?: string;
+  category: string;
+  recommendation: string;             // human-readable guidance shown in UI
+}
+
+// ── AI — Roadmap ────────────────────────────────────────────────
+interface RoadmapPersonalisedSummary {
+  headline: string;                   // 1–2 sentence personalised summary
+  topRelevantFeatureIds: string[];    // up to 5 feature IDs highlighted for this org
+  reasoning: string;                  // longer explanation of why these were selected
+}
+```
+
+---
+
+### A11.11 — Database Schema Notes
+
+**Tables needed for this addendum:**
+
+```sql
+-- Product features (shared between Delivery Board and Roadmap)
+CREATE TABLE delivery_features (
+  id              VARCHAR(20) PRIMARY KEY,   -- 'FEAT-001'
+  tenant_id       UUID NOT NULL,
+  title           VARCHAR(200) NOT NULL,
+  description     TEXT,
+  status          VARCHAR(20) NOT NULL DEFAULT 'BACKLOG',
+  assignee_id     UUID REFERENCES users(id),
+  eta             TIMESTAMPTZ,
+  upvotes         INTEGER NOT NULL DEFAULT 0,
+  quarter         VARCHAR(20),               -- 'Q2 2026'
+  is_public       BOOLEAN NOT NULL DEFAULT false,
+  category        VARCHAR(100),
+  requested_by_org_ids  UUID[] DEFAULT '{}',  -- array of org IDs
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Per-user votes on roadmap features
+CREATE TABLE feature_votes (
+  feature_id  VARCHAR(20) NOT NULL REFERENCES delivery_features(id) ON DELETE CASCADE,
+  user_id     UUID NOT NULL REFERENCES users(id),
+  org_id      UUID NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now(),
+  PRIMARY KEY (feature_id, user_id)           -- prevents double-voting
+);
+
+-- Client-submitted feature requests
+CREATE TABLE feature_requests (
+  id                  VARCHAR(20) PRIMARY KEY,
+  tenant_id           UUID NOT NULL,
+  title               VARCHAR(200) NOT NULL,
+  description         TEXT,
+  submitted_by_user   UUID REFERENCES users(id),
+  submitted_by_org    UUID NOT NULL,
+  status              VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  linked_feature_id   VARCHAR(20) REFERENCES delivery_features(id) ON DELETE SET NULL,
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Onboarding projects
+CREATE TABLE onboarding_projects (
+  id              VARCHAR(20) PRIMARY KEY,
+  tenant_id       UUID NOT NULL,
+  organization_id UUID NOT NULL REFERENCES organizations(id),
+  lead_agent_id   UUID REFERENCES users(id),
+  status          VARCHAR(20) NOT NULL DEFAULT 'IN_PROGRESS',
+  health          VARCHAR(20) NOT NULL DEFAULT 'ON_TRACK',
+  go_live_date    TIMESTAMPTZ NOT NULL,
+  created_at      TIMESTAMPTZ NOT NULL DEFAULT now(),
+  updated_at      TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Onboarding phases (ordered within a project)
+CREATE TABLE onboarding_phases (
+  id              VARCHAR(20) PRIMARY KEY,
+  onboarding_id   VARCHAR(20) NOT NULL REFERENCES onboarding_projects(id) ON DELETE CASCADE,
+  phase_number    INTEGER NOT NULL,
+  name            VARCHAR(200) NOT NULL,
+  status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  UNIQUE (onboarding_id, phase_number)
+);
+
+-- Onboarding tasks (belong to a phase)
+CREATE TABLE onboarding_tasks (
+  id              VARCHAR(20) PRIMARY KEY,
+  phase_id        VARCHAR(20) NOT NULL REFERENCES onboarding_phases(id) ON DELETE CASCADE,
+  title           VARCHAR(200) NOT NULL,
+  description     TEXT,
+  owner           VARCHAR(20) NOT NULL,      -- 'CLIENT' or 'DELIVERY'
+  due_date        TIMESTAMPTZ NOT NULL,
+  status          VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+  completed_at    TIMESTAMPTZ
+);
+```
+
+---
+
+### A11.12 — Endpoint Summary Table
+
+| # | Method | Path | Auth Permission | Caller |
+|---|---|---|---|---|
+| 1 | GET | `/delivery/features` | DELIVERY_VIEW | Internal |
+| 2 | POST | `/delivery/features` | DELIVERY_MANAGE | Internal |
+| 3 | PATCH | `/delivery/features/:id` | DELIVERY_MANAGE / DELIVERY_VIEW | Internal |
+| 4 | DELETE | `/delivery/features/:id` | DELIVERY_MANAGE | Internal |
+| 5 | GET | `/onboarding` | ONBOARDING_VIEW | Internal |
+| 6 | GET | `/onboarding/:id` | ONBOARDING_VIEW | Internal |
+| 7 | PATCH | `/onboarding/:id/tasks/:taskId` | ONBOARDING_MANAGE | Internal + Client |
+| 8 | GET | `/onboarding/my` | (any client auth) | Client Portal |
+| 9 | GET | `/roadmap` | (any client auth) | Client Portal |
+| 10 | POST | `/roadmap/features/:id/vote` | ROADMAP_VOTE | Client Portal |
+| 11 | DELETE | `/roadmap/features/:id/vote` | ROADMAP_VOTE | Client Portal |
+| 12 | POST | `/roadmap/requests` | ROADMAP_REQUEST | Client Portal |
+| 13 | GET | `/ai/delivery/risk` | AI_PROJECT_INSIGHTS | Internal |
+| 14 | POST | `/ai/delivery/prioritise` | AI_PROJECT_INSIGHTS | Internal |
+| 15 | POST | `/ai/delivery/draft-feature` | AI_PROJECT_REPORTS | Internal |
+| 16 | GET | `/ai/onboarding/:id/health` | AI_PROJECT_INSIGHTS | Internal + Client |
+| 17 | POST | `/ai/onboarding/:id/blocker-summary` | AI_PROJECT_REPORTS | Internal |
+| 18 | GET | `/ai/onboarding/:id/next-action` | AI_PROJECT_INSIGHTS | Internal + Client |
+| 19 | GET | `/ai/roadmap/summary` | AI_DIGEST | Client Portal |
+| 20 | POST | `/ai/roadmap/classify-request` | ROADMAP_REQUEST | Client Portal |
+| 21 | GET | `/escalations/agents` | TICKET_ASSIGN | Internal (gap from §19) |
+
+---
+
+### A11.13 — End-to-End User Flow Diagrams
+
+#### Flow 1: ADMIN adds a feature to Delivery Board
+1. ADMIN opens Delivery Board → `GET /delivery/features` loads the board.
+2. ADMIN clicks "+ Add Feature" in BACKLOG column.
+3. ADMIN types a title → optionally clicks "AI Draft" → `POST /ai/delivery/draft-feature` pre-fills description/category/quarter.
+4. ADMIN submits → `POST /delivery/features` creates the feature (defaults `is_public = false`).
+5. Board re-fetches via RTK Query cache invalidation (`Delivery` tag).
+
+#### Flow 2: LEAD moves feature to IN_DEV
+1. LEAD opens card menu → clicks "Move to In Dev".
+2. `PATCH /delivery/features/:id` with body `{ "status": "IN_DEV" }`.
+3. Card moves column immediately (optimistic UI). Board re-fetches.
+
+#### Flow 3: Client user votes on roadmap
+1. Client loads Roadmap page → `GET /roadmap` returns features with `has_voted` per item.
+2. Client clicks ▲ vote button → `POST /roadmap/features/:id/vote`.
+3. Response returns new `upvotes` count → card updates count optimistically.
+4. Client clicks ▲ again (unvote) → `DELETE /roadmap/features/:id/vote`.
+
+#### Flow 4: Client submits a feature request
+1. Client clicks "Request a Feature" → types title.
+2. Client clicks "Check for duplicates" → `POST /ai/roadmap/classify-request` returns classification.
+3. If `isDuplicate = true`, UI shows warning and link to existing feature.
+4. Client confirms submission → `POST /roadmap/requests` creates the request.
+
+#### Flow 5: LEAD views onboarding AI insights
+1. LEAD opens Onboarding page → `GET /onboarding` loads all projects.
+2. LEAD clicks a project → side panel fires `GET /ai/onboarding/:id/health` + `GET /ai/onboarding/:id/next-action`.
+3. LEAD clicks "Get blocker summary" button → `POST /ai/onboarding/:id/blocker-summary`.
+4. LEAD updates a blocked task → `PATCH /onboarding/:id/tasks/:taskId` with `{ "status": "IN_PROGRESS" }`.
+
+---
+
+*Addendum A11 — Delivery Board, Onboarding Tracker, Product Roadmap + AI. Full atomic spec. Last updated: 2026-04-19.*

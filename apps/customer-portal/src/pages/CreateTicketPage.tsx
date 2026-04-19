@@ -419,7 +419,7 @@ export const CreateTicketPage: React.FC = () => {
                 }}>
                   Project <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optional)</span>
                 </label>
-                <select
+                <Select
                   value={projectId}
                   onChange={e => setProjectId(e.target.value)}
                   style={{
@@ -428,11 +428,10 @@ export const CreateTicketPage: React.FC = () => {
                     background: 'var(--color-bg)', color: 'var(--color-text)',
                     fontSize: '0.875rem', outline: 'none',
                   }}
-                >
-                  {projectOptions.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                  options={projectOptions.map(o => (
+                    { value: o.value, label: o.label }
                   ))}
-                </select>
+                />
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                   Link this ticket to a project so your team can track it together.
                 </p>
@@ -445,7 +444,7 @@ export const CreateTicketPage: React.FC = () => {
                 }}>
                   Environment <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optional)</span>
                 </label>
-                <select
+                <Select
                   value={environment}
                   onChange={e => setEnvironment(e.target.value)}
                   style={{
@@ -454,11 +453,11 @@ export const CreateTicketPage: React.FC = () => {
                     background: 'var(--color-bg)', color: 'var(--color-text)',
                     fontSize: '0.875rem', outline: 'none',
                   }}
-                >
-                  {ENVIRONMENT_OPTIONS.map(o => (
-                    <option key={o.value} value={o.value}>{o.label}</option>
+                  options={ENVIRONMENT_OPTIONS.map(o => (
+                    { value: o.value, label: o.label }
                   ))}
-                </select>
+                />
+                  
                 <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                   Helps us reproduce and fix issues faster.
                 </p>

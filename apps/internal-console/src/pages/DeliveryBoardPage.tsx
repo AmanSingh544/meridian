@@ -8,7 +8,7 @@ import {
   usePrioritiseDeliveryMutation,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, EmptyState, Modal, useToast } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, EmptyState, Modal, Select, useToast } from '@3sc/ui';
 import { Permission } from '@3sc/types';
 import type { DeliveryFeature, DeliveryStatus } from '@3sc/types';
 
@@ -179,7 +179,20 @@ const DeliveryBoardPage: React.FC = () => {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [newCategory, setNewCategory] = useState('');
-  const [newQuarter, setNewQuarter] = useState('Q3 2026');
+  const quarterOptions = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const currentQ = Math.ceil((now.getMonth() + 1) / 3);
+    const quarters: string[] = [];
+    for (let offset = 0; offset < 6; offset++) {
+      const totalQ = (currentQ - 1 + offset);
+      const q = (totalQ % 4) + 1;
+      const y = year + Math.floor(totalQ / 4);
+      quarters.push(`Q${q} ${y}`);
+    }
+    return quarters;
+  })();
+  const [newQuarter, setNewQuarter] = useState(quarterOptions[0]);
   const [isPublic, setIsPublic] = useState(true);
   const [addingCol, setAddingCol] = useState<DeliveryStatus>('BACKLOG');
 
@@ -427,14 +440,12 @@ const DeliveryBoardPage: React.FC = () => {
                 />
               </div>
               <div>
-                <label style={{ fontSize: '0.8125rem', fontWeight: 600, display: 'block', marginBottom: '0.3rem' }}>Quarter</label>
-                <select
+                <Select
+                  label="Quarter"
                   value={newQuarter}
                   onChange={e => setNewQuarter(e.target.value)}
-                  style={{ width: '100%', padding: '0.5rem 0.625rem', borderRadius: '0.375rem', border: '1px solid var(--color-border)', fontSize: '0.875rem', background: 'var(--color-bg)', color: 'var(--color-text)' }}
-                >
-                  {['Q1 2026','Q2 2026','Q3 2026','Q4 2026','Q1 2027'].map(q => <option key={q}>{q}</option>)}
-                </select>
+                  options={quarterOptions.map(q => ({ value: q, label: q }))}
+                />
               </div>
             </div>
             <div>

@@ -1777,6 +1777,93 @@ const routes: Array<{ test: (path: string, method: string) => boolean; handle: R
     },
   },
 
+  // ── Team Management (CLIENT_ADMIN) ───────────────────────────────────��────
+  // GET /team/members — org-scoped member list (never exposes internal staff)
+  {
+    test: (p: string, m: string) => m === 'GET' && p.endsWith('/team/members'),
+    handle: (url: string) => {
+      const params  = qp(url);
+      const page    = parseInt(params.get('page') ?? '1', 10);
+      const search  = (params.get('search') ?? '').toLowerCase();
+      const role    = params.get('role');
+      let members = [...MOCK_TEAM_MEMBERS];
+      if (search) members = members.filter(u =>
+        u.displayName.toLowerCase().includes(search) || u.email.toLowerCase().includes(search)
+      );
+      if (role) members = members.filter(u => u.role === role);
+      return paginate(members, page, 20);
+    },
+  },
+  // PATCH /team/members/:id/role — change role within [CLIENT_ADMIN, CLIENT_USER]
+  {
+    test: (p: string, m: string) => m === 'PATCH' && /\/team\/members\/[^/]+\/role$/.test(p),
+    handle: (url: string, _method: string, body: unknown) => {
+      const id = (url as string).split('/team/members/')[1]?.split('/role')[0];
+      const member = MOCK_TEAM_MEMBERS.find(u => u.id === id);
+      const payload = body as Record<string, unknown> ?? {};
+      if (member) {
+        member.role = payload.role as typeof member.role;
+        member.updated_at = new Date().toISOString();
+      }
+      return { data: member ?? null };
+    },
+  },
+  // PATCH /team/members/:id/permissions — ceiling-enforced permission toggle
+  {
+    test: (p: string, m: string) => m === 'PATCH' && /\/team\/members\/[^/]+\/permissions$/.test(p),
+    handle: (url: string, _method: string, body: unknown) => {
+      const id = (url as string).split('/team/members/')[1]?.split('/permissions')[0];
+      const member = MOCK_TEAM_MEMBERS.find(u => u.id === id);
+      const payload = body as Record<string, unknown> ?? {};
+      if (member) {
+        const perm = payload.permission as string;
+        const enabled = payload.enabled as boolean;
+        // Ceiling check: actor must hold this permission themselves
+        const actorHas = ACTIVE_USER.permissions.includes(perm as Permission);
+        if (!actorHas) return jsonResponse({ code: 'PERMISSION_CEILING_EXCEEDED', message: 'You cannot grant a permission you do not hold.' }, 403);
+        if (enabled && !member.permissions.includes(perm as Permission)) {
+          (member.permissions as string[]).push(perm);
+        } else if (!enabled) {
+          member.permissions = member.permissions.filter(p => p !== perm) as typeof member.permissions;
+        }
+        member.updated_at = new Date().toISOString();
+      }
+      return { data: { effective: member?.permissions ?? [] } };
+    },
+  },
+  // DELETE /team/members/:id — soft deactivate only (no hard delete)
+  {
+    test: (p: string, m: string) => m === 'DELETE' && /\/team\/members\/[^/]+$/.test(p),
+    handle: (url: string) => {
+      const id = (url as string).split('/team/members/')[1]?.split('?')[0];
+      const member = MOCK_TEAM_MEMBERS.find(u => u.id === id);
+      if (member) { member.isActive = false; member.updated_at = new Date().toISOString(); }
+      return { data: { success: true } };
+    },
+  },
+  // POST /users/invite — CLIENT_ADMIN invite within own org
+  {
+    test: (p: string, m: string) => m === 'POST' && p.endsWith('/users/invite'),
+    handle: (_url: string, _method: string, body: unknown) => {
+      const payload = body as Record<string, unknown> ?? {};
+      const newMember: User = {
+        id: `CUST-${Date.now()}`,
+        email: String(payload.email ?? ''),
+        displayName: `${payload.firstName ?? ''} ${payload.lastName ?? ''}`.trim() || String(payload.email ?? ''),
+        firstName: String(payload.firstName ?? ''),
+        lastName: String(payload.lastName ?? ''),
+        role: (payload.role as User['role']) ?? UserRole.CLIENT_USER,
+        permissions: payload.role === 'CLIENT_ADMIN' ? CLIENT_ADMIN_PERMISSIONS : CLIENT_USER_PERMISSIONS,
+        organizationId: ACTIVE_USER.organizationId,
+        isActive: true,
+        created_at: new Date().toISOString(),
+        updated_at: new Date().toISOString(),
+      };
+      MOCK_TEAM_MEMBERS.push(newMember);
+      return { data: newMember };
+    },
+  },
+
 ];
 
 // ── Mock fetch installer ──────────────────────────────────────────────────────

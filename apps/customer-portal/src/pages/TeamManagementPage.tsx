@@ -1,354 +1,587 @@
-import React, { useState } from 'react';
-import { useGetUsersQuery, useUpdateUserMutation, useInviteUserMutation } from '@3sc/api';
-import { useDocumentTitle, usePermissions } from '@3sc/hooks';
+import React, { useState, useMemo } from 'react';
+import {
+  useGetTeamMembersQuery,
+  useUpdateTeamMemberRoleMutation,
+  useToggleTeamMemberPermissionMutation,
+  useDeactivateTeamMemberMutation,
+  useInviteUserMutation,
+} from '@3sc/api';
+import { useDocumentTitle, useDebouncedValue, usePermissions } from '@3sc/hooks';
 import {
   Card, Button, Badge, Avatar, Skeleton, EmptyState, ErrorState,
   SearchInput, Modal, Input, Select, PermissionGate,
 } from '@3sc/ui';
 import { Permission, UserRole } from '@3sc/types';
 import type { User } from '@3sc/types';
+import { getDefaultPermissions, getClientAdminToggleablePerm } from '@3sc/permissions';
 
+// ── Constants ────────────────────────────────────────────────────────────────
 
-const roleBadgeColor: Record<UserRole, { color: string; bg: string }> = {
-  [UserRole.ADMIN]: { color: '#7c3aed', bg: '#ede9fe' },
-  [UserRole.LEAD]: { color: '#1d4ed8', bg: '#dbeafe' },
-  [UserRole.AGENT]: { color: '#0369a1', bg: '#e0f2fe' },
+const ROLE_BADGE: Record<string, { color: string; bg: string }> = {
   [UserRole.CLIENT_ADMIN]: { color: '#b45309', bg: '#fef3c7' },
-  [UserRole.CLIENT_USER]: { color: '#374151', bg: '#f3f4f6' },
+  [UserRole.CLIENT_USER]:  { color: '#374151', bg: '#f3f4f6' },
 };
 
-const roleLabel: Record<UserRole, string> = {
-  [UserRole.ADMIN]: 'Admin',
-  [UserRole.LEAD]: 'Lead',
-  [UserRole.AGENT]: 'Agent',
+const ROLE_LABEL: Record<string, string> = {
   [UserRole.CLIENT_ADMIN]: 'Client Admin',
-  [UserRole.CLIENT_USER]: 'Client User',
+  [UserRole.CLIENT_USER]:  'Client User',
 };
 
-// ── Mock data — replace with live API when ready ──────────────────
-const usersMock = {
-  data: [
-    {
-      id: 'u001',
-      email: 'alice@acme.com',
-      displayName: 'Alice Johnson',
-      firstName: 'Alice',
-      lastName: 'Johnson',
-      role: UserRole.CLIENT_ADMIN,
-      permissions: [],
-      organizationId: 'org001',
-      isActive: true,
-      lastLoginAt: '2026-04-12T10:00:00Z',
-      created_at: '2025-01-10T08:00:00Z',
-      updated_at: '2026-04-12T10:00:00Z',
-    },
-    {
-      id: 'u002',
-      email: 'bob@acme.com',
-      displayName: 'Bob Smith',
-      firstName: 'Bob',
-      lastName: 'Smith',
-      role: UserRole.CLIENT_USER,
-      permissions: [],
-      organizationId: 'org001',
-      isActive: true,
-      lastLoginAt: '2026-04-11T14:30:00Z',
-      created_at: '2025-03-05T09:00:00Z',
-      updated_at: '2026-04-11T14:30:00Z',
-    },
-    {
-      id: 'u003',
-      email: 'carol@acme.com',
-      displayName: 'Carol White',
-      firstName: 'Carol',
-      lastName: 'White',
-      role: UserRole.CLIENT_USER,
-      permissions: [],
-      organizationId: 'org001',
-      isActive: false,
-      lastLoginAt: '2026-03-20T11:00:00Z',
-      created_at: '2025-06-18T10:00:00Z',
-      updated_at: '2026-03-20T11:00:00Z',
-    },
-    {
-      id: 'u004',
-      email: 'dan@acme.com',
-      displayName: 'Dan Lee',
-      firstName: 'Dan',
-      lastName: 'Lee',
-      role: UserRole.CLIENT_USER,
-      permissions: [],
-      organizationId: 'org001',
-      isActive: true,
-      lastLoginAt: '2026-04-10T08:15:00Z',
-      created_at: '2025-09-01T07:00:00Z',
-      updated_at: '2026-04-10T08:15:00Z',
-    },
-  ],
-  total: 4,
-  page: 1,
-  page_size: 20,
-  total_pages: 1,
+const CLIENT_ROLE_OPTIONS = [
+  { value: UserRole.CLIENT_USER,  label: 'Client User' },
+  { value: UserRole.CLIENT_ADMIN, label: 'Client Admin' },
+];
+
+// Friendly names for client-visible permissions
+const PERM_LABELS: Partial<Record<Permission, string>> = {
+  [Permission.TICKET_CREATE]:       'Create Tickets',
+  [Permission.TICKET_VIEW_OWN]:     'View Own Tickets',
+  [Permission.TICKET_VIEW_ORG]:     'View All Org Tickets',
+  [Permission.TICKET_EDIT]:         'Edit Tickets',
+  [Permission.TICKET_STATUS_CHANGE]:'Change Ticket Status',
+  [Permission.TICKET_REOPEN]:       'Reopen Tickets',
+  [Permission.COMMENT_CREATE]:      'Post Comments',
+  [Permission.ATTACHMENT_UPLOAD]:   'Upload Attachments',
+  [Permission.ATTACHMENT_DELETE]:   'Delete Attachments',
+  [Permission.MEMBER_VIEW]:         'View Team Members',
+  [Permission.KB_VIEW]:             'View Knowledge Base',
+  [Permission.SLA_VIEW]:            'View SLA Info',
+  [Permission.AI_DIGEST]:           'AI Digest',
+  [Permission.AI_KB_SUGGEST]:       'AI Knowledge Suggestions',
+  [Permission.PROJECT_VIEW]:        'View Projects',
+  [Permission.ROADMAP_VOTE]:        'Vote on Roadmap',
+  [Permission.ROADMAP_REQUEST]:     'Request Features',
+  [Permission.REPORT_VIEW]:         'View Reports',
+  [Permission.REPORT_EXPORT]:       'Export Reports',
+  [Permission.WORKSPACE_CONFIGURE]: 'Configure Workspace',
+  [Permission.BRANDING_CONFIGURE]:  'Configure Branding',
+  [Permission.MEMBER_INVITE]:       'Invite Members',
+  [Permission.MEMBER_MANAGE]:       'Manage Members',
 };
+
+// ── PermissionsModal ─────────────────────────────────────────────────────────
+
+interface PermissionsModalProps {
+  member: User;
+  actorPermissions: Permission[];
+  onClose: () => void;
+}
+
+const PermissionsModal: React.FC<PermissionsModalProps> = ({ member, actorPermissions, onClose }) => {
+  const [togglePerm, { isLoading: toggling }] = useToggleTeamMemberPermissionMutation();
+  const [confirmPerm, setConfirmPerm] = useState<Permission | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  // Permissions the actor (CLIENT_ADMIN) is allowed to toggle for their team
+  const toggleable = useMemo(
+    () => new Set(getClientAdminToggleablePerm(actorPermissions)),
+    [actorPermissions],
+  );
+
+  // Role defaults for the member
+  const roleDefaults = useMemo(() => new Set(getDefaultPermissions(member.role)), [member.role]);
+
+  // Admin-granted overrides on this member (locked read-only for CLIENT_ADMIN)
+  const adminGranted = useMemo(() => {
+    return new Set(
+      (member.permissionOverrides ?? [])
+        .filter(o => o.type === 'GRANT' && o.grantedByRole && ['ADMIN', 'LEAD'].includes(o.grantedByRole))
+        .map(o => o.permission as unknown as Permission),
+    );
+  }, [member.permissionOverrides]);
+
+  // Effective permissions
+  const effective = useMemo(() => {
+    const perms = new Set(roleDefaults);
+    (member.permissionOverrides ?? []).forEach(o => {
+      if (o.type === 'GRANT') perms.add(o.permission as unknown as Permission);
+      if (o.type === 'REVOKE') perms.delete(o.permission as unknown as Permission);
+    });
+    return perms;
+  }, [roleDefaults, member.permissionOverrides]);
+
+  const handleToggle = async (perm: Permission) => {
+    setError(null);
+    try {
+      await togglePerm({ memberId: member.id, permission: perm }).unwrap();
+      setConfirmPerm(null);
+    } catch (err: unknown) {
+      const msg = (err as { data?: { message?: string } })?.data?.message ?? 'Failed to update permission.';
+      setError(msg);
+    }
+  };
+
+  // Only show permissions that are client-visible
+  const visiblePerms = Object.keys(PERM_LABELS) as Permission[];
+
+  return (
+    <Modal isOpen onClose={onClose} title={`Permissions — ${member.displayName}`} width="36rem">
+      <div style={{ marginBottom: '0.75rem' }}>
+        <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', flexWrap: 'wrap' }}>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <span style={{ width: '0.75rem', height: '0.75rem', borderRadius: '2px', background: '#dcfce7', border: '1px solid #22c55e', display: 'inline-block' }} />
+            Role default
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <span style={{ width: '0.75rem', height: '0.75rem', borderRadius: '2px', background: '#dbeafe', border: '2px solid #3b82f6', display: 'inline-block' }} />
+            Admin-granted (locked)
+          </span>
+          <span style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            <span style={{ width: '0.75rem', height: '0.75rem', borderRadius: '2px', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', display: 'inline-block' }} />
+            Off
+          </span>
+        </div>
+      </div>
+
+      {error && (
+        <div style={{
+          padding: '0.625rem 0.875rem', background: '#fef2f2',
+          border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)',
+          fontSize: '0.8125rem', color: '#b91c1c', marginBottom: '0.75rem',
+        }}>
+          {error}
+        </div>
+      )}
+
+      <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.5rem', maxHeight: '60vh', overflowY: 'auto', paddingBottom: '0.25rem' }}>
+        {visiblePerms.map(perm => {
+          const isOn = effective.has(perm);
+          const isDefault = roleDefaults.has(perm);
+          const isAdminLocked = adminGranted.has(perm);
+          const canToggle = toggleable.has(perm) && !isAdminLocked;
+
+          let bg = 'var(--color-bg-subtle)';
+          let border = '1px solid var(--color-border)';
+          let color = 'var(--color-text-muted)';
+          let cursor = canToggle ? 'pointer' : 'default';
+
+          if (isAdminLocked) { bg = '#dbeafe'; border = '2px solid #3b82f6'; color = '#1d4ed8'; cursor = 'default'; }
+          else if (isDefault && isOn) { bg = '#dcfce7'; border = '1px solid #22c55e'; color = '#166534'; }
+
+          return (
+            <button
+              key={perm}
+              disabled={!canToggle || toggling}
+              onClick={() => canToggle ? setConfirmPerm(perm) : undefined}
+              title={isAdminLocked ? 'Granted by internal admin — cannot be removed here' : undefined}
+              style={{
+                padding: '0.3125rem 0.75rem', borderRadius: 'var(--radius-sm)',
+                fontSize: '0.8125rem', cursor, transition: 'all 0.15s',
+                background: bg, border, color,
+                opacity: isOn ? 1 : 0.45,
+                fontWeight: isAdminLocked ? 600 : 400,
+              }}
+            >
+              {PERM_LABELS[perm] ?? perm}
+              {isAdminLocked && ' 🔒'}
+            </button>
+          );
+        })}
+      </div>
+
+      <div style={{ display: 'flex', justifyContent: 'flex-end', marginTop: '1rem' }}>
+        <Button variant="ghost" onClick={onClose}>Close</Button>
+      </div>
+
+      {/* Confirm toggle sub-dialog */}
+      {confirmPerm && (
+        <div style={{
+          position: 'fixed', inset: 0, background: 'rgba(0,0,0,0.45)', zIndex: 9999,
+          display: 'flex', alignItems: 'center', justifyContent: 'center',
+        }}>
+          <div style={{
+            background: 'var(--color-bg-surface)', borderRadius: 'var(--radius-lg)',
+            padding: '1.5rem', width: '20rem', boxShadow: 'var(--shadow-xl)',
+          }}>
+            <div style={{ fontWeight: 600, marginBottom: '0.5rem', fontSize: '0.9375rem' }}>
+              {effective.has(confirmPerm) ? 'Remove Permission' : 'Add Permission'}
+            </div>
+            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)', marginBottom: '1.25rem' }}>
+              {effective.has(confirmPerm) ? 'Remove' : 'Add'}{' '}
+              <strong>{PERM_LABELS[confirmPerm] ?? confirmPerm}</strong>{' '}
+              {effective.has(confirmPerm) ? 'from' : 'for'} {member.displayName}?
+            </div>
+            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+              <Button variant="ghost" onClick={() => setConfirmPerm(null)}>Cancel</Button>
+              <Button
+                onClick={() => handleToggle(confirmPerm)}
+                loading={toggling}
+                style={{ background: effective.has(confirmPerm) ? '#ef4444' : undefined }}
+              >
+                Confirm
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+    </Modal>
+  );
+};
+
+// ── EditMemberModal ──────────────────────────────────────────────────────────
+
+interface EditMemberModalProps {
+  member: User;
+  onClose: () => void;
+  onSaved: () => void;
+}
+
+const EditMemberModal: React.FC<EditMemberModalProps> = ({ member, onClose, onSaved }) => {
+  const [updateRole,     { isLoading: saving }]      = useUpdateTeamMemberRoleMutation();
+  const [deactivate,     { isLoading: deactivating }] = useDeactivateTeamMemberMutation();
+
+  const [role,      setRole]     = useState<UserRole>(member.role);
+  const [isActive,  setIsActive] = useState(member.isActive);
+  const [confirmDeactivate, setConfirmDeactivate] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleSave = async () => {
+    setError(null);
+    try {
+      if (role !== member.role) {
+        await updateRole({ memberId: member.id, role }).unwrap();
+      }
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      setError((err as { data?: { message?: string } })?.data?.message ?? 'Failed to save changes.');
+    }
+  };
+
+  const handleDeactivate = async () => {
+    setError(null);
+    try {
+      await deactivate(member.id).unwrap();
+      onSaved();
+      onClose();
+    } catch (err: unknown) {
+      setError((err as { data?: { message?: string } })?.data?.message ?? 'Failed to deactivate user.');
+    }
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title={`Edit — ${member.displayName}`} width="26rem">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>{member.email}</div>
+
+        {error && (
+          <div style={{
+            padding: '0.625rem 0.875rem', background: '#fef2f2',
+            border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)',
+            fontSize: '0.8125rem', color: '#b91c1c',
+          }}>
+            {error}
+          </div>
+        )}
+
+        <Select
+          label="Role"
+          value={role}
+          onChange={e => setRole(e.target.value as UserRole)}
+          options={CLIENT_ROLE_OPTIONS}
+        />
+
+        <div style={{
+          padding: '0.625rem 0.875rem', background: '#fffbeb',
+          border: '1px solid #fbbf24', borderRadius: 'var(--radius-md)',
+          fontSize: '0.8125rem', color: '#92400e',
+        }}>
+          Changing role will reset this user's permissions to the new role's defaults.
+        </div>
+
+        {/* Deactivate section */}
+        {member.isActive && (
+          <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '0.75rem' }}>
+            {!confirmDeactivate ? (
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setConfirmDeactivate(true)}
+                style={{ color: 'var(--color-danger)', borderColor: 'var(--color-danger)' }}
+              >
+                Deactivate Account
+              </Button>
+            ) : (
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
+                  This will revoke {member.displayName}'s access. They can be reactivated by an admin.
+                </div>
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <Button variant="ghost" size="sm" onClick={() => setConfirmDeactivate(false)}>Cancel</Button>
+                  <Button
+                    size="sm"
+                    onClick={handleDeactivate}
+                    loading={deactivating}
+                    style={{ background: '#ef4444', color: '#fff' }}
+                  >
+                    Confirm Deactivate
+                  </Button>
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSave} loading={saving}>Save Changes</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+// ── InviteMemberModal ────────────────────────────────────────────────────────
+
+interface InviteMemberModalProps { onClose: () => void; onInvited: () => void; }
+const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvited }) => {
+  const [inviteUser, { isLoading: inviting }] = useInviteUserMutation();
+
+  const [firstName, setFirstName] = useState('');
+  const [lastName,  setLastName]  = useState('');
+  const [email,     setEmail]     = useState('');
+  const [role,      setRole]      = useState<UserRole>(UserRole.CLIENT_USER);
+  const [error,     setError]     = useState<string | null>(null);
+  const [sent,      setSent]      = useState(false);
+
+  const handleSend = async () => {
+    setError(null);
+    try {
+      await inviteUser({
+        email: email.trim(),
+        firstName: firstName.trim() || undefined,
+        lastName: lastName.trim() || undefined,
+        role,
+      }).unwrap();
+      setSent(true);
+      setTimeout(() => { onInvited(); onClose(); }, 1800);
+    } catch (err: unknown) {
+      setError((err as { data?: { message?: string } })?.data?.message ?? 'Failed to send invitation.');
+    }
+  };
+
+  if (sent) {
+    return (
+      <Modal isOpen onClose={onClose} title="Invite Member" width="24rem">
+        <div style={{ textAlign: 'center', padding: '2rem 0' }}>
+          <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✅</div>
+          <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>Invitation sent!</div>
+          <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>{email}</div>
+        </div>
+      </Modal>
+    );
+  }
+
+  return (
+    <Modal isOpen onClose={onClose} title="Invite Team Member" width="26rem">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <Input label="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" autoFocus />
+          <Input label="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Smith" />
+        </div>
+        <Input label="Email Address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="colleague@company.com" />
+        <Select
+          label="Role"
+          value={role}
+          onChange={e => setRole(e.target.value as UserRole)}
+          options={CLIENT_ROLE_OPTIONS}
+        />
+        <div style={{
+          padding: '0.75rem', background: 'var(--color-bg-subtle)',
+          borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--color-text-muted)',
+        }}>
+          An invitation email will be sent. The invitee will set their own password via the link.
+        </div>
+        {error && (
+          <div style={{
+            padding: '0.625rem 0.875rem', background: '#fef2f2',
+            border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)',
+            fontSize: '0.8125rem', color: '#b91c1c',
+          }}>
+            {error}
+          </div>
+        )}
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleSend} loading={inviting} disabled={!email.trim()}>
+            Send Invite
+          </Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+// ── Main TeamManagementPage ──────────────────────────────────────────────────
 
 export const TeamManagementPage: React.FC = () => {
   useDocumentTitle('Team Management');
-  const permissions = usePermissions();
-
-    // Live query — commented out until API is ready
-  // const { data, isLoading, error, refetch } = useGetUsersQuery({ page: 1 });
-  const { data, isLoading, error, refetch } = { data: usersMock, isLoading: false, error: null, refetch: () => {} };
-
-  // const { data, isLoading, error, refetch } = useGetUsersQuery({ page: 1 });
-
-  const [updateUser, { isLoading: saving }] = useUpdateUserMutation();
-  const [inviteUser, { isLoading: inviting }] = useInviteUserMutation();
+  const perms = usePermissions();
 
   const [search, setSearch] = useState('');
-  const [editUser, setEditUser] = useState<User | null>(null);
-  const [editRole, setEditRole] = useState<UserRole>(UserRole.CLIENT_USER);
-  const [editActive, setEditActive] = useState(true);
-  const [showInviteModal, setShowInviteModal] = useState(false);
-  const [inviteEmail, setInviteEmail] = useState('');
-  const [inviteFirstName, setInviteFirstName] = useState('');
-  const [inviteLastName, setInviteLastName] = useState('');
-  const [inviteRole, setInviteRole] = useState<UserRole>(UserRole.CLIENT_USER);
-  const [inviteError, setInviteError] = useState<string | null>(null);
-  const [inviteSuccess, setInviteSuccess] = useState(false);
+  const [roleFilter, setRoleFilter] = useState('');
+  const [page, setPage] = useState(1);
+  const debouncedSearch = useDebouncedValue(search, 300);
 
-  const filtered = (data?.data ?? []).filter((u) =>
-    u.displayName.toLowerCase().includes(search.toLowerCase()) ||
-    u.email.toLowerCase().includes(search.toLowerCase()),
-  );
+  const [editTarget, setEditTarget]  = useState<User | null>(null);
+  const [permTarget, setPermTarget]  = useState<User | null>(null);
+  const [showInvite, setShowInvite]  = useState(false);
 
-  const openEdit = (user: User) => {
-    setEditUser(user);
-    setEditRole(user.role);
-    setEditActive(user.isActive);
-  };
+  const { data, isLoading, error, refetch } = useGetTeamMembersQuery({
+    page,
+    role: roleFilter || undefined,
+    search: debouncedSearch || undefined,
+  });
 
-  const handleSaveEdit = async () => {
-    if (!editUser) return;
-    try {
-      await updateUser({ id: editUser.id, payload: { role: editRole, isActive: editActive } }).unwrap();
-      setEditUser(null);
-    } catch {
-      // handled by RTK Query
-    }
-  };
+  const members = data?.data ?? [];
+  const activeCount   = members.filter(u => u.isActive).length;
+  const adminCount    = members.filter(u => u.role === UserRole.CLIENT_ADMIN).length;
 
-  const resetInviteModal = () => {
-    setShowInviteModal(false);
-    setInviteEmail('');
-    setInviteFirstName('');
-    setInviteLastName('');
-    setInviteRole(UserRole.CLIENT_USER);
-    setInviteError(null);
-    setInviteSuccess(false);
-  };
-
-  const handleSendInvite = async () => {
-    setInviteError(null);
-    try {
-      await inviteUser({
-        email: inviteEmail.trim(),
-        role: inviteRole,
-        firstName: inviteFirstName.trim() || undefined,
-        lastName: inviteLastName.trim() || undefined,
-      }).unwrap();
-      setInviteSuccess(true);
-      setTimeout(resetInviteModal, 1800);
-    } catch (err: unknown) {
-      const message =
-        (err as { data?: { message?: string } })?.data?.message ??
-        'Failed to send invitation. Please try again.';
-      setInviteError(message);
-    }
-  };
+  // Actor's own permissions (for ceiling enforcement in permission modal)
+  const actorPermissions = useMemo((): Permission[] => {
+    return perms.toArray();
+  }, [perms]);
 
   if (error) return <ErrorState onRetry={refetch} />;
 
   return (
     <div>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem' }}>
+      {/* Header */}
+      <div style={{
+        display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+        marginBottom: '1.5rem', flexWrap: 'wrap', gap: '1rem',
+      }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
             Team Management
           </h1>
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
-            Manage team members and their roles
+            Manage your organisation's members and their access
           </p>
         </div>
         <PermissionGate permission={Permission.MEMBER_INVITE}>
-          <Button onClick={() => setShowInviteModal(true)} icon={<span>+</span>}>
+          <Button onClick={() => setShowInvite(true)} icon={<span>+</span>}>
             Invite Member
           </Button>
         </PermissionGate>
       </div>
 
-      {/* Search */}
-      <div style={{ marginBottom: '1.25rem' }}>
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search by name or email..."
-        />
+      {/* Summary stats */}
+      {!isLoading && (
+        <div style={{
+          display: 'flex', gap: '1.5rem', marginBottom: '1.25rem',
+          padding: '0.75rem 1rem', background: 'var(--color-bg-subtle)',
+          borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
+          flexWrap: 'wrap',
+        }}>
+          <span>Total members: <strong>{data?.total ?? 0}</strong></span>
+          <span>Active: <strong style={{ color: '#22c55e' }}>{activeCount}</strong></span>
+          <span>Admins: <strong>{adminCount}</strong></span>
+        </div>
+      )}
+
+      {/* Filters */}
+      <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.25rem', alignItems: 'flex-end' }}>
+        <div style={{ flex: 1 }}>
+          <SearchInput value={search} onChange={setSearch} placeholder="Search by name or email…" />
+        </div>
+        <div style={{ width: '10rem' }}>
+          <Select
+            options={[
+              { value: '', label: 'All Roles' },
+              ...CLIENT_ROLE_OPTIONS,
+            ]}
+            value={roleFilter}
+            onChange={e => { setRoleFilter(e.target.value); setPage(1); }}
+          />
+        </div>
       </div>
 
-      {/* Users List */}
+      {/* Members List */}
       {isLoading ? (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height="4.5rem" />)}
         </div>
-      ) : filtered.length === 0 ? (
-        <EmptyState icon="👥" title="No team members found" description="Try adjusting your search." />
+      ) : members.length === 0 ? (
+        <EmptyState icon="👥" title="No team members found" description="Try adjusting your search or invite a new member." />
       ) : (
         <Card padding="0">
-          {filtered.map((user, idx) => {
-            const rb = roleBadgeColor[user.role] ?? { color: '#374151', bg: '#f3f4f6' };
+          {members.map((member, idx) => {
+            const rb = ROLE_BADGE[member.role] ?? { color: '#374151', bg: '#f3f4f6' };
             return (
               <div
-                key={user.id}
+                key={member.id}
                 style={{
                   display: 'flex', alignItems: 'center', gap: '1rem',
                   padding: '0.875rem 1.25rem',
-                  borderBottom: idx < filtered.length - 1 ? '1px solid var(--color-border)' : 'none',
+                  borderBottom: idx < members.length - 1 ? '1px solid var(--color-border)' : 'none',
+                  opacity: member.isActive ? 1 : 0.6,
                 }}
               >
-                <Avatar name={user.displayName} size={38} />
+                <Avatar name={member.displayName} src={member.avatarUrl} size={38} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{user.displayName}</span>
-                    <Badge color={rb.color} bgColor={rb.bg}>{roleLabel[user.role]}</Badge>
-                    {!user.isActive && (
+                    <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{member.displayName}</span>
+                    <Badge color={rb.color} bgColor={rb.bg}>{ROLE_LABEL[member.role] ?? member.role}</Badge>
+                    {!member.isActive && (
                       <Badge color="#6b7280" bgColor="#f3f4f6">Inactive</Badge>
                     )}
                   </div>
                   <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>
-                    {user.email}
+                    {member.email}
                   </div>
+                  {/* Permission override count */}
+                  {(member.permissionOverrides ?? []).length > 0 && (
+                    <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>
+                      {(member.permissionOverrides ?? []).length} permission override{(member.permissionOverrides ?? []).length !== 1 ? 's' : ''}
+                    </div>
+                  )}
                 </div>
-                <PermissionGate permission={Permission.MEMBER_MANAGE}>
-                  <Button variant="ghost" size="sm" onClick={() => openEdit(user as User)}>
-                    Edit
-                  </Button>
-                </PermissionGate>
+                <div style={{ display: 'flex', gap: '0.375rem' }}>
+                  <PermissionGate permission={Permission.MEMBER_MANAGE}>
+                    <Button variant="ghost" size="sm" onClick={() => setPermTarget(member)}>
+                      Permissions
+                    </Button>
+                    <Button variant="ghost" size="sm" onClick={() => setEditTarget(member)}>
+                      Edit
+                    </Button>
+                  </PermissionGate>
+                </div>
               </div>
             );
           })}
         </Card>
       )}
 
-      {/* Edit User Modal */}
-      {editUser && (
-        <Modal
-          isOpen={!!editUser}
-          onClose={() => setEditUser(null)}
-          title={`Edit: ${editUser.displayName}`}
-        >
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-              {editUser.email}
-            </div>
-            <PermissionGate permission={Permission.MEMBER_MANAGE}>
-              <Select
-                label="Role"
-                value={editRole}
-                onChange={(e) => setEditRole(e.target.value as UserRole)}
-                options={Object.entries(roleLabel).map(([value, label]) => ({ value, label }))}
-              />
-            </PermissionGate>
-            <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
-              <input
-                type="checkbox"
-                checked={editActive}
-                onChange={(e) => setEditActive(e.target.checked)}
-              />
-              Active account
-            </label>
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <Button variant="ghost" onClick={() => setEditUser(null)}>Cancel</Button>
-              <Button onClick={handleSaveEdit} loading={saving}>Save Changes</Button>
-            </div>
-          </div>
-        </Modal>
+      {/* Pagination */}
+      {data && data.total_pages > 1 && (
+        <div style={{ marginTop: '1rem', display: 'flex', justifyContent: 'center', gap: '0.5rem' }}>
+          <Button variant="ghost" size="sm" disabled={page <= 1} onClick={() => setPage(p => p - 1)}>Previous</Button>
+          <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', lineHeight: '2rem' }}>
+            Page {page} of {data.total_pages}
+          </span>
+          <Button variant="ghost" size="sm" disabled={page >= data.total_pages} onClick={() => setPage(p => p + 1)}>Next</Button>
+        </div>
       )}
 
-      {/* Invite Member Modal */}
-      <Modal
-        isOpen={showInviteModal}
-        onClose={resetInviteModal}
-        title="Invite Team Member"
-      >
-        {inviteSuccess ? (
-          <div style={{
-            textAlign: 'center', padding: '1.5rem 0',
-            color: 'var(--color-text)', fontSize: '0.9375rem',
-          }}>
-            <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>✅</div>
-            Invitation sent to <strong>{inviteEmail}</strong>
-          </div>
-        ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-            <div style={{ display: 'flex', gap: '0.75rem' }}>
-              <Input
-                label="First Name"
-                value={inviteFirstName}
-                onChange={(e) => setInviteFirstName(e.target.value)}
-                placeholder="Jane"
-              />
-              <Input
-                label="Last Name"
-                value={inviteLastName}
-                onChange={(e) => setInviteLastName(e.target.value)}
-                placeholder="Smith"
-              />
-            </div>
-            <Input
-              label="Email Address"
-              type="email"
-              value={inviteEmail}
-              onChange={(e) => setInviteEmail(e.target.value)}
-              placeholder="colleague@company.com"
-              autoFocus
-            />
-            <Select
-              label="Role"
-              value={inviteRole}
-              onChange={(e) => setInviteRole(e.target.value as UserRole)}
-              options={[
-                { value: UserRole.CLIENT_USER, label: 'Client User' },
-                { value: UserRole.CLIENT_ADMIN, label: 'Client Admin' },
-              ]}
-            />
-            <div style={{
-              padding: '0.75rem', background: 'var(--color-bg-subtle)',
-              borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--color-text-muted)',
-            }}>
-              An invitation email will be sent. The invitee will set their own password via the link.
-            </div>
-            {inviteError && (
-              <div style={{
-                padding: '0.625rem 0.875rem', background: '#fef2f2',
-                border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)',
-                fontSize: '0.8125rem', color: '#b91c1c',
-              }}>
-                {inviteError}
-              </div>
-            )}
-            <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
-              <Button variant="ghost" onClick={resetInviteModal}>Cancel</Button>
-              <Button
-                disabled={!inviteEmail.trim()}
-                loading={inviting}
-                onClick={handleSendInvite}
-              >
-                Send Invite
-              </Button>
-            </div>
-          </div>
-        )}
-      </Modal>
+      {/* ── Modals ─────────────────────────────────────────────────────────── */}
+      {editTarget && (
+        <EditMemberModal
+          member={editTarget}
+          onClose={() => setEditTarget(null)}
+          onSaved={refetch}
+        />
+      )}
+      {permTarget && (
+        <PermissionsModal
+          member={permTarget}
+          actorPermissions={actorPermissions}
+          onClose={() => setPermTarget(null)}
+        />
+      )}
+      {showInvite && (
+        <InviteMemberModal onClose={() => setShowInvite(false)} onInvited={refetch} />
+      )}
     </div>
   );
 };

@@ -80,6 +80,159 @@ export enum UserRole {
 }
 
 /**
+ * Sub-role for internal 3SC staff only (applied on top of UserRole.AGENT/LEAD/ADMIN).
+ * Used for intelligent ticket routing, workload balancing, and skill matching.
+ * Client-side users (CLIENT_ADMIN / CLIENT_USER) never have an internalSubRole.
+ *
+ * DEVELOPER  — engineering/technical specialist; handles bug reports, API issues, integration tickets
+ * DELIVERY   — project delivery & onboarding specialist; handles delivery board, onboarding trackers
+ * SUPPORT    — general support agent; handles billing, account, general enquiries
+ * TEAM_LEAD  — maps to UserRole.LEAD; oversees team workload and SLA compliance
+ * ADMIN      — maps to UserRole.ADMIN; full system access
+ */
+export enum InternalSubRole {
+  DEVELOPER = 'DEVELOPER',
+  DELIVERY  = 'DELIVERY',
+  SUPPORT   = 'SUPPORT',
+  TEAM_LEAD = 'TEAM_LEAD',
+  ADMIN     = 'ADMIN',
+}
+
+// ── Skill Types ────────────────────────────────────────────────────────────────
+
+export type SkillCategory = 'TECHNICAL' | 'DOMAIN' | 'LANGUAGE' | 'PRODUCT';
+export type SkillLevel = 'BEGINNER' | 'INTERMEDIATE' | 'EXPERT';
+
+/**
+ * A single skill tag from the global skill taxonomy.
+ * Examples: "React", "AWS", "Salesforce", "French", "Billing", "API Integration".
+ */
+export interface Skill {
+  id: string;
+  name: string;
+  category: SkillCategory;
+  description?: string;
+}
+
+/** A skill as assigned to a specific user — includes their proficiency level. */
+export interface UserSkill {
+  skillId: string;
+  /** Nested skill details — populated when fetched via GET /users/:id/skills */
+  skill?: Skill;
+  level: SkillLevel;
+  endorsements?: number;
+}
+
+// ── Workload Types ─────────────────────────────────────────────────────────────
+
+export enum AvailabilityStatus {
+  AVAILABLE      = 'AVAILABLE',
+  BUSY           = 'BUSY',
+  AWAY           = 'AWAY',
+  DO_NOT_DISTURB = 'DO_NOT_DISTURB',
+  OFFLINE        = 'OFFLINE',
+}
+
+/**
+ * Live workload state for an internal agent.
+ * Computed server-side from assigned open tickets vs. maxCapacity.
+ */
+export interface UserWorkload {
+  assignedTickets: number;
+  maxCapacity: number;          // set by ADMIN/LEAD; default 20
+  availabilityStatus: AvailabilityStatus;
+  availableFrom?: ISO8601;      // set when status is AWAY/OFF — when will they return
+  utilizationPct: number;       // assignedTickets / maxCapacity × 100, computed
+}
+
+export interface UserWorkloadUpdatePayload {
+  maxCapacity?: number;
+  availabilityStatus?: AvailabilityStatus;
+  availableFrom?: ISO8601 | null;
+}
+
+// ── Permission Override Types ──────────────────────────────────────────────────
+
+/**
+ * A single permission granted to a user beyond their role's default set,
+ * OR a record that a role-default permission has been revoked.
+ * Only internal ADMIN can create overrides or revocations.
+ */
+export interface PermissionOverride {
+  id?: UUID;
+  permission: Permission;
+  type: 'GRANT' | 'REVOKE';
+  grantedBy: UUID;             // user_id of the actor who made the change
+  grantedByRole?: string;      // role of the actor at time of creation (e.g. 'ADMIN', 'CLIENT_ADMIN')
+  grantedByName?: string;      // display name for UI (denormalised, optional)
+  createdAt: ISO8601;          // when the override was created
+  reason?: string;
+  expiresAt?: ISO8601;         // optional — time-limited access grant
+}
+
+/** Payload for ADMIN to add or remove a permission override on a user. */
+export interface PermissionOverridePayload {
+  permission: Permission;
+  type: 'GRANT' | 'REVOKE';
+  reason?: string;
+  expiresAt?: ISO8601;
+}
+
+// ── Assignment Scoring Weights ─────────────────────────────────────────────────
+
+/**
+ * Configurable multipliers for the AI ticket-assignment scoring formula.
+ * Stored globally (ADMIN-configured) or per routing-rule.
+ *
+ * Final score = (skillMatch × wSkill) + ((1 − utilization) × wWorkload) + (availability × wAvail)
+ *
+ * All weights are in range 0.0 – 1.0. The UI normalises them so they sum to 1.0.
+ */
+export interface AssignmentScoringWeights {
+  id?: string;        // 'global' or routing-rule id
+  wSkill: number;     // skill match weight, default 0.50
+  wWorkload: number;  // workload weight, default 0.35
+  wAvail: number;     // availability weight, default 0.15
+  updatedBy?: UUID;
+  updatedAt?: ISO8601;
+}
+
+export interface AssignmentScoringWeightsPayload {
+  wSkill: number;
+  wWorkload: number;
+  wAvail: number;
+}
+
+// ── AI Assignment Suggestion ───────────────────────────────────────────────────
+
+/** One agent suggestion returned by the AI assignment endpoint. */
+export interface AgentAssignSuggestion {
+  agentId: UUID;
+  agentName: string;
+  agentEmail: Email;
+  avatarUrl?: string;
+  subRole?: InternalSubRole;
+  skills: UserSkill[];
+  workload: UserWorkload;
+  score: number;                // 0.0 – 1.0, higher is better
+  skillMatchScore: number;
+  workloadScore: number;
+  availabilityScore: number;
+  matchedSkills: string[];      // skill names that matched ticket tags/category
+  reasoning: string;            // human-readable explanation
+}
+
+/** Skill-coverage gap — tickets waiting that no agent can skill-match. */
+export interface SkillGap {
+  skillId?: string;
+  skillName: string;          // name of the skill with insufficient coverage
+  openTickets: number;        // count of open tickets requiring this skill
+  agentsWithSkill?: number;   // how many active agents have this skill
+  sampleTicketIds?: UUID[];
+  suggestedAction?: string;
+}
+
+/**
  * Permission strings sent by the backend in the session payload.
  * These are authoritative — do NOT hardcode permission arrays on the frontend.
  * Use `session.permissions.includes(Permission.XYZ)` or the `hasPermission`
@@ -288,6 +441,39 @@ export enum Permission {
   ROADMAP_VOTE = 'ROADMAP_VOTE',
   /** Submit new feature requests from the roadmap page. CLIENT_ADMIN only. */
   ROADMAP_REQUEST = 'ROADMAP_REQUEST',
+
+  // ── User Management (new) ─────────────────────────────────────────────────
+  /**
+   * Edit a user's individual permission overrides (grant beyond role / revoke from role).
+   * Internal ADMIN only. CLIENT_ADMIN can toggle within their own ceiling but does NOT
+   * hold this permission — ceiling-enforcement is done server-side on the /team endpoint.
+   */
+  USER_PERMISSION_MANAGE = 'USER_PERMISSION_MANAGE',
+  /**
+   * Assign or edit skills on internal agents.
+   * ADMIN and LEAD only.
+   */
+  SKILL_ASSIGN = 'SKILL_ASSIGN',
+  /**
+   * View agent workload metrics (assigned ticket count, utilization %, availability).
+   * ADMIN and LEAD only.
+   */
+  WORKLOAD_VIEW = 'WORKLOAD_VIEW',
+  /**
+   * Edit the global assignment-scoring weights (skill / workload / availability multipliers).
+   * Internal ADMIN only.
+   */
+  SCORING_CONFIGURE = 'SCORING_CONFIGURE',
+  /**
+   * Import users in bulk via CSV upload.
+   * Internal ADMIN only.
+   */
+  USER_IMPORT = 'USER_IMPORT',
+  /**
+   * Force a password reset link for any user.
+   * Internal ADMIN only.
+   */
+  PASSWORD_RESET = 'PASSWORD_RESET',
 }
 
 export interface User {
@@ -298,12 +484,34 @@ export interface User {
   lastName: string;
   avatarUrl?: string;
   role: UserRole;
+  /** Effective permissions — role defaults ± overrides ± revocations. Source of truth from backend. */
   permissions: Permission[];
   organizationId: UUID;
   isActive: boolean;
   lastLoginAt?: ISO8601;
   created_at: ISO8601;
   updated_at: ISO8601;
+
+  // ── Extended fields (internal staff only) ──────────────────────────────────
+  /** Sub-role for internal 3SC staff — drives skill-based routing and workload logic. */
+  internalSubRole?: InternalSubRole;
+  /** Skills assigned to this agent. Only present for internal staff (AGENT/LEAD/ADMIN). */
+  skills?: UserSkill[];
+  /** Live workload metrics. Only present for internal staff. */
+  workload?: UserWorkload;
+  /**
+   * Permission overrides applied on top of role defaults.
+   * GRANTs add permissions beyond the role ceiling.
+   * REVOKEs remove a permission from the role's default set.
+   * Only visible to ADMIN or the user themselves.
+   */
+  permissionOverrides?: PermissionOverride[];
+  /** Department label — free text, e.g. "Engineering", "Customer Success". */
+  department?: string;
+  /** IANA timezone string, e.g. "Europe/London". Used for SLA business-hours calculation. */
+  timezone?: string;
+  /** Whether MFA is currently enrolled for this user. */
+  mfaEnabled?: boolean;
 }
 
 export interface InviteUserPayload {
@@ -311,6 +519,11 @@ export interface InviteUserPayload {
   role: UserRole;
   firstName?: string;
   lastName?: string;
+  /** Sub-role when inviting internal AGENT/LEAD staff. */
+  internalSubRole?: InternalSubRole;
+  /** Initial skill IDs to assign (optional, can be set later). */
+  skillIds?: string[];
+  department?: string;
 }
 
 /**

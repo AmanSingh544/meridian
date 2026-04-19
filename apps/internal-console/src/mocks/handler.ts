@@ -63,6 +63,10 @@ import {
   MOCK_ONBOARDING_NEXT_ACTIONS,
   MOCK_ESCALATIONS,
   MOCK_AGENTS,
+  MOCK_SKILLS,
+  MOCK_SCORING_WEIGHTS,
+  MOCK_ASSIGN_SUGGESTIONS,
+  MOCK_SKILL_GAPS,
 } from './data';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -327,7 +331,10 @@ const routes: Array<{ test: (path: string, method: string) => boolean; handle: R
         u.displayName.toLowerCase().includes(search) ||
         u.email.toLowerCase().includes(search)
       );
-      if (role) filtered = filtered.filter((u) => u.role === role);
+      if (role) {
+        const roles = role.split(',').map(r => r.trim());
+        filtered = filtered.filter((u) => roles.includes(u.role));
+      }
 
       return paginate(filtered, page, 20);
     },
@@ -1053,6 +1060,285 @@ const routes: Array<{ test: (path: string, method: string) => boolean; handle: R
   // PATCH /escalations/:id/resolve
   {
     test: (p, m) => m === 'PATCH' && /\/escalations\/[^/]+\/resolve$/.test(p),
+    handle: () => ({ data: { success: true } }),
+  },
+
+  // ── Skill Taxonomy ────────────────────────────────────────────────────────
+  // GET /skills
+  {
+    test: (p, m) => m === 'GET' && /\/skills$/.test(p),
+    handle: (url) => {
+      const params = qp(url);
+      const category = params.get('category');
+      const search = (params.get('search') ?? '').toLowerCase();
+      let skills = [...MOCK_SKILLS];
+      if (category) skills = skills.filter(s => s.category === category);
+      if (search)   skills = skills.filter(s => s.name.toLowerCase().includes(search));
+      return { data: skills };
+    },
+  },
+  // POST /skills
+  {
+    test: (p, m) => m === 'POST' && /\/skills$/.test(p),
+    handle: (_url, _method, body) => {
+      const payload = body ? JSON.parse(body) : {};
+      const newSkill = { id: `SKL-${Date.now()}`, ...payload };
+      MOCK_SKILLS.push(newSkill);
+      return { data: newSkill };
+    },
+  },
+
+  // ── User Skills ───────────────────────────────────────────────────────────
+  // GET /users/:id/skills
+  {
+    test: (p, m) => m === 'GET' && /\/users\/[^/]+\/skills$/.test(p),
+    handle: (url) => {
+      const id = extractAfter(url, 'users');
+      const user = MOCK_USERS.find(u => u.id === id);
+      return { data: user?.skills ?? [] };
+    },
+  },
+  // PATCH /users/:id/skills
+  {
+    test: (p, m) => m === 'PATCH' && /\/users\/[^/]+\/skills$/.test(p),
+    handle: (url, _method, body) => {
+      const id = extractAfter(url, 'users');
+      const user = MOCK_USERS.find(u => u.id === id);
+      const payload = body ? JSON.parse(body) : { skills: [] };
+      if (user) {
+        user.skills = (payload.skills as { skillId: string; level: string }[]).map(s => {
+          const skill = MOCK_SKILLS.find(sk => sk.id === s.skillId)!;
+          return { skillId: s.skillId, skill, level: s.level as 'BEGINNER' | 'INTERMEDIATE' | 'EXPERT' };
+        });
+        user.updated_at = new Date().toISOString();
+      }
+      return { data: user?.skills ?? [] };
+    },
+  },
+
+  // ── User Workload ─────────────────────────────────────────────────────────
+  // GET /users/:id/workload
+  {
+    test: (p, m) => m === 'GET' && /\/users\/[^/]+\/workload$/.test(p),
+    handle: (url) => {
+      const id = extractAfter(url, 'users');
+      const user = MOCK_USERS.find(u => u.id === id);
+      return { data: user?.workload ?? null };
+    },
+  },
+  // PATCH /users/:id/workload
+  {
+    test: (p, m) => m === 'PATCH' && /\/users\/[^/]+\/workload$/.test(p),
+    handle: (url, _method, body) => {
+      const id = extractAfter(url, 'users');
+      const user = MOCK_USERS.find(u => u.id === id);
+      const payload = body ? JSON.parse(body) : {};
+      if (user && user.workload) {
+        Object.assign(user.workload, payload);
+        user.workload.utilizationPct = Math.round(
+          (user.workload.assignedTickets / user.workload.maxCapacity) * 100
+        );
+        user.updated_at = new Date().toISOString();
+      }
+      return { data: user?.workload ?? null };
+    },
+  },
+  // GET /users/workload-summary
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/users/workload-summary'),
+    handle: () => {
+      const agents = MOCK_USERS.filter(u =>
+        ['AGENT', 'LEAD', 'ADMIN'].includes(u.role) && u.isActive && u.workload
+      );
+      const totalAgents     = agents.length;
+      const availableAgents = agents.filter(u => u.workload?.availabilityStatus === 'AVAILABLE').length;
+      const busyAgents      = agents.filter(u => u.workload?.availabilityStatus === 'BUSY').length;
+      const awayAgents      = agents.filter(u => u.workload?.availabilityStatus === 'AWAY').length;
+      const offlineAgents   = agents.filter(u =>
+        u.workload?.availabilityStatus === 'OFFLINE' || u.workload?.availabilityStatus === 'DO_NOT_DISTURB'
+      ).length;
+      const avgUtilization  = totalAgents > 0
+        ? agents.reduce((sum, u) => sum + (u.workload?.utilizationPct ?? 0), 0) / totalAgents / 100
+        : 0;
+      const overloadedAgents = agents.filter(u => (u.workload?.utilizationPct ?? 0) >= 90).length;
+      return {
+        data: {
+          totalAgents, availableAgents, busyAgents, awayAgents, offlineAgents,
+          avgUtilization: Math.round(avgUtilization * 100) / 100,
+          overloadedAgents,
+        },
+      };
+    },
+  },
+
+  // ── User Permission Overrides ─────────────────────────────────────────────
+  // GET /users/:id/permissions
+  {
+    test: (p, m) => m === 'GET' && /\/users\/[^/]+\/permissions$/.test(p),
+    handle: (url) => {
+      const id = extractAfter(url, 'users');
+      const user = MOCK_USERS.find(u => u.id === id);
+      return { data: { effective: user?.permissions ?? [], overrides: user?.permissionOverrides ?? [] } };
+    },
+  },
+  // PATCH /users/:id/permissions  (ADMIN adds/removes override)
+  {
+    test: (p, m) => m === 'PATCH' && /\/users\/[^/]+\/permissions$/.test(p),
+    handle: (url, _method, body) => {
+      const id = extractAfter(url, 'users');
+      const user = MOCK_USERS.find(u => u.id === id);
+      const payload = body ? JSON.parse(body) : {};
+      if (user) {
+        if (!user.permissionOverrides) user.permissionOverrides = [];
+        // Remove existing override for same permission if any
+        user.permissionOverrides = user.permissionOverrides.filter(o => o.permission !== payload.permission);
+        if (payload.type === 'GRANT') {
+          user.permissionOverrides.push({
+            permission: payload.permission,
+            type: 'GRANT',
+            grantedBy: ACTIVE_PERSONA.id,
+            grantedByRole: ACTIVE_PERSONA.role,
+            grantedByName: ACTIVE_PERSONA.displayName,
+            createdAt: new Date().toISOString(),
+            reason: payload.reason,
+            expiresAt: payload.expiresAt,
+          });
+          if (!user.permissions.includes(payload.permission)) {
+            user.permissions.push(payload.permission);
+          }
+        } else if (payload.type === 'REVOKE') {
+          user.permissionOverrides.push({
+            permission: payload.permission,
+            type: 'REVOKE',
+            grantedBy: ACTIVE_PERSONA.id,
+            grantedByRole: ACTIVE_PERSONA.role,
+            grantedByName: ACTIVE_PERSONA.displayName,
+            createdAt: new Date().toISOString(),
+            reason: payload.reason,
+          });
+          user.permissions = user.permissions.filter(p => p !== payload.permission);
+        }
+        user.updated_at = new Date().toISOString();
+      }
+      return { data: { effective: user?.permissions ?? [], overrides: user?.permissionOverrides ?? [] } };
+    },
+  },
+
+  // ── Client Team Management ────────────────────────────────────────────────
+  // GET /team/members  (CLIENT_ADMIN: org-scoped — handled in customer-portal handler)
+  // These routes serve the internal-console view of a client org's members
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/team/members'),
+    handle: (url) => {
+      const params  = qp(url);
+      const page    = parseInt(params.get('page') ?? '1', 10);
+      const search  = (params.get('search') ?? '').toLowerCase();
+      const role    = params.get('role');
+      // Return only client users for the active persona's org
+      let members = MOCK_USERS.filter(u =>
+        ['CLIENT_ADMIN', 'CLIENT_USER'].includes(u.role) &&
+        u.organizationId === ACTIVE_PERSONA.organizationId
+      );
+      if (search) members = members.filter(u =>
+        u.displayName.toLowerCase().includes(search) || u.email.toLowerCase().includes(search)
+      );
+      if (role) members = members.filter(u => u.role === role);
+      return paginate(members, page, 20);
+    },
+  },
+  // PATCH /team/members/:id/role
+  {
+    test: (p, m) => m === 'PATCH' && /\/team\/members\/[^/]+\/role$/.test(p),
+    handle: (url, _method, body) => {
+      const id = url.split('/team/members/')[1]?.split('/role')[0];
+      const user = MOCK_USERS.find(u => u.id === id);
+      const payload = body ? JSON.parse(body) : {};
+      if (user) { user.role = payload.role; user.updated_at = new Date().toISOString(); }
+      return { data: user ?? null };
+    },
+  },
+  // PATCH /team/members/:id/permissions  (ceiling-enforced toggle)
+  {
+    test: (p, m) => m === 'PATCH' && /\/team\/members\/[^/]+\/permissions$/.test(p),
+    handle: (url, _method, body) => {
+      const id = url.split('/team/members/')[1]?.split('/permissions')[0];
+      const user = MOCK_USERS.find(u => u.id === id);
+      const payload = body ? JSON.parse(body) : {};
+      if (user) {
+        if (payload.enabled && !user.permissions.includes(payload.permission)) {
+          user.permissions.push(payload.permission);
+        } else if (!payload.enabled) {
+          user.permissions = user.permissions.filter(p => p !== payload.permission);
+        }
+        user.updated_at = new Date().toISOString();
+      }
+      return { data: { effective: user?.permissions ?? [] } };
+    },
+  },
+  // DELETE /team/members/:id  (soft deactivate)
+  {
+    test: (p, m) => m === 'DELETE' && /\/team\/members\/[^/]+$/.test(p),
+    handle: (url) => {
+      const id = url.split('/team/members/')[1]?.split('?')[0];
+      const user = MOCK_USERS.find(u => u.id === id);
+      if (user) { user.isActive = false; user.updated_at = new Date().toISOString(); }
+      return { data: { success: true } };
+    },
+  },
+
+  // ── Assignment Scoring Weights ────────────────────────────────────────────
+  // GET /users/scoring-weights
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/users/scoring-weights'),
+    handle: () => ({ data: MOCK_SCORING_WEIGHTS }),
+  },
+  // PATCH /users/scoring-weights
+  {
+    test: (p, m) => m === 'PATCH' && p.endsWith('/users/scoring-weights'),
+    handle: (_url, _method, body) => {
+      const payload = body ? JSON.parse(body) : {};
+      Object.assign(MOCK_SCORING_WEIGHTS, payload, {
+        updatedBy: ACTIVE_PERSONA.id,
+        updated_at: new Date().toISOString(),
+      });
+      return { data: MOCK_SCORING_WEIGHTS };
+    },
+  },
+
+  // ── AI — Assignment Suggestions ───────────────────────────────────────────
+  // GET /ai/users/assign-suggest/:ticketId
+  {
+    test: (p, m) => m === 'GET' && /\/ai\/users\/assign-suggest\/[^/]+$/.test(p),
+    handle: () => ({ data: MOCK_ASSIGN_SUGGESTIONS }),
+  },
+  // GET /ai/users/skill-gaps
+  {
+    test: (p, m) => m === 'GET' && p.endsWith('/ai/users/skill-gaps'),
+    handle: () => ({ data: MOCK_SKILL_GAPS }),
+  },
+  // POST /ai/users/suggest-skills/:userId
+  {
+    test: (p, m) => m === 'POST' && /\/ai\/users\/suggest-skills\/[^/]+$/.test(p),
+    handle: (url) => {
+      const id = url.split('/suggest-skills/')[1]?.split('?')[0];
+      const user = MOCK_USERS.find(u => u.id === id);
+      const existing = new Set((user?.skills ?? []).map(s => s.skillId));
+      const suggested = MOCK_SKILLS
+        .filter(s => !existing.has(s.id))
+        .slice(0, 3);
+      return {
+        data: {
+          suggestedSkills: suggested,
+          reasoning: `Based on ${user?.displayName ?? 'this agent'}'s recent ticket resolutions, these skills appear frequently in the tickets they handle but are not yet listed in their profile.`,
+        },
+      };
+    },
+  },
+
+  // ── Password Reset (ADMIN) ────────────────────────────────────────────────
+  // POST /users/:id/reset-password
+  {
+    test: (p, m) => m === 'POST' && /\/users\/[^/]+\/reset-password$/.test(p),
     handle: () => ({ data: { success: true } }),
   },
 ];

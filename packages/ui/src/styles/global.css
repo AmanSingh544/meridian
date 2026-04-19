@@ -19,6 +19,7 @@
   --color-info-light: #dbeafe;
 
   --color-bg: #ffffff;
+  --color-bg-surface: #ffffff;
   --color-bg-subtle: #f9fafb;
   --color-bg-muted: #f3f4f6;
   --color-border: #e5e7eb;
@@ -59,6 +60,7 @@
 [data-theme="dark"] {
   /* Backgrounds — three depth levels */
   --color-bg:          #16161e;   /* sidebar, card surfaces          */
+  --color-bg-surface:  #16161e;   /* elevated cards, panels          */
   --color-bg-subtle:   #0f0f14;   /* page canvas                     */
   --color-bg-muted:    #1e1e28;   /* hover states, subtle fills      */
 

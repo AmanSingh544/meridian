@@ -1,6 +1,6 @@
 import React, { useState, useRef } from 'react';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Button, Card, Badge, useToast, PermissionGate, ConfirmDialog } from '@3sc/ui';
+import { Button, Select, useToast, PermissionGate, ConfirmDialog } from '@3sc/ui';
 import { Permission, TicketPriority, TicketCategory } from '@3sc/types';
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -182,22 +182,13 @@ const RuleForm: React.FC<RuleFormProps> = ({ rule, onSave, onCancel }) => {
           />
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em', marginBottom: '0.375rem' }}>
-            Assign To *
-          </label>
-          <select
+          <Select
+            label="Assign To *"
             value={assignTo}
             onChange={e => setAssignTo(e.target.value)}
-            style={{
-              width: '100%', padding: '0.5rem 0.625rem',
-              border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
-              background: 'var(--color-bg)', color: 'var(--color-text)',
-              fontSize: '0.875rem', outline: 'none',
-            }}
-          >
-            <option value="">Select agent...</option>
-            {MOCK_AGENTS.map(a => <option key={a.id} value={a.id}>{a.displayName}</option>)}
-          </select>
+            placeholder="Select agent..."
+            options={MOCK_AGENTS.map(a => ({ value: a.id, label: a.displayName }))}
+          />
         </div>
       </div>
 
@@ -248,33 +239,30 @@ const RuleForm: React.FC<RuleFormProps> = ({ rule, onSave, onCancel }) => {
               )}
 
               {/* Field */}
-              <select
+              <Select
                 value={c.field}
                 onChange={e => updateCondition(idx, { field: e.target.value as ConditionField, operator: OPERATOR_OPTIONS[e.target.value as ConditionField][0].value, value: '' })}
-                style={{ padding: '0.3125rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none' }}
-              >
-                {FIELD_OPTIONS.map(f => <option key={f.value} value={f.value}>{f.label}</option>)}
-              </select>
+                options={FIELD_OPTIONS}
+                style={{ fontSize: '0.8125rem' }}
+              />
 
               {/* Operator */}
-              <select
+              <Select
                 value={c.operator}
                 onChange={e => updateCondition(idx, { operator: e.target.value as ConditionOperator })}
-                style={{ padding: '0.3125rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none' }}
-              >
-                {OPERATOR_OPTIONS[c.field].map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-              </select>
+                options={OPERATOR_OPTIONS[c.field]}
+                style={{ fontSize: '0.8125rem' }}
+              />
 
               {/* Value */}
               {VALUE_OPTIONS[c.field] ? (
-                <select
+                <Select
                   value={c.value}
                   onChange={e => updateCondition(idx, { value: e.target.value })}
-                  style={{ flex: 1, padding: '0.3125rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none' }}
-                >
-                  <option value="">Select...</option>
-                  {VALUE_OPTIONS[c.field]!.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-                </select>
+                  placeholder="Select..."
+                  options={VALUE_OPTIONS[c.field]!}
+                  style={{ flex: 1, fontSize: '0.8125rem' }}
+                />
               ) : (
                 <input
                   value={c.value}
@@ -361,16 +349,20 @@ const SimulatePanel: React.FC<{ rules: RoutingRule[]; onClose: () => void }> = (
 
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'end', marginBottom: '1rem' }}>
         <div>
-          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Priority</label>
-          <select value={priority} onChange={e => setPriority(e.target.value)} style={{ width: '100%', padding: '0.375rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none' }}>
-            {Object.values(TicketPriority).map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
+          <Select
+            label="Priority"
+            value={priority}
+            onChange={e => setPriority(e.target.value)}
+            options={Object.values(TicketPriority).map(v => ({ value: v, label: v }))}
+          />
         </div>
         <div>
-          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Category</label>
-          <select value={category} onChange={e => setCategory(e.target.value)} style={{ width: '100%', padding: '0.375rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none' }}>
-            {Object.values(TicketCategory).map(v => <option key={v} value={v}>{v}</option>)}
-          </select>
+          <Select
+            label="Category"
+            value={category}
+            onChange={e => setCategory(e.target.value)}
+            options={Object.values(TicketCategory).map(v => ({ value: v, label: v }))}
+          />
         </div>
         <div>
           <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Keyword (optional)</label>
@@ -660,13 +652,13 @@ export const RoutingRulesPage: React.FC = () => {
       )}
 
       <ConfirmDialog
-        open={deleteTarget !== null}
+        isOpen={deleteTarget !== null}
         title="Delete Routing Rule"
         message={`Delete "${rules.find(r => r.id === deleteTarget)?.name}"? This action cannot be undone. Tickets that would have matched this rule will remain unassigned.`}
         confirmLabel="Delete"
         cancelLabel="Cancel"
         onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
-        onCancel={() => setDeleteTarget(null)}
+        onClose={() => setDeleteTarget(null)}
         variant="danger"
       />
     </div>

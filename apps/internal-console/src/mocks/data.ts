@@ -27,14 +27,55 @@ import type {
   DeliveryRiskItem, DeliveryPrioritisedFeature, DeliveryFeatureDraft,
   OnboardingHealthPrediction, OnboardingBlockerSummary, OnboardingNextAction,
   EscalatedTicket,
+  Skill, UserSkill, UserWorkload, PermissionOverride,
+  AssignmentScoringWeights, AgentAssignSuggestion, SkillGap,
 } from '@3sc/types';
 import {
   TicketStatus, TicketPriority, TicketCategory, SLAState,
   UserRole, Permission, AISuggestionType, AISuggestionStatus,
-  NotificationType, ProjectStatus,
+  NotificationType, ProjectStatus, InternalSubRole, AvailabilityStatus,
 } from '@3sc/types';
 
-// ─── 1. USERS ────────────────────────────────────────────────────────────────
+// ─── 1. SKILL TAXONOMY ────────────────────────────────────────────────────────
+
+export const MOCK_SKILLS: Skill[] = [
+  // TECHNICAL
+  { id: 'SKL-001', name: 'React',              category: 'TECHNICAL', description: 'React.js frontend development' },
+  { id: 'SKL-002', name: 'Node.js',            category: 'TECHNICAL', description: 'Node.js backend development' },
+  { id: 'SKL-003', name: 'TypeScript',         category: 'TECHNICAL', description: 'TypeScript / static typing' },
+  { id: 'SKL-004', name: 'AWS',                category: 'TECHNICAL', description: 'Amazon Web Services infrastructure' },
+  { id: 'SKL-005', name: 'SQL / PostgreSQL',   category: 'TECHNICAL', description: 'Relational database queries and admin' },
+  { id: 'SKL-006', name: 'API Integration',    category: 'TECHNICAL', description: 'REST and webhook integration debugging' },
+  { id: 'SKL-007', name: 'Docker / K8s',       category: 'TECHNICAL', description: 'Container deployment and orchestration' },
+  { id: 'SKL-008', name: 'Python',             category: 'TECHNICAL', description: 'Python scripting and data processing' },
+  // DOMAIN
+  { id: 'SKL-009', name: 'Billing & Payments', category: 'DOMAIN',    description: 'Invoicing, payment disputes, subscription issues' },
+  { id: 'SKL-010', name: 'Onboarding',         category: 'DOMAIN',    description: 'Client onboarding process and setup' },
+  { id: 'SKL-011', name: 'SLA Management',     category: 'DOMAIN',    description: 'Service level agreement policies and escalation' },
+  { id: 'SKL-012', name: 'Compliance & GDPR',  category: 'DOMAIN',    description: 'Data protection, erasure requests, audit' },
+  { id: 'SKL-013', name: 'Project Delivery',   category: 'DOMAIN',    description: 'Delivery board, milestone tracking, status reports' },
+  { id: 'SKL-014', name: 'Salesforce',         category: 'DOMAIN',    description: 'Salesforce CRM integration support' },
+  // PRODUCT
+  { id: 'SKL-015', name: 'Meridian Platform',  category: 'PRODUCT',   description: 'Deep knowledge of the Meridian internal platform' },
+  { id: 'SKL-016', name: 'KB Authoring',       category: 'PRODUCT',   description: 'Writing and maintaining knowledge base articles' },
+  // LANGUAGE
+  { id: 'SKL-017', name: 'French',             category: 'LANGUAGE',  description: 'Native or professional French' },
+  { id: 'SKL-018', name: 'German',             category: 'LANGUAGE',  description: 'Native or professional German' },
+  { id: 'SKL-019', name: 'Spanish',            category: 'LANGUAGE',  description: 'Native or professional Spanish' },
+];
+
+// ─── 2. ASSIGNMENT SCORING WEIGHTS ───────────────────────────────────────────
+
+export const MOCK_SCORING_WEIGHTS: AssignmentScoringWeights = {
+  id: 'global',
+  wSkill:    0.50,
+  wWorkload: 0.35,
+  wAvail:    0.15,
+  updatedBy: 'USR-001',
+  updatedAt: '2026-04-10T10:00:00Z',
+};
+
+// ─── 3. USERS ────────────────────────────────────────────────────────────────
 
 const AGENT_PERMISSIONS: Permission[] = [
   Permission.TICKET_VIEW_ALL, Permission.TICKET_EDIT,
@@ -46,39 +87,58 @@ const AGENT_PERMISSIONS: Permission[] = [
   Permission.REPORT_VIEW,
   Permission.KB_VIEW,
   Permission.SLA_VIEW,
-  Permission.AI_SUGGEST, Permission.AI_FEEDBACK,
+  Permission.AI_SUGGEST, Permission.AI_FEEDBACK, Permission.AI_KB_SUGGEST,
   Permission.PROJECT_VIEW,
   Permission.AI_PROJECT_QA,
+  Permission.ESCALATION_VIEW,
 ];
 
 const LEAD_PERMISSIONS: Permission[] = [
   ...AGENT_PERMISSIONS,
   Permission.TICKET_ASSIGN, Permission.TICKET_DELETE, Permission.TICKET_REOPEN,
+  Permission.COMMENT_DELETE,
+  Permission.ATTACHMENT_DELETE,
   Permission.REPORT_EXPORT,
   Permission.SLA_CONFIGURE, Permission.ESCALATION_CONFIGURE,
+  Permission.ROUTING_VIEW,
   Permission.PROJECT_CREATE, Permission.PROJECT_EDIT,
   Permission.AI_PROJECT_INSIGHTS, Permission.AI_PROJECT_REPORTS,
+  Permission.DELIVERY_VIEW,
+  Permission.ONBOARDING_VIEW, Permission.ONBOARDING_MANAGE,
+  Permission.WORKLOAD_VIEW,
+  Permission.SKILL_ASSIGN,
 ];
 
 const ADMIN_PERMISSIONS: Permission[] = [
   ...LEAD_PERMISSIONS,
+  Permission.TICKET_REOPEN,
   Permission.MEMBER_INVITE, Permission.MEMBER_MANAGE,
   Permission.KB_MANAGE,
   Permission.AUDIT_VIEW,
   Permission.WORKSPACE_CONFIGURE,
   Permission.PROJECT_DELETE,
-
-  // added by  aman
   Permission.SYSTEM_CONFIGURE,
-  Permission.ESCALATION_VIEW ,
-  Permission.ROUTING_VIEW ,
   Permission.BRANDING_CONFIGURE,
   Permission.COMPLIANCE_VIEW,
   Permission.DELIVERY_MANAGE,
-  Permission.ONBOARDING_MANAGE,
-  Permission.DELIVERY_VIEW,
-  Permission.ONBOARDING_VIEW
+  Permission.USER_PERMISSION_MANAGE,
+  Permission.SCORING_CONFIGURE,
+  Permission.USER_IMPORT,
+  Permission.PASSWORD_RESET,
 ];
+
+// Helper to build a UserSkill from taxonomy
+const skill = (id: string, level: UserSkill['level']): UserSkill => {
+  const s = MOCK_SKILLS.find(sk => sk.id === id)!;
+  return { skillId: id, skill: s, level };
+};
+
+const workload = (assigned: number, max: number, status: UserWorkload['availabilityStatus']): UserWorkload => ({
+  assignedTickets: assigned,
+  maxCapacity: max,
+  availabilityStatus: status,
+  utilizationPct: Math.round((assigned / max) * 100),
+});
 
 export const MOCK_USERS: User[] = [
   // ── Internal staff ──────────────────────────────────────────────
@@ -88,9 +148,19 @@ export const MOCK_USERS: User[] = [
     displayName: 'Alex Morgan',
     firstName: 'Alex', lastName: 'Morgan',
     role: UserRole.ADMIN,
+    internalSubRole: InternalSubRole.ADMIN,
     permissions: ADMIN_PERMISSIONS,
     organizationId: 'ORG-001',
     isActive: true,
+    department: 'Engineering',
+    timezone: 'Europe/London',
+    mfaEnabled: true,
+    skills: [
+      skill('SKL-015', 'EXPERT'),
+      skill('SKL-012', 'INTERMEDIATE'),
+      skill('SKL-003', 'EXPERT'),
+    ],
+    workload: workload(3, 30, AvailabilityStatus.AVAILABLE),
     lastLoginAt: '2026-04-16T08:14:00Z',
     created_at: '2024-01-15T09:00:00Z',
     updated_at: '2026-04-16T08:14:00Z',
@@ -101,9 +171,20 @@ export const MOCK_USERS: User[] = [
     displayName: 'Priya Sharma',
     firstName: 'Priya', lastName: 'Sharma',
     role: UserRole.LEAD,
+    internalSubRole: InternalSubRole.TEAM_LEAD,
     permissions: LEAD_PERMISSIONS,
     organizationId: 'ORG-001',
     isActive: true,
+    department: 'Customer Success',
+    timezone: 'Asia/Kolkata',
+    mfaEnabled: true,
+    skills: [
+      skill('SKL-011', 'EXPERT'),
+      skill('SKL-013', 'EXPERT'),
+      skill('SKL-010', 'INTERMEDIATE'),
+      skill('SKL-015', 'EXPERT'),
+    ],
+    workload: workload(8, 25, AvailabilityStatus.AVAILABLE),
     lastLoginAt: '2026-04-16T07:45:00Z',
     created_at: '2024-03-10T09:00:00Z',
     updated_at: '2026-04-16T07:45:00Z',
@@ -114,9 +195,21 @@ export const MOCK_USERS: User[] = [
     displayName: 'James Okafor',
     firstName: 'James', lastName: 'Okafor',
     role: UserRole.AGENT,
+    internalSubRole: InternalSubRole.DEVELOPER,
     permissions: AGENT_PERMISSIONS,
     organizationId: 'ORG-001',
     isActive: true,
+    department: 'Engineering',
+    timezone: 'Europe/London',
+    mfaEnabled: false,
+    skills: [
+      skill('SKL-001', 'EXPERT'),
+      skill('SKL-002', 'EXPERT'),
+      skill('SKL-003', 'EXPERT'),
+      skill('SKL-006', 'INTERMEDIATE'),
+      skill('SKL-004', 'INTERMEDIATE'),
+    ],
+    workload: workload(14, 20, AvailabilityStatus.BUSY),
     lastLoginAt: '2026-04-16T09:01:00Z',
     created_at: '2024-05-20T09:00:00Z',
     updated_at: '2026-04-16T09:01:00Z',
@@ -127,9 +220,32 @@ export const MOCK_USERS: User[] = [
     displayName: 'Sara Chen',
     firstName: 'Sara', lastName: 'Chen',
     role: UserRole.AGENT,
+    internalSubRole: InternalSubRole.SUPPORT,
     permissions: AGENT_PERMISSIONS,
     organizationId: 'ORG-001',
     isActive: true,
+    department: 'Customer Success',
+    timezone: 'America/New_York',
+    mfaEnabled: true,
+    skills: [
+      skill('SKL-009', 'EXPERT'),
+      skill('SKL-011', 'INTERMEDIATE'),
+      skill('SKL-015', 'INTERMEDIATE'),
+      skill('SKL-017', 'INTERMEDIATE'),
+    ],
+    workload: workload(6, 20, AvailabilityStatus.AVAILABLE),
+    // Example: ADMIN granted an extra permission beyond role default
+    permissionOverrides: [
+      {
+        permission: Permission.TICKET_ASSIGN,
+        type: 'GRANT',
+        grantedBy: 'USR-001',
+        grantedByRole: 'ADMIN',
+        grantedByName: 'Alex Morgan',
+        createdAt: '2026-03-15T10:00:00Z',
+        reason: 'Handles Acme Corp escalations directly',
+      },
+    ],
     lastLoginAt: '2026-04-15T17:22:00Z',
     created_at: '2024-06-01T09:00:00Z',
     updated_at: '2026-04-15T17:22:00Z',
@@ -140,9 +256,21 @@ export const MOCK_USERS: User[] = [
     displayName: 'Michael Reyes',
     firstName: 'Michael', lastName: 'Reyes',
     role: UserRole.AGENT,
+    internalSubRole: InternalSubRole.DEVELOPER,
     permissions: AGENT_PERMISSIONS,
     organizationId: 'ORG-001',
     isActive: true,
+    department: 'Engineering',
+    timezone: 'America/Los_Angeles',
+    mfaEnabled: false,
+    skills: [
+      skill('SKL-005', 'EXPERT'),
+      skill('SKL-008', 'EXPERT'),
+      skill('SKL-004', 'EXPERT'),
+      skill('SKL-007', 'INTERMEDIATE'),
+      skill('SKL-006', 'INTERMEDIATE'),
+    ],
+    workload: workload(18, 20, AvailabilityStatus.BUSY),
     lastLoginAt: '2026-04-14T13:55:00Z',
     created_at: '2024-07-12T09:00:00Z',
     updated_at: '2026-04-14T13:55:00Z',
@@ -153,9 +281,20 @@ export const MOCK_USERS: User[] = [
     displayName: 'Nina Patel',
     firstName: 'Nina', lastName: 'Patel',
     role: UserRole.LEAD,
+    internalSubRole: InternalSubRole.TEAM_LEAD,
     permissions: LEAD_PERMISSIONS,
     organizationId: 'ORG-001',
     isActive: true,
+    department: 'Customer Success',
+    timezone: 'Asia/Kolkata',
+    mfaEnabled: true,
+    skills: [
+      skill('SKL-013', 'EXPERT'),
+      skill('SKL-010', 'EXPERT'),
+      skill('SKL-014', 'INTERMEDIATE'),
+      skill('SKL-011', 'INTERMEDIATE'),
+    ],
+    workload: workload(5, 25, AvailabilityStatus.AVAILABLE),
     lastLoginAt: '2026-04-16T06:30:00Z',
     created_at: '2024-02-08T09:00:00Z',
     updated_at: '2026-04-16T06:30:00Z',
@@ -166,9 +305,18 @@ export const MOCK_USERS: User[] = [
     displayName: 'Tom Baker',
     firstName: 'Tom', lastName: 'Baker',
     role: UserRole.AGENT,
+    internalSubRole: InternalSubRole.SUPPORT,
     permissions: AGENT_PERMISSIONS,
     organizationId: 'ORG-001',
     isActive: false,
+    department: 'Customer Success',
+    timezone: 'Europe/London',
+    mfaEnabled: false,
+    skills: [
+      skill('SKL-015', 'INTERMEDIATE'),
+      skill('SKL-009', 'INTERMEDIATE'),
+    ],
+    workload: workload(0, 20, AvailabilityStatus.OFFLINE),
     lastLoginAt: '2026-01-10T11:00:00Z',
     created_at: '2024-08-01T09:00:00Z',
     updated_at: '2026-01-10T11:00:00Z',
@@ -179,9 +327,20 @@ export const MOCK_USERS: User[] = [
     displayName: 'Yuki Tanaka',
     firstName: 'Yuki', lastName: 'Tanaka',
     role: UserRole.AGENT,
+    internalSubRole: InternalSubRole.DELIVERY,
     permissions: AGENT_PERMISSIONS,
     organizationId: 'ORG-001',
     isActive: true,
+    department: 'Delivery',
+    timezone: 'Asia/Tokyo',
+    mfaEnabled: true,
+    skills: [
+      skill('SKL-010', 'EXPERT'),
+      skill('SKL-013', 'EXPERT'),
+      skill('SKL-016', 'INTERMEDIATE'),
+      skill('SKL-018', 'INTERMEDIATE'),
+    ],
+    workload: workload(11, 20, AvailabilityStatus.AVAILABLE),
     lastLoginAt: '2026-04-16T08:55:00Z',
     created_at: '2025-01-15T09:00:00Z',
     updated_at: '2026-04-16T08:55:00Z',
@@ -193,9 +352,34 @@ export const MOCK_USERS: User[] = [
     displayName: 'David Wilson',
     firstName: 'David', lastName: 'Wilson',
     role: UserRole.CLIENT_ADMIN,
-    permissions: [Permission.TICKET_CREATE, Permission.TICKET_VIEW_ORG, Permission.TICKET_EDIT, Permission.TICKET_REOPEN, Permission.COMMENT_CREATE, Permission.ATTACHMENT_UPLOAD, Permission.MEMBER_INVITE, Permission.MEMBER_MANAGE, Permission.MEMBER_VIEW, Permission.REPORT_VIEW, Permission.REPORT_EXPORT, Permission.KB_VIEW, Permission.SLA_VIEW, Permission.WORKSPACE_CONFIGURE, Permission.PROJECT_VIEW, Permission.AI_DIGEST, Permission.AI_KB_SUGGEST, Permission.ROADMAP_VOTE, Permission.ROADMAP_REQUEST],
+    permissions: [
+      Permission.TICKET_CREATE, Permission.TICKET_VIEW_ORG, Permission.TICKET_EDIT,
+      Permission.TICKET_STATUS_CHANGE, Permission.TICKET_REOPEN,
+      Permission.COMMENT_CREATE, Permission.ATTACHMENT_UPLOAD, Permission.ATTACHMENT_DELETE,
+      Permission.MEMBER_INVITE, Permission.MEMBER_MANAGE, Permission.MEMBER_VIEW,
+      Permission.REPORT_VIEW, Permission.REPORT_EXPORT,
+      Permission.KB_VIEW, Permission.SLA_VIEW,
+      Permission.WORKSPACE_CONFIGURE, Permission.BRANDING_CONFIGURE,
+      Permission.PROJECT_VIEW, Permission.AI_DIGEST, Permission.AI_KB_SUGGEST,
+      Permission.ROADMAP_VOTE, Permission.ROADMAP_REQUEST,
+      // ADMIN-granted override beyond CLIENT_ADMIN default
+      Permission.DELIVERY_VIEW,
+    ],
     organizationId: 'ORG-002',
     isActive: true,
+    timezone: 'America/New_York',
+    mfaEnabled: false,
+    permissionOverrides: [
+      {
+        permission: Permission.DELIVERY_VIEW,
+        type: 'GRANT',
+        grantedBy: 'USR-001',
+        grantedByRole: 'ADMIN',
+        grantedByName: 'Alex Morgan',
+        createdAt: '2026-02-20T09:00:00Z',
+        reason: 'Acme Corp is a design partner for Delivery Board — needs read access',
+      },
+    ],
     lastLoginAt: '2026-04-16T07:12:00Z',
     created_at: '2024-09-01T09:00:00Z',
     updated_at: '2026-04-16T07:12:00Z',
@@ -206,9 +390,17 @@ export const MOCK_USERS: User[] = [
     displayName: 'Lucy Nguyen',
     firstName: 'Lucy', lastName: 'Nguyen',
     role: UserRole.CLIENT_USER,
-    permissions: [Permission.TICKET_CREATE, Permission.TICKET_VIEW_OWN, Permission.COMMENT_CREATE, Permission.ATTACHMENT_UPLOAD, Permission.MEMBER_VIEW, Permission.KB_VIEW, Permission.SLA_VIEW],
+    permissions: [
+      Permission.TICKET_CREATE, Permission.TICKET_VIEW_OWN, Permission.TICKET_REOPEN,
+      Permission.COMMENT_CREATE, Permission.ATTACHMENT_UPLOAD,
+      Permission.MEMBER_VIEW, Permission.KB_VIEW, Permission.SLA_VIEW,
+      Permission.AI_DIGEST, Permission.AI_KB_SUGGEST,
+      Permission.PROJECT_VIEW, Permission.ROADMAP_VOTE,
+    ],
     organizationId: 'ORG-002',
     isActive: true,
+    timezone: 'America/New_York',
+    mfaEnabled: false,
     lastLoginAt: '2026-04-14T15:30:00Z',
     created_at: '2024-09-15T09:00:00Z',
     updated_at: '2026-04-14T15:30:00Z',
@@ -219,9 +411,21 @@ export const MOCK_USERS: User[] = [
     displayName: 'Ben Harper',
     firstName: 'Ben', lastName: 'Harper',
     role: UserRole.CLIENT_ADMIN,
-    permissions: [Permission.TICKET_CREATE, Permission.TICKET_VIEW_ORG, Permission.TICKET_EDIT, Permission.TICKET_REOPEN, Permission.COMMENT_CREATE, Permission.ATTACHMENT_UPLOAD, Permission.MEMBER_INVITE, Permission.MEMBER_MANAGE, Permission.MEMBER_VIEW, Permission.REPORT_VIEW, Permission.KB_VIEW, Permission.SLA_VIEW, Permission.WORKSPACE_CONFIGURE],
+    permissions: [
+      Permission.TICKET_CREATE, Permission.TICKET_VIEW_ORG, Permission.TICKET_EDIT,
+      Permission.TICKET_STATUS_CHANGE, Permission.TICKET_REOPEN,
+      Permission.COMMENT_CREATE, Permission.ATTACHMENT_UPLOAD, Permission.ATTACHMENT_DELETE,
+      Permission.MEMBER_INVITE, Permission.MEMBER_MANAGE, Permission.MEMBER_VIEW,
+      Permission.REPORT_VIEW, Permission.REPORT_EXPORT,
+      Permission.KB_VIEW, Permission.SLA_VIEW,
+      Permission.WORKSPACE_CONFIGURE, Permission.BRANDING_CONFIGURE,
+      Permission.PROJECT_VIEW, Permission.AI_DIGEST, Permission.AI_KB_SUGGEST,
+      Permission.ROADMAP_VOTE, Permission.ROADMAP_REQUEST,
+    ],
     organizationId: 'ORG-003',
     isActive: true,
+    timezone: 'Europe/London',
+    mfaEnabled: true,
     lastLoginAt: '2026-04-15T09:45:00Z',
     created_at: '2024-10-01T09:00:00Z',
     updated_at: '2026-04-15T09:45:00Z',
@@ -232,12 +436,92 @@ export const MOCK_USERS: User[] = [
     displayName: 'Rachel Kim',
     firstName: 'Rachel', lastName: 'Kim',
     role: UserRole.CLIENT_ADMIN,
-    permissions: [Permission.TICKET_CREATE, Permission.TICKET_VIEW_ORG, Permission.TICKET_EDIT, Permission.TICKET_REOPEN, Permission.COMMENT_CREATE, Permission.ATTACHMENT_UPLOAD, Permission.MEMBER_VIEW, Permission.REPORT_VIEW, Permission.KB_VIEW, Permission.SLA_VIEW],
+    permissions: [
+      Permission.TICKET_CREATE, Permission.TICKET_VIEW_ORG, Permission.TICKET_EDIT,
+      Permission.TICKET_STATUS_CHANGE, Permission.TICKET_REOPEN,
+      Permission.COMMENT_CREATE, Permission.ATTACHMENT_UPLOAD,
+      Permission.MEMBER_VIEW,
+      Permission.REPORT_VIEW,
+      Permission.KB_VIEW, Permission.SLA_VIEW,
+      Permission.PROJECT_VIEW, Permission.AI_DIGEST, Permission.AI_KB_SUGGEST,
+      Permission.ROADMAP_VOTE,
+    ],
     organizationId: 'ORG-004',
     isActive: true,
+    timezone: 'Asia/Singapore',
+    mfaEnabled: false,
     lastLoginAt: '2026-04-13T14:20:00Z',
     created_at: '2025-02-01T09:00:00Z',
     updated_at: '2026-04-13T14:20:00Z',
+  },
+];
+
+// ─── 4. AI ASSIGN SUGGESTIONS ─────────────────────────────────────────────────
+// Mock suggestions for TKT-001 (an API integration bug ticket)
+
+export const MOCK_ASSIGN_SUGGESTIONS: AgentAssignSuggestion[] = [
+  {
+    agentId: 'USR-003',
+    agentName: 'James Okafor',
+    agentEmail: 'james.okafor@3sc.com',
+    subRole: InternalSubRole.DEVELOPER,
+    skills: MOCK_USERS.find(u => u.id === 'USR-003')!.skills!,
+    workload: MOCK_USERS.find(u => u.id === 'USR-003')!.workload!,
+    score: 0.82,
+    skillMatchScore: 0.95,
+    workloadScore: 0.30,
+    availabilityScore: 0.80,
+    matchedSkills: ['React', 'API Integration', 'Node.js'],
+    reasoning: 'Strongest skill match (API Integration + React). Workload is moderately high at 70% — still within capacity.',
+  },
+  {
+    agentId: 'USR-005',
+    agentName: 'Michael Reyes',
+    agentEmail: 'michael.reyes@3sc.com',
+    subRole: InternalSubRole.DEVELOPER,
+    skills: MOCK_USERS.find(u => u.id === 'USR-005')!.skills!,
+    workload: MOCK_USERS.find(u => u.id === 'USR-005')!.workload!,
+    score: 0.61,
+    skillMatchScore: 0.80,
+    workloadScore: 0.10,
+    availabilityScore: 0.80,
+    matchedSkills: ['API Integration', 'AWS', 'Python'],
+    reasoning: 'Good skill match but near full capacity (90%). Consider only if James is unavailable.',
+  },
+  {
+    agentId: 'USR-004',
+    agentName: 'Sara Chen',
+    agentEmail: 'sara.chen@3sc.com',
+    subRole: InternalSubRole.SUPPORT,
+    skills: MOCK_USERS.find(u => u.id === 'USR-004')!.skills!,
+    workload: MOCK_USERS.find(u => u.id === 'USR-004')!.workload!,
+    score: 0.48,
+    skillMatchScore: 0.20,
+    workloadScore: 0.70,
+    availabilityScore: 1.00,
+    matchedSkills: [],
+    reasoning: 'Low skill match for technical issues but very low workload and fully available.',
+  },
+];
+
+// ─── 5. SKILL GAPS ────────────────────────────────────────────────────────────
+
+export const MOCK_SKILL_GAPS: SkillGap[] = [
+  {
+    skillId: 'SKL-014',
+    skillName: 'Salesforce',
+    openTickets: 7,
+    agentsWithSkill: 1,
+    sampleTicketIds: ['TKT-005', 'TKT-012', 'TKT-018'],
+    suggestedAction: 'Assign Salesforce integration training to James Okafor or hire a specialist.',
+  },
+  {
+    skillId: 'SKL-018',
+    skillName: 'German',
+    openTickets: 3,
+    agentsWithSkill: 0,
+    sampleTicketIds: ['TKT-021', 'TKT-024'],
+    suggestedAction: 'Consider recruiting a German-speaking support agent or use a translation service.',
   },
 ];
 
@@ -3287,9 +3571,14 @@ export const MOCK_ESCALATIONS: EscalatedTicket[] = [
   },
 ];
 
-export const MOCK_AGENTS = [
-  { id: 'USR-002', displayName: 'Priya Sharma',  currentLoad: 2 },
-  { id: 'USR-003', displayName: 'James Okafor',  currentLoad: 4 },
-  { id: 'USR-004', displayName: 'Nina Patel',    currentLoad: 1 },
-  { id: 'USR-005', displayName: 'Arjun Tiwari',  currentLoad: 3 },
-];
+export const MOCK_AGENTS = MOCK_USERS
+  .filter(u => [UserRole.AGENT, UserRole.LEAD].includes(u.role) && u.isActive)
+  .map(u => ({
+    id: u.id,
+    displayName: u.displayName,
+    currentLoad: u.workload?.assignedTickets ?? 0,
+    subRole: u.internalSubRole,
+    availabilityStatus: u.workload?.availabilityStatus ?? 'AVAILABLE',
+    utilizationPct: u.workload?.utilizationPct ?? 0,
+  }));
+

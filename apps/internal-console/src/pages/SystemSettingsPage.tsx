@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Button, Card, useToast, PermissionGate, ConfirmDialog } from '@3sc/ui';
+import { Button, Card, Select, useToast, PermissionGate, ConfirmDialog } from '@3sc/ui';
 import { Permission } from '@3sc/types';
 
 // ── Types ─────────────────────────────────────────────────────────
@@ -224,39 +224,24 @@ const AIModelSection: React.FC<AIModelSectionProps> = ({ settings, onChange, dis
       )}
 
       <div>
-        <p style={{ margin: '0 0 0.375rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>AI Provider</p>
-        <select
+        <Select
+          label="AI Provider"
           value={settings.aiProvider}
           disabled={disabled}
           onChange={e => onChange({ ...settings, aiProvider: e.target.value as any, aiModelName: modelOptions[e.target.value]?.[0] ?? '' })}
-          style={{
-            width: '100%', padding: '0.375rem 0.625rem',
-            border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
-            background: disabled ? 'var(--color-bg-subtle)' : 'var(--color-bg)',
-            color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none',
-          }}
-        >
-          {providerOptions.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
-        </select>
+          options={providerOptions}
+        />
       </div>
 
       <div>
         <p style={{ margin: '0 0 0.375rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Model Name</p>
         {modelOptions[settings.aiProvider].length > 0 ? (
-          <select
+          <Select
             value={settings.aiModelName}
             disabled={disabled}
             onChange={e => onChange({ ...settings, aiModelName: e.target.value })}
-            style={{
-              width: '100%', padding: '0.375rem 0.625rem',
-              border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
-              background: disabled ? 'var(--color-bg-subtle)' : 'var(--color-bg)',
-              color: 'var(--color-text)', fontSize: '0.8125rem',
-              fontFamily: 'var(--font-mono)', outline: 'none',
-            }}
-          >
-            {modelOptions[settings.aiProvider].map(m => <option key={m} value={m}>{m}</option>)}
-          </select>
+            options={modelOptions[settings.aiProvider].map(m => ({ value: m, label: m }))}
+          />
         ) : (
           <InlineInput
             value={settings.aiModelName}
@@ -673,24 +658,24 @@ export const SystemSettingsPage: React.FC = () => {
 
       {/* Confirmations */}
       <ConfirmDialog
-        open={purgeConfirm}
+        isOpen={purgeConfirm}
         title="Purge Closed Tickets"
         message="This will permanently delete all closed tickets older than 90 days. This action cannot be undone. Are you absolutely sure?"
         confirmLabel="Yes, Purge"
         cancelLabel="Cancel"
         onConfirm={() => { setPurgeConfirm(false); toast('Purge job queued', 'success'); }}
-        onCancel={() => setPurgeConfirm(false)}
+        onClose={() => setPurgeConfirm(false)}
         variant="danger"
       />
 
       <ConfirmDialog
-        open={resetConfirm}
+        isOpen={resetConfirm}
         title="Reset Demo Data"
         message="This will restore the demo tenant to its original seed state, removing all changes made. Only use on demo tenants."
         confirmLabel="Reset"
         cancelLabel="Cancel"
         onConfirm={() => { setResetConfirm(false); toast('Demo data reset', 'success'); }}
-        onCancel={() => setResetConfirm(false)}
+        onClose={() => setResetConfirm(false)}
         variant="danger"
       />
     </div>

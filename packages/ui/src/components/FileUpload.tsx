@@ -22,7 +22,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const handleFiles = (fileList: FileList) => {
     const files = Array.from(fileList).slice(0, maxFiles);
     const valid = files.filter(
-      (f) => f.size <= FILE_CONFIG.maxFileSize && FILE_CONFIG.allowedTypes.includes(f.type)
+      (f) => f.size <= FILE_CONFIG.maxFileSize && FILE_CONFIG.allowedTypes.includes(f.type as any)
     );
     setSelectedFiles(valid);
     onFilesSelected(valid);
