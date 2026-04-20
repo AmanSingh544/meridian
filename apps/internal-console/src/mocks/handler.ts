@@ -341,8 +341,9 @@ const routes: Array<{ test: (path: string, method: string) => boolean; handle: R
   },
 
   // ── Users: single ─────────────────────────────────────────────────────────
+  // Excludes known non-id slugs so they fall through to their dedicated handlers
   {
-    test: (p, m) => m === 'GET' && /\/users\/[^/]+$/.test(p),
+    test: (p, m) => m === 'GET' && /\/users\/[^/]+$/.test(p) && !/\/users\/(workload-summary|scoring-weights|me)/.test(p),
     handle: (url) => {
       const id = extractAfter(url, 'users');
       return { data: MOCK_USERS.find((u) => u.id === id) ?? MOCK_USERS[0] };
@@ -357,7 +358,7 @@ const routes: Array<{ test: (path: string, method: string) => boolean; handle: R
 
   // ── Users: update / delete ────────────────────────────────────────────────
   {
-    test: (p, m) => (m === 'PATCH' || m === 'DELETE') && /\/users\/[^/]+$/.test(p),
+    test: (p, m) => (m === 'PATCH' || m === 'DELETE') && /\/users\/[^/]+$/.test(p) && !/\/users\/(workload-summary|scoring-weights|me)/.test(p),
     handle: () => ({ data: { success: true } }),
   },
 
@@ -752,16 +753,26 @@ const routes: Array<{ test: (path: string, method: string) => boolean; handle: R
 
   // ── Routing Rules ─────────────────────────────────────────────────────────
   {
-    test: (p, m) => m === 'GET' && p.includes('/routing-rules'),
+    test: (p, m) => m === 'GET' && /\/routing-rules$/.test(p),
     handle: () => ({ data: MOCK_ROUTING_RULES }),
   },
   {
-    test: (p, m) => (m === 'PATCH' || m === 'PUT') && p.includes('/routing-rules/'),
+    test: (p, m) => m === 'POST' && /\/routing-rules$/.test(p),
+    handle: (_url, body) => ({
+      data: { ...body as object, id: `RR-${Date.now()}`, created_at: new Date().toISOString() },
+    }),
+  },
+  {
+    test: (p, m) => (m === 'PATCH' || m === 'PUT') && /\/routing-rules\/[^/]+$/.test(p),
     handle: (url) => {
       const id = extractAfter(url, 'routing-rules');
       const rule = MOCK_ROUTING_RULES.find((r) => r.id === id) ?? MOCK_ROUTING_RULES[0];
       return { data: rule };
     },
+  },
+  {
+    test: (p, m) => m === 'DELETE' && /\/routing-rules\/[^/]+$/.test(p),
+    handle: () => ({ data: null }),
   },
 
   // ── Projects ──────────────────────────────────────────────────────────────
