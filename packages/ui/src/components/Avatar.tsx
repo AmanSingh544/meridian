@@ -23,13 +23,14 @@ function hashColor(name: string): string {
 }
 
 export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 36, style }) => {
-  const bg = hashColor(name);
+  const safeName = name ?? '';
+  const bg = hashColor(safeName);
 
   if (src) {
     return (
       <img
         src={src}
-        alt={name}
+        alt={safeName}
         style={{
           width: size,
           height: size,
@@ -43,7 +44,7 @@ export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 36, style }) =
 
   return (
     <div
-      aria-label={name}
+      aria-label={safeName}
       style={{
         width: size,
         height: size,
@@ -60,7 +61,7 @@ export const Avatar: React.FC<AvatarProps> = ({ name, src, size = 36, style }) =
         ...style,
       }}
     >
-      {getInitials(name)}
+      {getInitials(safeName)}
     </div>
   );
 };

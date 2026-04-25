@@ -146,13 +146,15 @@ export function getSLASeverity(sla: SLAInfo): 'ok' | 'warning' | 'critical' {
 }
 
 // ── String Utilities ────────────────────────────────────────────
-export function truncate(str: string, maxLen: number): string {
-  if (str.length <= maxLen) return str;
-  return `${str.slice(0, maxLen - 1)}…`;
+export function truncate(str: string | undefined | null, maxLen: number): string {
+  const safe = str ?? '';
+  if (safe.length <= maxLen) return safe;
+  return `${safe.slice(0, maxLen - 1)}…`;
 }
 
-export function getInitials(name: string): string {
-  return name
+export function getInitials(name: string | undefined | null): string {
+  const safe = name ?? '';
+  return safe
     .split(' ')
     .map(p => p[0])
     .filter(Boolean)

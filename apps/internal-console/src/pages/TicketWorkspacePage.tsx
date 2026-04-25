@@ -94,8 +94,8 @@ export const TicketWorkspacePage: React.FC = () => {
               <PriorityBadge priority={ticket.priority} />
               {ticket.assignee && (
                 <span style={{ display: 'flex', alignItems: 'center', gap: '0.25rem', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
-                  <Avatar name={ticket.assignee.displayName} size={18} />
-                  {ticket.assignee.displayName}
+                  <Avatar name={ticket.assignee.displayName ?? 'Unknown'} size={18} />
+                  {ticket.assignee.displayName ?? 'Unknown'}
                 </span>
               )}
             </div>
@@ -235,7 +235,7 @@ export const TicketWorkspacePage: React.FC = () => {
                 ~{aiETA.suggestion?.estimatedHours}h
               </div>
               <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>
-                Range: {aiETA.suggestion?.range.low}h — {aiETA.suggestion?.range.high}h
+                Range: {aiETA.suggestion?.range?.low}h — {aiETA.suggestion?.range?.high}h
               </div>
               <div style={{ marginTop: '0.375rem' }}>
                 <ConfidenceBar confidence={aiETA.confidence} />
@@ -323,7 +323,7 @@ export const TicketWorkspacePage: React.FC = () => {
               title={`~${aiETA.suggestion?.estimatedHours}h estimated`}
               content={
                 <div>
-                  <p style={{ margin: 0 }}>Range: {aiETA.suggestion?.range.low}h — {aiETA.suggestion?.range.high}h</p>
+                  <p style={{ margin: 0 }}>Range: {aiETA.suggestion?.range?.low}h — {aiETA.suggestion?.range?.high}h</p>
                   {aiETA.suggestion?.factors?.map((f, i) => (
                     <div key={i} style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>• {f}</div>
                   ))}

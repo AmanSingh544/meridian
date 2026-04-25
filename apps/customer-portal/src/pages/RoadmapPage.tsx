@@ -78,7 +78,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, isHighlighted, canVo
       </div>
 
       <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-muted)', lineHeight: 1.5 }}>
-        {feature.description.length > 100 ? feature.description.slice(0, 100) + '…' : feature.description}
+        {(feature.description ?? '').length > 100 ? (feature.description ?? '').slice(0, 100) + '…' : (feature.description ?? '')}
       </p>
 
       {/* footer row */}

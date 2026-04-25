@@ -40,8 +40,9 @@ export const ProjectsPage: React.FC = () => {
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))', gap: '1rem' }}>
           {projects.map((project) => {
-            const completedMilestones = project.milestones.filter((m) => m.isCompleted).length;
-            const totalMilestones = project.milestones.length;
+            const milestones = project.milestones ?? [];
+            const completedMilestones = milestones.filter((m) => m.isCompleted).length;
+            const totalMilestones = milestones.length;
             const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
 
             return (

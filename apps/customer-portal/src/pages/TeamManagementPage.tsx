@@ -518,7 +518,7 @@ export const TeamManagementPage: React.FC = () => {
                   opacity: member.isActive ? 1 : 0.6,
                 }}
               >
-                <Avatar name={member.displayName} src={member.avatarUrl} size={38} />
+                <Avatar name={member.displayName ?? 'Unknown'} src={member.avatarUrl} size={38} />
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
                     <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{member.displayName}</span>

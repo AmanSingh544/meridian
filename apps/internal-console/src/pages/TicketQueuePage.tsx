@@ -93,8 +93,8 @@ export const TicketQueuePage: React.FC = () => {
       key: 'assignee', header: 'Assignee', width: '8rem',
       render: (t: Ticket) => t.assignee ? (
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-          <Avatar name={t.assignee.displayName} size={20} />
-          <span style={{ fontSize: '0.75rem' }}>{t.assignee.displayName.split(' ')[0]}</span>
+          <Avatar name={t.assignee.displayName ?? 'Unknown'} size={20} />
+          <span style={{ fontSize: '0.75rem' }}>{(t.assignee.displayName ?? '').split(' ')[0]}</span>
         </div>
       ) : (
         <Badge color="var(--color-warning)" bgColor="var(--color-warning-light)">Unassigned</Badge>

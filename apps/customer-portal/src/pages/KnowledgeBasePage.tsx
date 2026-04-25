@@ -202,7 +202,7 @@ export const KnowledgeBasePage: React.FC = () => {
                         {r.article.title}
                       </h3>
                       <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
-                        {truncate(r.article.excerpt, 100)}
+                        {truncate(r.article.excerpt ?? '', 100)}
                       </p>
                       <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
                         {r.article.viewCount.toLocaleString()} views · {r.article.helpfulCount} found helpful

@@ -151,6 +151,95 @@ function mapRawComment(raw: RawApiComment): import('@3sc/types').Comment {
   };
 }
 
+// ── Raw Ticket shape (snake_case from backend) ──────────────────
+interface RawApiTicketUser {
+  id: string;
+  first_name: string | null;
+  last_name: string | null;
+  email: string;
+  avatar_url: string | null;
+}
+
+interface RawApiTicket {
+  id: string;
+  ticket_number: string;
+  title: string;
+  description: string | null;
+  status: string;
+  priority: string;
+  category: string | null;
+  requester_id: string | null;
+  assignee_id: string | null;
+  tenant_id: string;
+  sla_policy_id: string | null;
+  sla_deadline_at: string | null;
+  first_response_at: string | null;
+  resolved_at: string | null;
+  closed_at: string | null;
+  tags: string[];
+  metadata: Record<string, unknown>;
+  created_at: string;
+  updated_at: string;
+  requester?: RawApiTicketUser;
+  assignee?: RawApiTicketUser;
+  _count?: { comments: number };
+  comments?: RawApiComment[];
+  attachments?: RawApiAttachment[];
+}
+
+function mapRawTicketUser(raw?: RawApiTicketUser): import('@3sc/types').User | undefined {
+  if (!raw) return undefined;
+  const displayName = [raw.first_name, raw.last_name].filter(Boolean).join(' ') || raw.email;
+  return {
+    id: raw.id,
+    email: raw.email,
+    displayName,
+    firstName: raw.first_name ?? '',
+    lastName: raw.last_name ?? '',
+    avatarUrl: raw.avatar_url ?? undefined,
+    role: 'CLIENT_USER' as import('@3sc/types').UserRole,
+    permissions: [],
+    organizationId: '',
+    isActive: true,
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+  } as import('@3sc/types').User;
+}
+
+function mapRawTicket(raw: RawApiTicket): import('@3sc/types').Ticket {
+  return {
+    id: raw.id,
+    ticketNumber: raw.ticket_number,
+    title: raw.title,
+    description: raw.description ?? '',
+    status: raw.status as import('@3sc/types').TicketStatus,
+    priority: raw.priority as import('@3sc/types').TicketPriority,
+    category: raw.category as import('@3sc/types').TicketCategory,
+    tags: raw.tags ?? [],
+    createdBy: raw.requester_id ?? '',
+    assignedTo: raw.assignee_id ?? undefined,
+    organizationId: raw.tenant_id,
+    projectId: undefined,
+    sla: undefined,
+    attachments: (raw.attachments ?? []).map((a) => ({
+      id: String(a.id),
+      fileName: a.file_name,
+      fileSize: 0,
+      mimeType: a.file_type,
+      url: a.file_path,
+      uploadedBy: raw.tenant_id,
+      created_at: a.created_at,
+    })),
+    commentCount: raw._count?.comments ?? 0,
+    creator: mapRawTicketUser(raw.requester),
+    assignee: mapRawTicketUser(raw.assignee),
+    created_at: raw.created_at,
+    updated_at: raw.updated_at,
+    resolved_at: raw.resolved_at ?? undefined,
+    closed_at: raw.closed_at ?? undefined,
+  };
+}
+
 // ── Base Query with Auth Retry ──────────────────────────────────
 const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_CONFIG.baseUrl,
@@ -239,6 +328,13 @@ export const api = createApi({
         url: '/tickets/list',
         params: filters,
       }),
+      transformResponse: (response: { data: RawApiTicket[]; page: number; page_size: number; total: number; total_pages: number }) => ({
+        data: response.data.map(mapRawTicket),
+        total: response.total,
+        page: response.page,
+        page_size: response.page_size,
+        total_pages: response.total_pages,
+      }),
       providesTags: (result) =>
         result
           ? [
@@ -250,7 +346,7 @@ export const api = createApi({
 
     getTicket: builder.query<Ticket, string>({
       query: (id) => `/tickets/${id}`,
-      transformResponse: (response: ApiResponse<Ticket>) => response.data,
+      transformResponse: (response: ApiResponse<RawApiTicket>) => mapRawTicket(response.data),
       providesTags: (_result, _error, id) => [{ type: 'Ticket', id }],
     }),
 
@@ -260,17 +356,17 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
-      transformResponse: (response: ApiResponse<Ticket>) => response.data,
+      transformResponse: (response: RawApiTicket) => mapRawTicket(response),
       invalidatesTags: ['TicketList', 'Dashboard'],
     }),
 
     updateTicket: builder.mutation<Ticket, { id: string; payload: TicketUpdatePayload }>({
       query: ({ id, payload }) => ({
-        url: `/tickets/${id}/update`,
+        url: `/tickets/${id}`,
         method: 'PATCH',
         body: payload,
       }),
-      transformResponse: (response: ApiResponse<Ticket>) => response.data,
+      transformResponse: (response: RawApiTicket) => mapRawTicket(response),
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Ticket', id },
         { type: 'TicketList' },
@@ -296,7 +392,7 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
-      transformResponse: (response: ApiResponse<Ticket>) => response.data,
+      transformResponse: (response: RawApiTicket) => mapRawTicket(response),
       invalidatesTags: (_result, _error, { ticketId }) => [
         { type: 'Ticket', id: ticketId },
         { type: 'TicketList' },
@@ -307,9 +403,44 @@ export const api = createApi({
     // ── Comments ────────────────────────────────────────────
     getComments: builder.query<Comment[], string>({
       query: (ticketId) => `/tickets/${ticketId}/comments`,
-      transformResponse: (response: ApiResponse<RawApiComment[]> | RawApiComment[]) => {
+      transformResponse: (response: ApiResponse<any[]> | any[]) => {
         const raw = Array.isArray(response) ? response : response.data;
-        return raw.map(mapRawComment);
+        return raw.map((c: any): Comment => ({
+          id: c.id,
+          ticketId: c.ticket_id,
+          authorId: c.author?.id ?? '',
+          content: c.body ?? c.message ?? c.content ?? '',
+          isInternal: c.is_internal ?? false,
+          parentId: c.parent_id ?? undefined,
+          mentions: c.mentions ?? [],
+          attachments: (c.attachments ?? []).map((a: any) => ({
+            id: a.id,
+            fileName: a.filename ?? a.file_name ?? '',
+            fileSize: a.size_bytes ?? 0,
+            mimeType: a.mime_type ?? a.file_type ?? '',
+            url: a.storage_key ?? a.file_path ?? '',
+            uploadedBy: a.uploaded_by ?? '',
+            created_at: a.created_at,
+          })),
+          author: c.author
+            ? {
+                id: c.author.id,
+                displayName: c.author.display_name ?? ([c.author.first_name, c.author.last_name].filter(Boolean).join(' ') || c.author.email),
+                email: c.author.email ?? '',
+                avatarUrl: c.author.avatar_url ?? undefined,
+                role: c.author.role,
+                firstName: c.author.first_name ?? '',
+                lastName: c.author.last_name ?? '',
+                permissions: [],
+                organizationId: '',
+                isActive: true,
+                created_at: '',
+                updated_at: '',
+              } as import('@3sc/types').User
+            : undefined,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        }));
       },
       providesTags: (_result, _error, ticketId) => [{ type: 'Comment', id: ticketId }],
     }),
@@ -322,7 +453,32 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
-      transformResponse: (response: ApiResponse<Comment>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => {
+        const c = response.data;
+        return {
+          id: c.id,
+          ticketId: c.ticket_id,
+          authorId: c.author?.id ?? '',
+          content: c.body ?? c.message ?? '',
+          isInternal: c.is_internal ?? false,
+          parentId: c.parent_id ?? undefined,
+          mentions: c.mentions ?? [],
+          attachments: [],
+          author: c.author
+            ? {
+                id: c.author.id,
+                displayName: c.author.display_name ?? c.author.email,
+                email: c.author.email ?? '',
+                avatarUrl: c.author.avatar_url ?? undefined,
+                role: c.author.role,
+                firstName: '', lastName: '', permissions: [],
+                organizationId: '', isActive: true, created_at: '', updated_at: '',
+              } as import('@3sc/types').User
+            : undefined,
+          created_at: c.created_at,
+          updated_at: c.updated_at,
+        } as Comment;
+      },
       invalidatesTags: (_result, _error, { ticket_id }) => [
         { type: 'Comment', id: ticket_id },
         { type: 'Ticket', id: ticket_id },
@@ -361,6 +517,19 @@ export const api = createApi({
     // ── Projects ────────────────────────────────────────────
     getProjects: builder.query<PaginatedResponse<Project>, { page?: number; page_size?: number }>({
       query: (params) => ({ url: '/projects', params }),
+      transformResponse: (response: { data: Project[]; page: number; page_size: number; total: number; total_pages: number }) => ({
+        data: response.data.map((p) => ({
+          ...p,
+          milestones: (p as any).metadata?.milestones ?? (p as any).milestones ?? [],
+          ticketCount: (p as any).metadata?.ticketCount ?? (p as any).ticketCount ?? 0,
+          openTicketCount: (p as any).metadata?.openTicketCount ?? (p as any).openTicketCount ?? 0,
+          resolvedThisWeek: (p as any).metadata?.resolvedThisWeek ?? (p as any).resolvedThisWeek ?? 0,
+        })),
+        page: response.page,
+        page_size: response.page_size,
+        total: response.total,
+        total_pages: response.total_pages,
+      }),
       providesTags: (result) =>
         result
           ? [...result.data.map(({ id }) => ({ type: 'Project' as const, id })), 'Project']
@@ -846,17 +1015,67 @@ export const api = createApi({
     // ── Roadmap ─────────────────────────────────────────────────
     getRoadmapFeatures: builder.query<DeliveryFeature[], void>({
       query: () => '/roadmap',
-      transformResponse: (response: ApiResponse<DeliveryFeature[]>) => response.data,
+      transformResponse: (response: ApiResponse<any[]> | any) => {
+        const raw: any[] = Array.isArray(response) ? response : (response.data ?? []);
+        return raw.map((f: any): DeliveryFeature => {
+          // Derive quarter from updated_at or created_at
+          const dateStr: string = f.updated_at ?? f.created_at ?? new Date().toISOString();
+          const d = new Date(dateStr);
+          const q = Math.ceil((d.getMonth() + 1) / 3);
+          const quarter = `Q${q} ${d.getFullYear()}`;
+
+          // Infer category from title keywords
+          const t = (f.title ?? '').toLowerCase();
+          const category: string =
+            t.includes('ai') || t.includes('suggest') || t.includes('classif') ? 'AI'
+            : t.includes('sla') || t.includes('breach') || t.includes('alert') ? 'Notifications'
+            : t.includes('analytic') || t.includes('dashboard') || t.includes('report') ? 'Analytics'
+            : t.includes('2fa') || t.includes('auth') || t.includes('security') || t.includes('factor') ? 'Security'
+            : t.includes('mobile') || t.includes('ios') || t.includes('android') ? 'Mobile'
+            : t.includes('webhook') || t.includes('integration') || t.includes('slack') || t.includes('jira') ? 'Integrations'
+            : t.includes('roadmap') || t.includes('portal') || t.includes('branding') || t.includes('theme') ? 'Portal'
+            : t.includes('onboarding') || t.includes('tracker') ? 'Onboarding'
+            : t.includes('ticket') || t.includes('bulk') ? 'Tickets'
+            : 'Other';
+
+          // Uppercase status (backend stores lowercase: 'planned', 'released', etc.)
+          const status = (f.status ?? 'planned').toUpperCase().replace(/ /g, '_') as DeliveryFeature['status'];
+
+          return {
+            id: f.id,
+            title: f.title ?? '',
+            description: f.description ?? '',
+            status,
+            upvotes: f.votes ?? f.upvotes ?? 0,
+            quarter,
+            category,
+            isPublic: true,
+            hasVoted: f.has_voted ?? f.hasVoted ?? false,
+            eta: f.eta ?? undefined,
+            assignee: f.assignee ?? undefined,
+            assigneeId: f.assignee_id ?? f.assigneeId ?? undefined,
+            requestedByOrgIds: f.requested_by_org_ids ?? f.requestedByOrgIds ?? undefined,
+            created_at: f.created_at,
+            updated_at: f.updated_at,
+          };
+        });
+      },
       providesTags: ['Roadmap'],
     }),
     voteRoadmapFeature: builder.mutation<{ featureId: string; upvotes: number; hasVoted: boolean }, string>({
       query: (id) => ({ url: `/roadmap/features/${id}/vote`, method: 'POST' }),
-      transformResponse: (response: ApiResponse<{ featureId: string; upvotes: number; hasVoted: boolean }>) => response.data,
+      transformResponse: (response: ApiResponse<any> | any) => {
+        const d = (response as any)?.data ?? response;
+        return { featureId: d.feature_id ?? d.featureId ?? '', upvotes: d.upvotes ?? d.votes ?? 0, hasVoted: true };
+      },
       invalidatesTags: ['Roadmap'],
     }),
     unvoteRoadmapFeature: builder.mutation<{ featureId: string; upvotes: number; hasVoted: boolean }, string>({
       query: (id) => ({ url: `/roadmap/features/${id}/vote`, method: 'DELETE' }),
-      transformResponse: (response: ApiResponse<{ featureId: string; upvotes: number; hasVoted: boolean }>) => response.data,
+      transformResponse: (response: ApiResponse<any> | any) => {
+        const d = (response as any)?.data ?? response;
+        return { featureId: d.feature_id ?? d.featureId ?? '', upvotes: d.upvotes ?? d.votes ?? 0, hasVoted: false };
+      },
       invalidatesTags: ['Roadmap'],
     }),
     submitFeatureRequest: builder.mutation<FeatureRequest, { title: string; description: string }>({

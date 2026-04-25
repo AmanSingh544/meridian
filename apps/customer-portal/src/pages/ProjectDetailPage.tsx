@@ -7,9 +7,10 @@ import {
   useAskProjectMutation,
 } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, ErrorState } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, ErrorState, AIAnswerCard } from '@3sc/ui';
 import { formatDate } from '@3sc/utils';
 import type { ProjectQAAnswer } from '@3sc/types';
+
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'neutral' | 'danger' | 'info'> = {
   active: 'success', planning: 'info', on_hold: 'warning', completed: 'neutral', cancelled: 'danger',
@@ -68,8 +69,9 @@ export const ProjectDetailPage: React.FC = () => {
     );
   }
 
-  const completedMilestones = project.milestones.filter((m) => m.isCompleted).length;
-  const totalMilestones = project.milestones.length;
+  const milestones = project.milestones ?? [];
+  const completedMilestones = milestones.filter((m) => m.isCompleted).length;
+  const totalMilestones = milestones.length;
   const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
 
   const tabs: Array<{ key: Tab; label: string }> = [
@@ -169,7 +171,7 @@ export const ProjectDetailPage: React.FC = () => {
                 </div>
               </div>
 
-              {statusReport.blockers.length > 0 && (
+              {(statusReport.blockers ?? []).length > 0 && (
                 <div style={{ marginBottom: '0.875rem' }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-warning)', marginBottom: '0.375rem' }}>Needs Your Attention</div>
                   {statusReport.blockers.map((b, i) => (
@@ -180,7 +182,7 @@ export const ProjectDetailPage: React.FC = () => {
                 </div>
               )}
 
-              {statusReport.nextSteps.length > 0 && (
+              {(statusReport.nextSteps ?? []).length > 0 && (
                 <div>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '0.375rem' }}>What's Next</div>
                   {statusReport.nextSteps.map((s, i) => (
@@ -356,20 +358,11 @@ export const ProjectDetailPage: React.FC = () => {
           )}
 
           {qaAnswer && (
-            <Card>
-              <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>AI Answer</div>
-              <p style={{ margin: 0, fontSize: '0.875rem', lineHeight: 1.7, color: qaAnswer.cannotAnswer ? 'var(--color-text-secondary)' : 'var(--color-text)' }}>
-                {qaAnswer.answer}
-              </p>
-              {!qaAnswer.cannotAnswer && qaAnswer.confidence > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.75rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--color-border)', overflow: 'hidden', maxWidth: '8rem' }}>
-                    <div style={{ height: '100%', width: `${Math.round(qaAnswer.confidence * 100)}%`, background: 'var(--color-brand-500)' }} />
-                  </div>
-                  <span>{Math.round(qaAnswer.confidence * 100)}% confident</span>
-                </div>
-              )}
-            </Card>
+            <AIAnswerCard
+              answer={qaAnswer.answer}
+              confidence={qaAnswer.confidence}
+              cannotAnswer={qaAnswer.cannotAnswer}
+            />
           )}
         </div>
       )}

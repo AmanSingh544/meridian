@@ -134,7 +134,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     const tags: string[] = [];
     tickets
       .filter((t) => t.status === TicketStatus.OPEN || t.status === TicketStatus.IN_PROGRESS)
-      .forEach((t) => tags.push(...t.tags.slice(0, 2)));
+      .forEach((t) => tags.push(...(t.tags ?? []).slice(0, 2)));
     return [...new Set(tags)].slice(0, 3);
   }, [tickets]);
 
@@ -945,7 +945,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities, onNavigate }) =
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ margin: 0, fontSize: '0.8125rem', lineHeight: 1.4 }}>
               <strong>{activity.userName}</strong>{' '}
-              <span style={{ color: 'var(--color-text-secondary)' }}>{activity.description.replace(/^[A-Z0-9-]+ /, '')}</span>
+              <span style={{ color: 'var(--color-text-secondary)' }}>{(activity.description ?? '').replace(/^[A-Z0-9-]+ /, '')}</span>
             </p>
             <p style={{ margin: '0.125rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
               {formatRelativeTime(activity.timestamp)}
@@ -961,13 +961,16 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities, onNavigate }) =
 // TOP-LEVEL ORCHESTRATOR
 // ══════════════════════════════════════════════════════════════════════════════
 
+const DASHBOARD_NOW = new Date().toISOString();
+const DASHBOARD_SIXTY_DAYS_AGO = new Date(Date.now() - 60 * 86_400_000).toISOString();
+
 export const DashboardPage: React.FC = () => {
   useDocumentTitle('Dashboard');
   const session = useSession();
   const isAdmin = session?.role === UserRole.CLIENT_ADMIN;
 
-  const now = new Date().toISOString();
-  const sixtyDaysAgo = new Date(Date.now() - 60 * 86_400_000).toISOString();
+  const now = DASHBOARD_NOW;
+  const sixtyDaysAgo = DASHBOARD_SIXTY_DAYS_AGO;
 
   // ── Queries (all unconditional — hooks cannot be conditional) ──────────────
   const { data: dashboard, isLoading: isDashboardLoading, error: dashboardError, refetch } =

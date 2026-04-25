@@ -31,38 +31,40 @@ interface MonthlyVolumeChartProps {
 const MonthlyVolumeChart: React.FC<MonthlyVolumeChartProps> = ({ data }) => {
   const max = Math.max(...data.flatMap((d) => [d.created, d.resolved]), 1);
   const H = 110;
+  const BAR_W = 10;
+  const GAP = 3;
 
   return (
-    <div style={{ display: 'flex', alignItems: 'flex-end', gap: '0.25rem', height: H + 28 }}>
-      {data.map((d) => (
-        <div key={d.month} style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '2px' }}>
-          <div style={{ display: 'flex', alignItems: 'flex-end', gap: '2px', height: H }}>
-            <div
-              title={`Created: ${d.created}`}
-              style={{
-                width: '100%', flex: 1,
-                height: `${(d.created / max) * H}px`,
-                background: 'var(--color-brand-400)',
-                borderRadius: '3px 3px 0 0',
-                transition: 'height 0.4s ease',
-                minHeight: 2,
-              }}
-            />
-            <div
-              title={`Resolved: ${d.resolved}`}
-              style={{
-                width: '100%', flex: 1,
-                height: `${(d.resolved / max) * H}px`,
-                background: '#22c55e',
-                borderRadius: '3px 3px 0 0',
-                transition: 'height 0.4s ease',
-                minHeight: 2,
-              }}
-            />
+    <div style={{ width: '100%', overflowX: 'auto' }}>
+      <div style={{ display: 'flex', alignItems: 'flex-end', gap: '1.5rem', height: H + 28, minWidth: `${data.length * 56}px`, paddingBottom: 0 }}>
+        {data.map((d) => (
+          <div key={d.month} style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'flex-end', flexShrink: 0, height: H + 28 }}>
+            <div style={{ display: 'flex', alignItems: 'flex-end', gap: GAP, height: H }}>
+              <div
+                title={`Created: ${d.created}`}
+                style={{
+                  width: BAR_W,
+                  height: `${Math.max((d.created / max) * H, 3)}px`,
+                  background: '#6366f1',
+                  borderRadius: '3px 3px 0 0',
+                  transition: 'height 0.4s ease',
+                }}
+              />
+              <div
+                title={`Resolved: ${d.resolved}`}
+                style={{
+                  width: BAR_W,
+                  height: `${Math.max((d.resolved / max) * H, 3)}px`,
+                  background: '#22c55e',
+                  borderRadius: '3px 3px 0 0',
+                  transition: 'height 0.4s ease',
+                }}
+              />
+            </div>
+            <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', marginTop: 5 }}>{d.month}</span>
           </div>
-          <span style={{ fontSize: '0.625rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>{d.month}</span>
-        </div>
-      ))}
+        ))}
+      </div>
     </div>
   );
 };
@@ -210,7 +212,8 @@ export const AnalyticsPage: React.FC = () => {
   const { data: categoryData  = [], isLoading: loadingCategory } = useGetCategoryBreakdownQuery(filters);
   const { data: severityData  = [], isLoading: loadingSeverity } = useGetSeverityDistributionQuery(filters);
   const { data: resolutionData = [], isLoading: loadingResolution } = useGetResolutionBySeverityQuery(filters);
-  const { data: slaData       = [], isLoading: loadingSLA }      = useGetSLAComplianceQuery(filters);
+  const { data: rawSlaData, isLoading: loadingSLA } = useGetSLAComplianceQuery(filters);
+  const slaData = Array.isArray(rawSlaData) ? rawSlaData : [];
 
   // KPI summaries derived from query data
   const totalCreated  = monthlyVolume.reduce((s, d) => s + d.created, 0);
@@ -320,7 +323,7 @@ export const AnalyticsPage: React.FC = () => {
           subtitle="Created vs Resolved — last 7 months"
           loading={loadingVolume}
           legend={[
-            { label: 'Created',  color: 'var(--color-brand-400)' },
+            { label: 'Created',  color: '#6366f1' },
             { label: 'Resolved', color: '#22c55e' },
           ]}
         >

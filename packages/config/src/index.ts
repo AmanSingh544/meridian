@@ -13,10 +13,10 @@ export const API_CONFIG = {
 } as const;
 
 export const AUTH_CONFIG = {
-  loginPath: '/user/login', //'/auth/login',
+  loginPath: '/auth/login', //'/auth/login',
   logoutPath: '/auth/logout',
-  refreshPath: '/token/refresh',
-  sessionPath: '/user/auth/session',
+  refreshPath: '/auth/token/refresh',
+  sessionPath: '/auth/session',
   resetPasswordPath: '/auth/reset-password',
   confirmResetPath: '/auth/confirm-reset',
   sessionCheckInterval: 5 * 60 * 1_000, // 5 minutes

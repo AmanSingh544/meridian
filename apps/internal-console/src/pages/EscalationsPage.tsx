@@ -138,8 +138,8 @@ const AssignDropdown: React.FC<AssignDropdownProps> = ({ ticketId, currentAssign
               onMouseLeave={e => { e.currentTarget.style.background = agent.id === selected ? 'var(--color-bg-subtle)' : 'none'; }}
             >
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <Avatar name={agent.displayName} size={22} />
-                <span style={{ fontWeight: 500 }}>{agent.displayName}</span>
+                <Avatar name={agent.displayName ?? 'Unknown'} size={22} />
+                <span style={{ fontWeight: 500 }}>{agent.displayName ?? 'Unknown'}</span>
               </div>
               <span style={{
                 fontSize: '0.6875rem', padding: '0.125rem 0.375rem', borderRadius: 'var(--radius-sm)',

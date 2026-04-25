@@ -2,7 +2,7 @@ import React, { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useGetKBArticleQuery, useVoteHelpfulMutation, useSearchKBQuery, useAskKBMutation } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, ErrorState } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, ErrorState, AIAnswerCard, MarkdownRenderer } from '@3sc/ui';
 import { formatDate } from '@3sc/utils';
 import type { AIKBAnswer } from '@3sc/types';
 
@@ -138,28 +138,9 @@ export const KnowledgeBaseArticlePage: React.FC = () => {
         </p>
 
         {/* Content */}
-        <div style={{
-          fontSize: '0.9375rem', lineHeight: 1.8,
-          color: 'var(--color-text)',
-        }}>
-          {article.content.split('\n').map((line, i) => {
-            if (line.startsWith('## ')) {
-              return (
-                <h2 key={i} style={{ fontSize: '1.125rem', fontWeight: 700, marginTop: '2rem', marginBottom: '0.75rem', fontFamily: 'var(--font-display)' }}>
-                  {line.slice(3)}
-                </h2>
-              );
-            }
-            if (line.startsWith('- ') || line.startsWith('* ')) {
-              return <li key={i} style={{ marginLeft: '1.25rem', marginBottom: '0.25rem' }}>{line.slice(2)}</li>;
-            }
-            if (/^\d+\. /.test(line)) {
-              return <li key={i} style={{ marginLeft: '1.25rem', marginBottom: '0.25rem' }}>{line.replace(/^\d+\. /, '')}</li>;
-            }
-            if (line.trim() === '') return <div key={i} style={{ height: '0.75rem' }} />;
-            return <p key={i} style={{ margin: '0 0 0.5rem' }}>{line}</p>;
-          })}
-        </div>
+        <MarkdownRenderer style={{ fontSize: '0.9375rem', lineHeight: 1.8, color: 'var(--color-text)' }}>
+          {article.content}
+        </MarkdownRenderer>
 
         {/* Helpfulness */}
         <div style={{
@@ -237,25 +218,12 @@ export const KnowledgeBaseArticlePage: React.FC = () => {
 
           {answer && (
             <div style={{ marginTop: '1rem' }}>
-              <div style={{
-                padding: '1rem',
-                background: 'var(--color-bg)',
-                border: '1px solid var(--color-border)',
-                borderRadius: 'var(--radius-md)',
-                fontSize: '0.875rem',
-                lineHeight: 1.7,
-                color: answer.cannotAnswer ? 'var(--color-text-secondary)' : 'var(--color-text)',
-              }}>
-                {answer.answer}
-              </div>
-              {!answer.cannotAnswer && answer.confidence > 0 && (
-                <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  <div style={{ flex: 1, height: 3, borderRadius: 2, background: 'var(--color-border)', overflow: 'hidden', maxWidth: '8rem' }}>
-                    <div style={{ height: '100%', width: `${Math.round(answer.confidence * 100)}%`, background: 'var(--color-brand-500)', borderRadius: 2 }} />
-                  </div>
-                  <span>{Math.round(answer.confidence * 100)}% confident</span>
-                </div>
-              )}
+              <AIAnswerCard
+                answer={answer.answer}
+                confidence={answer.confidence}
+                cannotAnswer={answer.cannotAnswer}
+                label="KB Answer"
+              />
               {answer.followUpQuestions.length > 0 && (
                 <div style={{ marginTop: '0.75rem' }}>
                   <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-secondary)', marginBottom: '0.375rem' }}>Follow-up questions:</div>

@@ -904,9 +904,9 @@ const InternalUserRow: React.FC<InternalUserRowProps> = ({
     <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
       <td style={{ padding: '0.625rem 0.75rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.625rem' }}>
-          <Avatar name={user.displayName} src={user.avatarUrl} size={30} />
+          <Avatar name={user.displayName ?? 'Unknown'} src={user.avatarUrl} size={30} />
           <div>
-            <div style={{ fontWeight: 500, fontSize: '0.8125rem' }}>{user.displayName}</div>
+            <div style={{ fontWeight: 500, fontSize: '0.8125rem' }}>{user.displayName ?? 'Unknown'}</div>
             <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>{user.email}</div>
           </div>
         </div>
@@ -1206,10 +1206,10 @@ export const UsersPage: React.FC = () => {
                         padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)',
                         border: '1px solid var(--color-border)',
                       }}>
-                        <Avatar name={user.displayName} src={user.avatarUrl} size={32} />
+                        <Avatar name={user.displayName ?? 'Unknown'} src={user.avatarUrl} size={32} />
                         <div style={{ flex: 1, minWidth: 0 }}>
                           <div style={{ fontWeight: 500, fontSize: '0.8125rem', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                            {user.displayName}
+                            {user.displayName ?? 'Unknown'}
                           </div>
                           <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                             {user.email}

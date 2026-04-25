@@ -30,3 +30,5 @@ export { AISuggestionCard } from './components/AISuggestionCard';
 export { ConfidenceBar } from './components/ConfidenceBar';
 export { SLATimer } from './components/SLATimer';
 export { ThemeToggle } from './components/ThemeToggle';
+export { MarkdownRenderer } from './components/MarkdownRenderer';
+export { AIAnswerCard } from './components/AIAnswerCard';
