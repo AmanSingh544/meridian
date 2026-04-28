@@ -1,12 +1,13 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
 import { Button, Card, useToast, PermissionGate, ErrorState } from '@3sc/ui';
 import { Permission } from '@3sc/types';
+import { useGetSLAPolicyQuery, useUpdateSLAPolicyMutation } from '@3sc/api';
 
 // ── Types ─────────────────────────────────────────────────────────
 
 interface PriorityRow {
-  key: string;
+  key: 'CRITICAL' | 'HIGH' | 'MEDIUM' | 'LOW';
   label: string;
   level: 'critical' | 'high' | 'medium' | 'low';
   responseHours: number;
@@ -26,28 +27,6 @@ interface BusinessHours {
   pauseOnWeekends: boolean;
 }
 
-// ── Initial state (matches mock API) ─────────────────────────────
-
-const INITIAL_PRIORITIES: PriorityRow[] = [
-  { key: 'CRITICAL', label: 'S1 — Critical', level: 'critical', responseHours: 2,  resolutionHours: 8 },
-  { key: 'HIGH',     label: 'S2 — Moderate', level: 'high',     responseHours: 8,  resolutionHours: 48 },
-  { key: 'MEDIUM',   label: 'S3 — Low',      level: 'medium',   responseHours: 24, resolutionHours: 120 },
-  { key: 'LOW',      label: 'S4 — Minimal',  level: 'low',      responseHours: 48, resolutionHours: 240 },
-];
-
-const INITIAL_ESCALATION: EscalationRules = {
-  autoEscalateAtPercent: 80,
-  notifyAdminAtPercent: 60,
-  s1ReAlertIntervalMinutes: 30,
-};
-
-const INITIAL_BUSINESS: BusinessHours = {
-  startTime: '09:00',
-  endTime: '18:00',
-  timezone: 'Asia/Kolkata',
-  pauseOnWeekends: false,
-};
-
 // ── Severity pill colors ──────────────────────────────────────────
 
 const levelColors = {
@@ -56,6 +35,13 @@ const levelColors = {
   medium:   { bg: '#f0fdf4', color: '#15803d', border: '#86efac' },
   low:      { bg: '#f8fafc', color: '#64748b', border: '#cbd5e1' },
 };
+
+const PRIORITY_META: Pick<PriorityRow, 'key' | 'label' | 'level'>[] = [
+  { key: 'CRITICAL', label: 'S1 — Critical', level: 'critical' },
+  { key: 'HIGH',     label: 'S2 — Moderate', level: 'high'     },
+  { key: 'MEDIUM',   label: 'S3 — Low',      level: 'medium'   },
+  { key: 'LOW',      label: 'S4 — Minimal',  level: 'low'      },
+];
 
 // ── Sub-components ────────────────────────────────────────────────
 
@@ -182,12 +168,39 @@ export const SLAConfigPage: React.FC = () => {
 
   const canEdit = permissions.has(Permission.SLA_CONFIGURE);
 
-  const [priorities, setPriorities] = useState<PriorityRow[]>(INITIAL_PRIORITIES);
-  const [escalation, setEscalation] = useState<EscalationRules>(INITIAL_ESCALATION);
-  const [businessHours, setBusinessHours] = useState<BusinessHours>(INITIAL_BUSINESS);
-  const [saving, setSaving] = useState(false);
+  const { data: policy, isLoading, isError } = useGetSLAPolicyQuery();
+  const [updateSLAPolicy, { isLoading: saving }] = useUpdateSLAPolicyMutation();
+
+  // ── Local editable state (seeded from API) ───────────────────────────────
+  const [priorities, setPriorities] = useState<PriorityRow[]>([]);
+  const [escalation, setEscalation] = useState<EscalationRules>({
+    autoEscalateAtPercent: 80,
+    notifyAdminAtPercent: 60,
+    s1ReAlertIntervalMinutes: 30,
+  });
+  const [businessHours, setBusinessHours] = useState<BusinessHours>({
+    startTime: '09:00',
+    endTime: '18:00',
+    timezone: 'Asia/Kolkata',
+    pauseOnWeekends: false,
+  });
   const [dirty, setDirty] = useState(false);
   const [errors, setErrors] = useState<string[]>([]);
+
+  // Seed local state once data arrives
+  useEffect(() => {
+    if (!policy) return;
+    setPriorities(
+      PRIORITY_META.map(m => ({
+        ...m,
+        responseHours: policy.priorities[m.key].responseHours,
+        resolutionHours: policy.priorities[m.key].resolutionHours,
+      }))
+    );
+    setEscalation({ ...policy.escalationRules });
+    setBusinessHours({ ...policy.businessHours });
+    setDirty(false);
+  }, [policy]);
 
   // ── Validation ──────────────────────────────────────────────────
   const validate = (): string[] => {
@@ -210,11 +223,22 @@ export const SLAConfigPage: React.FC = () => {
     const errs = validate();
     if (errs.length > 0) { setErrors(errs); return; }
     setErrors([]);
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 600));
-    setSaving(false);
-    setDirty(false);
-    toast('SLA configuration saved', 'success');
+    try {
+      await updateSLAPolicy({
+        priorities: {
+          CRITICAL: { responseHours: priorities[0].responseHours, resolutionHours: priorities[0].resolutionHours },
+          HIGH:     { responseHours: priorities[1].responseHours, resolutionHours: priorities[1].resolutionHours },
+          MEDIUM:   { responseHours: priorities[2].responseHours, resolutionHours: priorities[2].resolutionHours },
+          LOW:      { responseHours: priorities[3].responseHours, resolutionHours: priorities[3].resolutionHours },
+        },
+        escalationRules: { ...escalation },
+        businessHours: { ...businessHours },
+      }).unwrap();
+      setDirty(false);
+      toast('SLA configuration saved', 'success');
+    } catch {
+      toast('Failed to save SLA configuration', 'error');
+    }
   };
 
   const updatePriority = (key: string, field: 'responseHours' | 'resolutionHours', value: number) => {
@@ -233,6 +257,18 @@ export const SLAConfigPage: React.FC = () => {
       {text}
     </div>
   );
+
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '12rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+        Loading SLA configuration…
+      </div>
+    );
+  }
+
+  if (isError) {
+    return <ErrorState message="Failed to load SLA configuration." />;
+  }
 
   return (
     <div>
@@ -301,15 +337,9 @@ export const SLAConfigPage: React.FC = () => {
             paddingBottom: '0.5rem', marginBottom: '0.75rem',
             borderBottom: '1px solid var(--color-border)',
           }}>
-            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Priority
-            </span>
-            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              First Response
-            </span>
-            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>
-              Resolution
-            </span>
+            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Priority</span>
+            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>First Response</span>
+            <span style={{ fontSize: '0.6875rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.06em' }}>Resolution</span>
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {priorities.map(p => {
@@ -369,12 +399,8 @@ export const SLAConfigPage: React.FC = () => {
             {sectionHeader('Escalation Rules')}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
-                <p style={{ margin: '0 0 0.25rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                  Auto-escalate at breach
-                </p>
-                <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Triggers auto-assign to senior SPOC
-                </p>
+                <p style={{ margin: '0 0 0.25rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>Auto-escalate at breach</p>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Triggers auto-assign to senior SPOC</p>
                 <NumberInput
                   value={escalation.autoEscalateAtPercent}
                   onChange={v => { setEscalation(prev => ({ ...prev, autoEscalateAtPercent: v })); setDirty(true); }}
@@ -382,12 +408,8 @@ export const SLAConfigPage: React.FC = () => {
                 />
               </div>
               <div>
-                <p style={{ margin: '0 0 0.25rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                  Notify admin at %
-                </p>
-                <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Sends admin alert notification
-                </p>
+                <p style={{ margin: '0 0 0.25rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>Notify admin at %</p>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Sends admin alert notification</p>
                 <NumberInput
                   value={escalation.notifyAdminAtPercent}
                   onChange={v => { setEscalation(prev => ({ ...prev, notifyAdminAtPercent: v })); setDirty(true); }}
@@ -395,12 +417,8 @@ export const SLAConfigPage: React.FC = () => {
                 />
               </div>
               <div>
-                <p style={{ margin: '0 0 0.25rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                  S1 re-alert interval
-                </p>
-                <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Repeat alerts until resolved
-                </p>
+                <p style={{ margin: '0 0 0.25rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>S1 re-alert interval</p>
+                <p style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Repeat alerts until resolved</p>
                 <NumberInput
                   value={escalation.s1ReAlertIntervalMinutes}
                   onChange={v => { setEscalation(prev => ({ ...prev, s1ReAlertIntervalMinutes: v })); setDirty(true); }}
@@ -446,12 +464,8 @@ export const SLAConfigPage: React.FC = () => {
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.75rem' }}>
                 <div>
-                  <p style={{ margin: '0 0 0.125rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>
-                    Weekend SLA pause
-                  </p>
-                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                    Exclude Sat &amp; Sun from clock
-                  </p>
+                  <p style={{ margin: '0 0 0.125rem', fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>Weekend SLA pause</p>
+                  <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Exclude Sat &amp; Sun from clock</p>
                 </div>
                 <Toggle
                   checked={businessHours.pauseOnWeekends}
@@ -466,7 +480,9 @@ export const SLAConfigPage: React.FC = () => {
       </div>
 
       {/* Live timeline preview */}
-      <PreviewPanel priorities={priorities} businessHours={businessHours} />
+      {priorities.length > 0 && (
+        <PreviewPanel priorities={priorities} businessHours={businessHours} />
+      )}
 
       {/* Per-org overrides hint */}
       <div style={{

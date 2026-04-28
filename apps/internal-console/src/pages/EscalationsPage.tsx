@@ -47,6 +47,7 @@ function clientColors(clientName: string): { bg: string; color: string } {
     { bg: '#f0fdf4', color: '#166534' },
     { bg: '#fdf4ff', color: '#7e22ce' },
   ];
+  if (!clientName) return palette[0];
   return palette[clientName.charCodeAt(clientName.length - 1) % palette.length];
 }
 
@@ -341,7 +342,7 @@ export const EscalationsPage: React.FC = () => {
               >
                 {/* Ticket */}
                 <div>
-                  <button onClick={() => navigate(`/tickets/${escalation.ticketId}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
+                  <button onClick={() => navigate(`/tickets/${(escalation as any)._ticketId ?? escalation.ticketId}`)} style={{ background: 'none', border: 'none', cursor: 'pointer', textAlign: 'left', padding: 0 }}>
                     <div style={{ fontWeight: 600, fontSize: '0.875rem', color: 'var(--color-text)', marginBottom: '0.125rem' }}>{escalation.title}</div>
                     <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontFamily: 'var(--font-mono)' }}>{escalation.ticketNumber}</div>
                   </button>

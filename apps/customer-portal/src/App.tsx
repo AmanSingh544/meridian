@@ -6,6 +6,7 @@ import { ErrorBoundary, ToastProvider } from '@3sc/ui';
 import { checkSession } from './features/auth/authSlice';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { CustomerLayout } from './components/layout/CustomerLayout';
+import { applyAccentColor, applyDensity } from '@3sc/hooks';
 //import '@3sc/ui/src/styles/global.css';
 import '../../../packages/ui/src/styles/global.css';
 import { Permission } from '@3sc/types';
@@ -54,10 +55,17 @@ const SessionInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
 
   useEffect(() => {
     const tenantId = sessionStorage.getItem('tenant_id');
-    const userId = sessionStorage.getItem('user_id');
     if (tenantId) dispatch(checkSession(tenantId));
     else dispatch({ type: 'auth/checkSession/rejected' });
   }, [dispatch]);
+
+  // Apply persisted appearance preferences immediately on mount
+  useEffect(() => {
+    const accent = localStorage.getItem('3sc_pref_accent');
+    const density = localStorage.getItem('3sc_pref_density') as 'comfortable' | 'compact' | null;
+    if (accent) applyAccentColor(accent);
+    if (density) applyDensity(density);
+  }, []);
 
   if (status === 'idle') {
     return <PageLoader />;

@@ -1,43 +1,25 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Button, Card, Select, useToast, PermissionGate, ConfirmDialog } from '@3sc/ui';
+import { Button, Card, Select, useToast, PermissionGate, ConfirmDialog, ErrorState } from '@3sc/ui';
 import { Permission } from '@3sc/types';
+import { useGetSystemSettingsQuery, useUpdateSystemSettingsMutation } from '@3sc/api';
+import type {
+  SystemNotificationSettings,
+  SystemAIFeatureSettings,
+  SystemAccessSettings,
+} from '@3sc/types';
 
-// ── Types ─────────────────────────────────────────────────────────
+// ── Toggle component ─────────────────────────────────────────────
 
-interface NotificationSettings {
-  emailOnSLABreach: boolean;
-  slackIntegrationEnabled: boolean;
-  slackChannel: string;
-  dailyDigestEnabled: boolean;
-  dailyDigestTime: string;
-  clientStatusNotifications: boolean;
-}
-
-interface AIFeatureSettings {
-  triageAgentEnabled: boolean;
-  similarTicketSuggestionsEnabled: boolean;
-  kbDeflectionEnabled: boolean;
-  autoGenerateKBArticlesEnabled: boolean;
-  weeklyProjectSummariesEnabled: boolean;
-  aiProvider: 'anthropic' | 'openai' | 'custom';
-  aiModelName: string;
-  aiApiKey: string;
-  aiBaseUrl: string;
-  aiApiKeySet: boolean;
-}
-
-interface AccessSettings {
-  ssoEnabled: boolean;
-  twoFactorRequired: boolean;
-  auditLoggingEnabled: boolean;
-  ipAllowlistEnabled: boolean;
-  ipAllowlist: string;
+interface ToggleProps {
+  checked: boolean;
+  onChange: (v: boolean) => void;
+  disabled?: boolean;
 }
 
 // ── Initial state ────────────────────────────────────────────────
 
-const INITIAL_NOTIFICATIONS: NotificationSettings = {
+const INITIAL_NOTIFICATIONS: SystemNotificationSettings = {
   emailOnSLABreach: true,
   slackIntegrationEnabled: true,
   slackChannel: '#support-alerts',
@@ -46,7 +28,7 @@ const INITIAL_NOTIFICATIONS: NotificationSettings = {
   clientStatusNotifications: true,
 };
 
-const INITIAL_AI: AIFeatureSettings = {
+const INITIAL_AI: SystemAIFeatureSettings = {
   triageAgentEnabled: true,
   similarTicketSuggestionsEnabled: true,
   kbDeflectionEnabled: true,
@@ -59,7 +41,8 @@ const INITIAL_AI: AIFeatureSettings = {
   aiApiKeySet: true,
 };
 
-const INITIAL_ACCESS: AccessSettings = {
+
+const INITIAL_ACCESS: SystemAccessSettings = {
   ssoEnabled: false,
   twoFactorRequired: false,
   auditLoggingEnabled: true,
@@ -67,13 +50,6 @@ const INITIAL_ACCESS: AccessSettings = {
   ipAllowlist: '',
 };
 
-// ── Toggle component ─────────────────────────────────────────────
-
-interface ToggleProps {
-  checked: boolean;
-  onChange: (v: boolean) => void;
-  disabled?: boolean;
-}
 
 const Toggle: React.FC<ToggleProps> = ({ checked, onChange, disabled }) => (
   <button
@@ -120,7 +96,7 @@ const ToggleRow: React.FC<ToggleRowProps> = ({ label, description, checked, onCh
       <Toggle checked={checked} onChange={onChange} disabled={disabled} />
     </div>
     {expandContent && checked && (
-      <div style={{ paddingLeft: '0', paddingTop: '0.25rem' }}>
+      <div style={{ paddingTop: '0.25rem' }}>
         {expandContent}
       </div>
     )}
@@ -176,15 +152,22 @@ const InlineInput: React.FC<InlineInputProps> = ({ value, onChange, placeholder,
 // ── AI Provider Section ───────────────────────────────────────────
 
 interface AIModelSectionProps {
-  settings: AIFeatureSettings;
-  onChange: (s: AIFeatureSettings) => void;
+  settings: SystemAIFeatureSettings;
+  apiKeySet: boolean;
+  pendingApiKey: string;
+  onChange: (s: SystemAIFeatureSettings) => void;
+  onApiKeyChange: (v: string) => void;
   disabled: boolean;
   onTestConnection: () => void;
   testing: boolean;
   testResult: { success: boolean; message: string } | null;
 }
 
-const AIModelSection: React.FC<AIModelSectionProps> = ({ settings, onChange, disabled, onTestConnection, testing, testResult }) => {
+const AIModelSection: React.FC<AIModelSectionProps> = ({
+  settings, apiKeySet, pendingApiKey,
+  onChange, onApiKeyChange,
+  disabled, onTestConnection, testing, testResult,
+}) => {
   const providerOptions = [
     { value: 'anthropic', label: 'Anthropic Claude' },
     { value: 'openai', label: 'OpenAI' },
@@ -192,14 +175,16 @@ const AIModelSection: React.FC<AIModelSectionProps> = ({ settings, onChange, dis
   ];
 
   const modelOptions: Record<string, string[]> = {
-    anthropic: ['claude-sonnet-4-6', 'claude-opus-4-6', 'claude-haiku-4-5-20251001'],
+    anthropic: ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001'],
     openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
     custom: [],
   };
 
+  const effectiveApiKeySet = apiKeySet || pendingApiKey.length > 0;
+
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
-      {!settings.aiApiKeySet && (
+      {!effectiveApiKeySet && (
         <div style={{
           padding: '0.625rem 0.875rem',
           background: '#fffbeb', border: '1px solid #fde68a',
@@ -211,7 +196,7 @@ const AIModelSection: React.FC<AIModelSectionProps> = ({ settings, onChange, dis
         </div>
       )}
 
-      {settings.aiApiKeySet && (
+      {effectiveApiKeySet && (
         <div style={{
           padding: '0.625rem 0.875rem',
           background: '#f0fdf4', border: '1px solid #86efac',
@@ -226,25 +211,29 @@ const AIModelSection: React.FC<AIModelSectionProps> = ({ settings, onChange, dis
       <div>
         <Select
           label="AI Provider"
-          value={settings.aiProvider}
+          value={settings.aiProvider ?? 'anthropic'}
           disabled={disabled}
-          onChange={e => onChange({ ...settings, aiProvider: e.target.value as any, aiModelName: modelOptions[e.target.value]?.[0] ?? '' })}
+          onChange={e => onChange({
+            ...settings,
+            aiProvider: e.target.value as SystemAIFeatureSettings['aiProvider'],
+            aiModelName: modelOptions[e.target.value]?.[0] ?? '',
+          })}
           options={providerOptions}
         />
       </div>
 
       <div>
         <p style={{ margin: '0 0 0.375rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Model Name</p>
-        {modelOptions[settings.aiProvider].length > 0 ? (
+        {(modelOptions[settings.aiProvider ?? 'anthropic'] ?? []).length > 0 ? (
           <Select
-            value={settings.aiModelName}
+            value={settings.aiModelName ?? ''}
             disabled={disabled}
             onChange={e => onChange({ ...settings, aiModelName: e.target.value })}
-            options={modelOptions[settings.aiProvider].map(m => ({ value: m, label: m }))}
+            options={(modelOptions[settings.aiProvider ?? 'anthropic'] ?? []).map(m => ({ value: m, label: m }))}
           />
         ) : (
           <InlineInput
-            value={settings.aiModelName}
+            value={settings.aiModelName ?? ''}
             onChange={v => onChange({ ...settings, aiModelName: v })}
             placeholder="Model identifier as accepted by the provider's API"
             disabled={disabled}
@@ -259,9 +248,9 @@ const AIModelSection: React.FC<AIModelSectionProps> = ({ settings, onChange, dis
       <div>
         <p style={{ margin: '0 0 0.375rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>API Key</p>
         <InlineInput
-          value={settings.aiApiKey}
-          onChange={v => onChange({ ...settings, aiApiKey: v, aiApiKeySet: v.length > 0 })}
-          placeholder="Enter API key..."
+          value={pendingApiKey}
+          onChange={onApiKeyChange}
+          placeholder={apiKeySet ? '••••••••  (leave blank to keep current)' : 'Enter API key…'}
           type="password"
           disabled={disabled}
           monospace
@@ -275,7 +264,7 @@ const AIModelSection: React.FC<AIModelSectionProps> = ({ settings, onChange, dis
         <div>
           <p style={{ margin: '0 0 0.375rem', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>Base URL</p>
           <InlineInput
-            value={settings.aiBaseUrl}
+            value={settings.aiBaseUrl ?? ''}
             onChange={v => onChange({ ...settings, aiBaseUrl: v })}
             placeholder="https://your-endpoint.example.com/v1"
             disabled={disabled}
@@ -293,7 +282,7 @@ const AIModelSection: React.FC<AIModelSectionProps> = ({ settings, onChange, dis
           variant="secondary"
           onClick={onTestConnection}
           loading={testing}
-          disabled={disabled || !settings.aiApiKeySet}
+          disabled={disabled || !effectiveApiKeySet}
         >
           Test connection
         </Button>
@@ -320,10 +309,18 @@ export const SystemSettingsPage: React.FC = () => {
 
   const canEdit = permissions.has(Permission.SYSTEM_CONFIGURE);
 
-  const [notifications, setNotifications] = useState<NotificationSettings>(INITIAL_NOTIFICATIONS);
-  const [aiFeatures, setAIFeatures] = useState<AIFeatureSettings>(INITIAL_AI);
-  const [access, setAccess] = useState<AccessSettings>(INITIAL_ACCESS);
-  const [saving, setSaving] = useState(false);
+  const { data: remoteSettings, isLoading, isError } = useGetSystemSettingsQuery();
+  const [updateSystemSettings, { isLoading: saving }] = useUpdateSystemSettingsMutation();
+
+  // ── Local editable copies ────────────────────────────────────────
+  const [notifications, setNotifications] = useState<SystemNotificationSettings>(INITIAL_NOTIFICATIONS);
+  const [aiFeatures, setAIFeatures] = useState<SystemAIFeatureSettings>(INITIAL_AI);
+  // apiKeySet comes from the server flag; pendingApiKey is what the user types (never pre-filled)
+  const [apiKeySet, setApiKeySet] = useState(false);
+  const [pendingApiKey, setPendingApiKey] = useState('');
+  const [access, setAccess] = useState<SystemAccessSettings>(INITIAL_ACCESS);
+  // ipAllowlist is stored as string in the textarea, joined/split on save
+  const [ipAllowlistText, setIpAllowlistText] = useState('');
   const [dirty, setDirty] = useState(false);
 
   // Danger zone
@@ -335,12 +332,46 @@ export const SystemSettingsPage: React.FC = () => {
   const [testing, setTesting] = useState(false);
   const [testResult, setTestResult] = useState<{ success: boolean; message: string } | null>(null);
 
-  const handleSave = async () => {
-    setSaving(true);
-    await new Promise(r => setTimeout(r, 700));
-    setSaving(false);
+  // Seed local state from API response
+  useEffect(() => {
+    if (!remoteSettings) return;
+    setNotifications({ ...remoteSettings.notifications });
+    setAIFeatures({ ...remoteSettings.aiFeatures });
+    // Server signals whether a key is already stored via the aiApiKeySet flag on the mock;
+    // in production the GET response simply omits aiApiKey — we treat its absence as "key set"
+    // when the mock injects aiApiKeySet. Fall back to checking aiModelName as a proxy.
+    setApiKeySet((remoteSettings as any).aiApiKeySet ?? !!remoteSettings.aiFeatures.aiModelName);
+    setPendingApiKey('');
+    const { ipAllowlist, ...restAccess } = remoteSettings.access;
+    setAccess(restAccess as SystemAccessSettings);
+    setIpAllowlistText(Array.isArray(ipAllowlist) ? ipAllowlist.join('\n') : (ipAllowlist ?? ''));
     setDirty(false);
-    toast('System settings saved', 'success');
+  }, [remoteSettings]);
+
+  const mark = <T,>(setter: React.Dispatch<React.SetStateAction<T>>) =>
+    (v: T) => { setter(v); setDirty(true); };
+
+  const handleSave = async () => {
+    try {
+      const payload: Parameters<typeof updateSystemSettings>[0] = {
+        notifications,
+        aiFeatures: {
+          ...aiFeatures,
+          ...(pendingApiKey ? { aiApiKey: pendingApiKey } : {}),
+        },
+        access: {
+          ...access,
+          ipAllowlist: ipAllowlistText.split('\n').map(s => s.trim()).filter(Boolean),
+        },
+      };
+      await updateSystemSettings(payload).unwrap();
+      if (pendingApiKey) setApiKeySet(true);
+      setPendingApiKey('');
+      setDirty(false);
+      toast('System settings saved', 'success');
+    } catch {
+      toast('Failed to save system settings', 'error');
+    }
   };
 
   const handleExport = async () => {
@@ -355,11 +386,21 @@ export const SystemSettingsPage: React.FC = () => {
     setTestResult(null);
     await new Promise(r => setTimeout(r, 800));
     setTesting(false);
-    setTestResult({ success: aiFeatures.aiApiKeySet, message: aiFeatures.aiApiKeySet ? 'Connection successful' : 'API key not configured' });
+    const hasKey = apiKeySet || pendingApiKey.length > 0;
+    setTestResult({ success: hasKey, message: hasKey ? 'Connection successful' : 'API key not configured' });
   };
 
-  const mark = <T,>(setter: React.Dispatch<React.SetStateAction<T>>) =>
-    (v: T) => { setter(v); setDirty(true); };
+  if (isLoading) {
+    return (
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '12rem', color: 'var(--color-text-muted)', fontSize: '0.875rem' }}>
+        Loading system settings…
+      </div>
+    );
+  }
+
+  if (isError) {
+    return <ErrorState message="Failed to load system settings." />;
+  }
 
   return (
     <div>
@@ -419,7 +460,7 @@ export const SystemSettingsPage: React.FC = () => {
               expandContent={
                 <input
                   type="text"
-                  value={notifications.slackChannel}
+                  value={notifications.slackChannel ?? ''}
                   placeholder="#support-alerts"
                   onChange={e => mark(setNotifications)({ ...notifications, slackChannel: e.target.value })}
                   disabled={!canEdit}
@@ -435,14 +476,14 @@ export const SystemSettingsPage: React.FC = () => {
             />
             <ToggleRow
               label="Daily digest email"
-              description={`Summary sent at ${notifications.dailyDigestTime} IST`}
+              description={`Summary sent at ${notifications.dailyDigestTime ?? '09:00'} IST`}
               checked={notifications.dailyDigestEnabled}
               onChange={v => mark(setNotifications)({ ...notifications, dailyDigestEnabled: v })}
               disabled={!canEdit}
               expandContent={
                 <input
                   type="time"
-                  value={notifications.dailyDigestTime}
+                  value={notifications.dailyDigestTime ?? '09:00'}
                   onChange={e => mark(setNotifications)({ ...notifications, dailyDigestTime: e.target.value })}
                   disabled={!canEdit}
                   style={{
@@ -504,14 +545,16 @@ export const SystemSettingsPage: React.FC = () => {
               disabled={!canEdit}
             />
 
-            {/* Divider */}
             <div style={{ borderTop: '1px solid var(--color-border)', paddingTop: '1rem' }}>
               <p style={{ margin: '0 0 0.75rem', fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>
                 AI Model Configuration
               </p>
               <AIModelSection
                 settings={aiFeatures}
+                apiKeySet={apiKeySet}
+                pendingApiKey={pendingApiKey}
                 onChange={s => { setAIFeatures(s); setDirty(true); }}
+                onApiKeyChange={v => { setPendingApiKey(v); setDirty(true); }}
                 disabled={!canEdit}
                 onTestConnection={handleTestConnection}
                 testing={testing}
@@ -555,9 +598,9 @@ export const SystemSettingsPage: React.FC = () => {
               expandContent={
                 <div>
                   <textarea
-                    value={access.ipAllowlist}
+                    value={ipAllowlistText}
                     placeholder={"192.168.1.0/24\n10.0.0.1"}
-                    onChange={e => mark(setAccess)({ ...access, ipAllowlist: e.target.value })}
+                    onChange={e => { setIpAllowlistText(e.target.value); setDirty(true); }}
                     disabled={!canEdit}
                     rows={3}
                     style={{
@@ -592,26 +635,10 @@ export const SystemSettingsPage: React.FC = () => {
                   <p style={{ margin: '0.125rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Full platform export</p>
                 </div>
                 <div style={{ display: 'flex', gap: '0.375rem' }}>
-                  <button
-                    onClick={handleExport}
-                    disabled={exportLoading}
-                    style={{
-                      padding: '0.3125rem 0.625rem', fontSize: '0.75rem', fontWeight: 600,
-                      background: 'var(--color-bg)', border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text)',
-                    }}
-                  >
+                  <button onClick={handleExport} disabled={exportLoading} style={{ padding: '0.3125rem 0.625rem', fontSize: '0.75rem', fontWeight: 600, background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text)' }}>
                     {exportLoading ? '...' : 'CSV'}
                   </button>
-                  <button
-                    onClick={handleExport}
-                    disabled={exportLoading}
-                    style={{
-                      padding: '0.3125rem 0.625rem', fontSize: '0.75rem', fontWeight: 600,
-                      background: 'var(--color-bg)', border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text)',
-                    }}
-                  >
+                  <button onClick={handleExport} disabled={exportLoading} style={{ padding: '0.3125rem 0.625rem', fontSize: '0.75rem', fontWeight: 600, background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text)' }}>
                     JSON
                   </button>
                 </div>
@@ -622,14 +649,7 @@ export const SystemSettingsPage: React.FC = () => {
                   <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>Reset demo data</p>
                   <p style={{ margin: '0.125rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Demo tenant only</p>
                 </div>
-                <button
-                  onClick={() => setResetConfirm(true)}
-                  style={{
-                    padding: '0.3125rem 0.75rem', fontSize: '0.75rem', fontWeight: 600,
-                    background: 'var(--color-bg)', border: '1px solid var(--color-border)',
-                    borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text)',
-                  }}
-                >
+                <button onClick={() => setResetConfirm(true)} style={{ padding: '0.3125rem 0.75rem', fontSize: '0.75rem', fontWeight: 600, background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: 'var(--color-text)' }}>
                   Restore defaults
                 </button>
               </div>
@@ -639,14 +659,7 @@ export const SystemSettingsPage: React.FC = () => {
                   <p style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: '#dc2626' }}>Purge closed tickets</p>
                   <p style={{ margin: '0.125rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Older than 90 days — irreversible</p>
                 </div>
-                <button
-                  onClick={() => setPurgeConfirm(true)}
-                  style={{
-                    padding: '0.3125rem 0.75rem', fontSize: '0.75rem', fontWeight: 700,
-                    background: '#fef2f2', border: '1px solid #fca5a5',
-                    borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: '#dc2626',
-                  }}
-                >
+                <button onClick={() => setPurgeConfirm(true)} style={{ padding: '0.3125rem 0.75rem', fontSize: '0.75rem', fontWeight: 700, background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: 'var(--radius-sm)', cursor: 'pointer', color: '#dc2626' }}>
                   Purge
                 </button>
               </div>

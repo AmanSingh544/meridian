@@ -7,6 +7,7 @@ import { Permission } from '@3sc/types';
 import { checkSession } from './features/auth/authSlice';
 import { ProtectedRoute } from './routes/ProtectedRoute';
 import { ConsoleLayout } from './components/layout/ConsoleLayout';
+import { applyAccentColor, applyDensity } from '@3sc/hooks';
 // import '@3sc/ui/src/styles/global.css';
 import '../../../packages/ui/src/styles/global.css';
 
@@ -57,6 +58,15 @@ const SessionInit: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     if (tenantId) dispatch(checkSession(tenantId));
     else dispatch({ type: 'auth/checkSession/rejected' });
   }, [dispatch]);
+
+  // Apply persisted appearance preferences immediately on mount
+  useEffect(() => {
+    const accent = localStorage.getItem('3sc_pref_accent');
+    const density = localStorage.getItem('3sc_pref_density') as 'comfortable' | 'compact' | null;
+    if (accent) applyAccentColor(accent);
+    if (density) applyDensity(density);
+  }, []);
+
   return <>{children}</>;
 };
 

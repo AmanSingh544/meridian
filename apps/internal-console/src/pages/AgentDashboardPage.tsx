@@ -54,8 +54,8 @@ export const AgentDashboardPage: React.FC = () => {
           Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
         ) : (
           <>
-            <MetricCard title="My Queue" value={myTickets?.meta.total ?? 0} icon="📬" color="var(--color-brand-500)" />
-            <MetricCard title="Open" value={dashboard?.openTickets ?? 0} icon="🎫" color="var(--color-info)" />
+            <MetricCard title="My Queue" value={myTickets?.total ?? 0} icon="📬" color="var(--color-brand-500)" />
+            <MetricCard title="Open" value={dashboard?.by_status?.OPEN ?? dashboard?.total ?? 0} icon="🎫" color="var(--color-info)" />
             <MetricCard title="Resolved Today" value={dashboard?.resolvedToday ?? 0} icon="✅" color="var(--color-success)" />
             <MetricCard
               title="SLA Compliance"

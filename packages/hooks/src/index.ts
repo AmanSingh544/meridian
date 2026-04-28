@@ -216,9 +216,52 @@ export function useDocumentTitle(title: string): void {
 
 // ── Theme Hook ──────────────────────────────────────────────────
 // Persists choice in localStorage, applies [data-theme] on <html>.
-// Respects system preference on first visit.
+// Supports 'light' | 'dark' | 'system'. 'system' resolves to the OS preference.
+// Uses a module-level singleton so every useTheme() instance stays in sync.
 
 export type Theme = 'light' | 'dark';
+export type ColorMode = 'light' | 'dark' | 'system';
+
+const ACCENT_HEX: Record<string, string> = {
+  cobalt:  '#4f46e5',
+  sky:     '#0ea5e9',
+  emerald: '#10b981',
+  violet:  '#8b5cf6',
+  rose:    '#f43f5e',
+  amber:   '#f59e0b',
+  slate:   '#64748b',
+};
+
+// Derived brand palette from a single base hex (50/500/600/700/900 stops).
+function derivePalette(hex: string): Record<string, string> {
+  return {
+    '--color-brand-50':  hex + '14',
+    '--color-brand-100': hex + '26',
+    '--color-brand-200': hex + '4d',
+    '--color-brand-500': hex,
+    '--color-brand-600': hex,
+    '--color-brand-700': hex,
+    '--color-brand-900': hex,
+  };
+}
+
+export function applyAccentColor(accentId: string) {
+  const hex = ACCENT_HEX[accentId] ?? ACCENT_HEX.cobalt;
+  const root = document.documentElement;
+  const palette = derivePalette(hex);
+  Object.entries(palette).forEach(([prop, val]) => root.style.setProperty(prop, val));
+  try { localStorage.setItem('3sc_pref_accent', accentId); } catch { /* ignore */ }
+}
+
+export function applyDensity(density: 'comfortable' | 'compact') {
+  document.documentElement.setAttribute('data-density', density);
+  try { localStorage.setItem('3sc_pref_density', density); } catch { /* ignore */ }
+}
+
+// ── Shared theme state (singleton) ──────────────────────────────
+
+const THEME_STORAGE_KEY = '3sc_pref_color_mode';
+const LEGACY_THEME_KEY  = '3sc_pref_theme';
 
 function getSystemTheme(): Theme {
   if (typeof window !== 'undefined' && window.matchMedia('(prefers-color-scheme: dark)').matches) {
@@ -227,30 +270,107 @@ function getSystemTheme(): Theme {
   return 'light';
 }
 
-function applyTheme(theme: Theme) {
-  document.documentElement.setAttribute('data-theme', theme);
+function resolveColorMode(mode: ColorMode): Theme {
+  return mode === 'system' ? getSystemTheme() : mode;
 }
 
-export function useTheme(): { theme: Theme; toggleTheme: () => void; isDark: boolean } {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    try {
-      const stored = localStorage.getItem('3sc_pref_theme') as Theme | null;
-      if (stored === 'light' || stored === 'dark') return stored;
-    } catch { /* ignore */ }
-    return getSystemTheme();
-  });
+function readStoredColorMode(): ColorMode | null {
+  try {
+    const mode = localStorage.getItem(THEME_STORAGE_KEY) as ColorMode | null;
+    if (mode) return mode;
+    const legacy = localStorage.getItem(LEGACY_THEME_KEY) as Theme | null;
+    if (legacy === 'light' || legacy === 'dark') return legacy;
+  } catch { /* ignore */ }
+  return null;
+}
 
+function writeStoredColorMode(mode: ColorMode) {
+  try {
+    localStorage.setItem(THEME_STORAGE_KEY, mode);
+    localStorage.setItem(LEGACY_THEME_KEY, resolveColorMode(mode));
+  } catch { /* ignore */ }
+}
+
+function applyThemeToDOM(theme: Theme) {
+  if (typeof document !== 'undefined') {
+    document.documentElement.setAttribute('data-theme', theme);
+  }
+}
+
+let sharedColorMode: ColorMode = readStoredColorMode() ?? 'system';
+let sharedTheme: Theme = resolveColorMode(sharedColorMode);
+const themeListeners = new Set<(theme: Theme) => void>();
+
+function emitTheme(theme: Theme) {
+  themeListeners.forEach((cb) => cb(theme));
+}
+
+function setSharedColorMode(mode: ColorMode) {
+  sharedColorMode = mode;
+  sharedTheme = resolveColorMode(mode);
+  applyThemeToDOM(sharedTheme);
+  writeStoredColorMode(mode);
+  emitTheme(sharedTheme);
+}
+
+function toggleSharedColorMode() {
+  const next: ColorMode = sharedTheme === 'light' ? 'dark' : 'light';
+  setSharedColorMode(next);
+}
+
+// Bootstrap DOM on first import
+applyThemeToDOM(sharedTheme);
+
+export function useTheme(): { theme: Theme; toggleTheme: () => void; setColorMode: (mode: ColorMode) => void; isDark: boolean } {
+  const [theme, setTheme] = useState<Theme>(sharedTheme);
+
+  // Subscribe to shared state
   useEffect(() => {
-    applyTheme(theme);
-    try { localStorage.setItem('3sc_pref_theme', theme); } catch { /* ignore */ }
-  }, [theme]);
-
-  // Apply immediately on mount (handles SSR/hydration edge cases)
-  useEffect(() => { applyTheme(theme); }, []);
-
-  const toggleTheme = useCallback(() => {
-    setThemeState((prev) => (prev === 'light' ? 'dark' : 'light'));
+    const handler = (t: Theme) => setTheme(t);
+    themeListeners.add(handler);
+    return () => { themeListeners.delete(handler); };
   }, []);
 
-  return { theme, toggleTheme, isDark: theme === 'dark' };
+  // Listen for OS preference changes (only acts while mode is 'system')
+  useEffect(() => {
+    const mql = window.matchMedia('(prefers-color-scheme: dark)');
+    const handler = () => {
+      if (sharedColorMode !== 'system') return;
+      const resolved = getSystemTheme();
+      if (resolved !== sharedTheme) {
+        sharedTheme = resolved;
+        applyThemeToDOM(sharedTheme);
+        emitTheme(sharedTheme);
+      }
+    };
+    mql.addEventListener('change', handler);
+    return () => mql.removeEventListener('change', handler);
+  }, []);
+
+  // Cross-tab / cross-instance sync via storage events
+  useEffect(() => {
+    const handler = (e: StorageEvent) => {
+      if (e.key === THEME_STORAGE_KEY && e.newValue) {
+        const mode = e.newValue as ColorMode;
+        if (mode !== sharedColorMode) {
+          sharedColorMode = mode;
+          sharedTheme = resolveColorMode(mode);
+          applyThemeToDOM(sharedTheme);
+          emitTheme(sharedTheme);
+        }
+      }
+    };
+    window.addEventListener('storage', handler);
+    return () => window.removeEventListener('storage', handler);
+  }, []);
+
+  const toggleTheme = useCallback(() => {
+    toggleSharedColorMode();
+  }, []);
+
+  const setColorMode = useCallback((mode: ColorMode) => {
+    setSharedColorMode(mode);
+  }, []);
+
+  return { theme, toggleTheme, setColorMode, isDark: theme === 'dark' };
 }

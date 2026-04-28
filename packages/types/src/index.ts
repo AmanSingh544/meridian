@@ -670,6 +670,7 @@ export interface SystemAIFeatureSettings {
   aiModelName?: string;
   aiApiKey?: string;           // write-only — never returned in GET
   aiBaseUrl?: string;          // for custom OpenAI-compatible providers
+  aiApiKeySet?: true,
 }
 
 export interface SystemAccessSettings {
@@ -677,7 +678,7 @@ export interface SystemAccessSettings {
   twoFactorRequired: boolean;
   auditLoggingEnabled: boolean;
   ipAllowlistEnabled: boolean;
-  ipAllowlist?: string[];      // CIDR or IP strings
+  ipAllowlist?: string[] | string;      // CIDR or IP strings
 }
 
 export interface SystemSettings {
@@ -804,6 +805,7 @@ export interface TicketUpdatePayload {
   category?: TicketCategory;
   tags?: string[];
   assignedTo?: UUID;
+  projectId?: UUID;
 }
 
 export interface TicketTransitionPayload {
@@ -866,7 +868,7 @@ export interface Comment {
 
 export interface CommentCreatePayload {
   ticket_id: UUID;
-  user_id: UUID;
+  user_id?: UUID;
   message: string;
   isInternal?: boolean;
   parent_id?: UUID;
@@ -1279,10 +1281,12 @@ export interface RoutingRule {
   name: string;
   description?: string;
   conditions: RoutingCondition[];
+  /** Agent or team to assign to when conditions match */
   assignTo: UUID;
   priority: number;
   isActive: boolean;
   created_at: ISO8601;
+  updated_at?: ISO8601;
 }
 
 export interface RoutingCondition {
@@ -1607,6 +1611,25 @@ export interface OnboardingProject {
 
 export interface OnboardingTaskUpdatePayload {
   status: OnboardingTaskStatus;
+}
+
+export interface OnboardingTaskCreatePayload {
+  title: string;
+  description?: string;
+  owner?: OnboardingTaskOwner;
+  due_date?: ISO8601;
+}
+
+export interface OnboardingCreatePayload {
+  organizationId: string;
+  goLiveDate?: ISO8601;
+  status?: OnboardingStatus;
+  tasks?: OnboardingTaskCreatePayload[];
+}
+
+export interface OnboardingUpdatePayload {
+  goLiveDate?: ISO8601;
+  status?: OnboardingStatus;
 }
 
 // AI — Onboarding

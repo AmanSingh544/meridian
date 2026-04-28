@@ -116,7 +116,7 @@ export const TicketDetailPage: React.FC = () => {
   // ── Queries ───────────────────────────────────────────────────────────────
   const { data: ticket, isLoading, error, refetch } = useGetTicketQuery(id!);
   const { data: comments = [] } = useGetCommentsQuery(id!);
-  const { data: usersPage } = useGetUsersQuery({}, { skip: !permissions.has(Permission.TICKET_ASSIGN) });
+  const { data: usersPage } = useGetUsersQuery({});
   const { data: projectsPage } = useGetProjectsQuery({ page: 1, page_size: 50 });
   const { data: aiSummary, isLoading: summaryLoading } = useGetAISummaryQuery(id!, {
     skip: !permissions.canUseAI(),
@@ -166,7 +166,7 @@ export const TicketDetailPage: React.FC = () => {
     }
   };
 
-  const handleAddComment = async (content: string, isInternal?: boolean, attachmentFiles?: File[]) => {
+  const handleAddComment = async (content: string, isInternal?: boolean, mentionIds?: string[], attachmentFiles?: File[]) => {
     if (!id) return;
 
     let attachment_ids: string[] = [];
@@ -190,6 +190,7 @@ export const TicketDetailPage: React.FC = () => {
       message: content,
       user_id: '1',
       isInternal,
+      mentioned_user_ids: mentionIds ?? [],
       attachment_ids,
     });
   };
@@ -367,8 +368,9 @@ export const TicketDetailPage: React.FC = () => {
             </div>
             <ThreadedComments
               comments={visibleComments}
+              mentionableUsers={agentUsers}
               onAddComment={permissions.canCreateComments()
-                ? (content, isInternal, _mentionIds, files) => handleAddComment(content, isInternal, files)
+                ? (content, isInternal, mentionIds, files) => handleAddComment(content, isInternal, mentionIds, files)
                 : undefined}
               showInternalToggle={permissions.canCreateInternalComments()}
               allowAttachments={permissions.has(Permission.ATTACHMENT_UPLOAD)}

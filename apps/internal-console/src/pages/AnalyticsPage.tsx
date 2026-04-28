@@ -323,7 +323,7 @@ export const AnalyticsPage: React.FC = () => {
             {
               key: 'avgResolutionHours', header: 'Avg Resolution', width: '9rem',
               render: (a: AgentPerformance) => (
-                <span style={{ fontFamily: 'var(--font-mono)' }}>{a.avgResolutionHours.toFixed(1)}h</span>
+                <span style={{ fontFamily: 'var(--font-mono)' }}>{(a.avgResolutionHours ?? 0).toFixed(1)}h</span>
               ),
             },
             {

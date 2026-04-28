@@ -18,7 +18,8 @@ export const KBArticleEditorPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const locationState = (location.state ?? {}) as { suggestedTitle?: string; topic?: string };
-  const { showToast } = useToast();
+  const { toast } = useToast();
+  const showToast = ({ message, variant }: { message: string; variant?: string }) => toast(message, variant as any);
 
   useDocumentTitle(isEditing ? 'Edit Article' : 'New Article');
 
@@ -363,7 +364,7 @@ export const KBArticleEditorPage: React.FC = () => {
                   }}
                 >
                   <span>{a.title}</span>
-                  {relatedIds.includes(a.id) && <Badge variant="success">Added</Badge>}
+                  {relatedIds.includes(a.id) && <Badge color="var(--color-success)" bgColor="var(--color-success-light, #d1fae5)">Added</Badge>}
                 </button>
               ))}
             </div>

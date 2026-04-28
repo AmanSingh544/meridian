@@ -11,7 +11,8 @@ export const KnowledgeBasePage: React.FC = () => {
   useDocumentTitle('Knowledge Base');
   const navigate = useNavigate();
   const permissions = usePermissions();
-  const { showToast } = useToast();
+  const { toast } = useToast();
+  const showToast = ({ message, variant }: { message: string; variant?: string }) => toast(message, variant as any);
   const canManage = permissions.has(Permission.KB_MANAGE);
 
   const [activeTab, setActiveTab] = useState<'articles' | 'categories' | 'gaps'>('articles');
@@ -118,13 +119,16 @@ export const KnowledgeBasePage: React.FC = () => {
                       </td>
                       <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
                         {article.category?.name ? (
-                          <Badge variant="neutral">{article.category.name}</Badge>
+                          <Badge>{article.category.name}</Badge>
                         ) : (
                           <span style={{ color: 'var(--color-text-muted)', fontSize: '0.8125rem' }}>—</span>
                         )}
                       </td>
                       <td style={{ padding: '0.75rem 1rem', whiteSpace: 'nowrap' }}>
-                        <Badge variant={article.isPublished ? 'success' : 'warning'}>
+                        <Badge
+                          color={article.isPublished ? 'var(--color-success)' : 'var(--color-warning)'}
+                          bgColor={article.isPublished ? 'var(--color-success-light, #d1fae5)' : 'var(--color-warning-light, #fef3c7)'}
+                        >
                           {article.isPublished ? 'Published' : 'Draft'}
                         </Badge>
                       </td>

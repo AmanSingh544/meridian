@@ -74,12 +74,15 @@ import type {
   UserRole,
   InviteUserPayload,
   DeliveryFeature,
+  DeliveryStatus,
   DeliveryFeatureCreatePayload,
   DeliveryRiskItem,
   DeliveryPrioritisedFeature,
   DeliveryFeatureDraft,
   OnboardingProject,
   OnboardingTaskUpdatePayload,
+  OnboardingCreatePayload,
+  OnboardingUpdatePayload,
   OnboardingHealthPrediction,
   OnboardingBlockerSummary,
   OnboardingNextAction,
@@ -101,7 +104,12 @@ import type {
   AgentAssignSuggestion,
   SkillGap,
   Permission,
+  SLAPolicy,
+  SLAPolicyUpdatePayload,
+  SystemSettings,
+  SystemSettingsUpdatePayload,
 } from '@3sc/types';
+import { SLAState } from '@3sc/types';
 
 // ── Raw API shapes (snake_case from backend) ────────────────────
 interface RawApiAttachment {
@@ -154,8 +162,10 @@ function mapRawComment(raw: RawApiComment): import('@3sc/types').Comment {
 // ── Raw Ticket shape (snake_case from backend) ──────────────────
 interface RawApiTicketUser {
   id: string;
-  first_name: string | null;
-  last_name: string | null;
+  display_name?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  role?: string | null;
   email: string;
   avatar_url: string | null;
 }
@@ -171,6 +181,7 @@ interface RawApiTicket {
   requester_id: string | null;
   assignee_id: string | null;
   tenant_id: string;
+  project_id?: string | null;
   sla_policy_id: string | null;
   sla_deadline_at: string | null;
   first_response_at: string | null;
@@ -180,16 +191,22 @@ interface RawApiTicket {
   metadata: Record<string, unknown>;
   created_at: string;
   updated_at: string;
+  comment_count?: number;
+  attachment_count?: number;
+  creator?: RawApiTicketUser;
   requester?: RawApiTicketUser;
-  assignee?: RawApiTicketUser;
+  assignee?: RawApiTicketUser | null;
   _count?: { comments: number };
   comments?: RawApiComment[];
   attachments?: RawApiAttachment[];
 }
 
-function mapRawTicketUser(raw?: RawApiTicketUser): import('@3sc/types').User | undefined {
+function mapRawTicketUser(raw?: RawApiTicketUser | null): import('@3sc/types').User | undefined {
   if (!raw) return undefined;
-  const displayName = [raw.first_name, raw.last_name].filter(Boolean).join(' ') || raw.email;
+  const displayName =
+    raw.display_name ||
+    [raw.first_name, raw.last_name].filter(Boolean).join(' ') ||
+    raw.email;
   return {
     id: raw.id,
     email: raw.email,
@@ -197,13 +214,59 @@ function mapRawTicketUser(raw?: RawApiTicketUser): import('@3sc/types').User | u
     firstName: raw.first_name ?? '',
     lastName: raw.last_name ?? '',
     avatarUrl: raw.avatar_url ?? undefined,
-    role: 'CLIENT_USER' as import('@3sc/types').UserRole,
+    role: (raw.role ?? 'CLIENT_USER') as import('@3sc/types').UserRole,
     permissions: [],
     organizationId: '',
     isActive: true,
     created_at: new Date().toISOString(),
     updated_at: new Date().toISOString(),
   } as import('@3sc/types').User;
+}
+
+function computeSla(raw: RawApiTicket): import('@3sc/types').SLAInfo | undefined {
+  if (!raw.sla_deadline_at) return undefined;
+  const deadline = new Date(raw.sla_deadline_at);
+  const now = Date.now();
+  const msRemaining = deadline.getTime() - now;
+  const isResolved = !!(raw.resolved_at || raw.closed_at);
+
+  let resolutionState: import('@3sc/types').SLAState;
+  let resolutionMet: boolean;
+  if (isResolved) {
+    const resolvedAt = new Date(raw.resolved_at ?? raw.closed_at!);
+    resolutionMet = resolvedAt <= deadline;
+    resolutionState = resolutionMet ? SLAState.MET : SLAState.BREACHED;
+  } else if (msRemaining < 0) {
+    resolutionMet = false;
+    resolutionState = SLAState.BREACHED;
+  } else if (msRemaining < 2 * 60 * 60 * 1000) {
+    resolutionMet = false;
+    resolutionState = SLAState.AT_RISK;
+  } else {
+    resolutionMet = false;
+    resolutionState = SLAState.ON_TRACK;
+  }
+
+  const responseMet = !!raw.first_response_at;
+  let responseState: import('@3sc/types').SLAState;
+  if (responseMet) {
+    responseState = SLAState.MET;
+  } else if (msRemaining < 0) {
+    responseState = SLAState.BREACHED;
+  } else if (msRemaining < 30 * 60 * 1000) {
+    responseState = SLAState.AT_RISK;
+  } else {
+    responseState = SLAState.ON_TRACK;
+  }
+
+  return {
+    resolutionDeadline: raw.sla_deadline_at,
+    resolutionState,
+    resolutionMet,
+    responseDeadline: raw.sla_deadline_at,
+    responseState,
+    responseMet,
+  };
 }
 
 function mapRawTicket(raw: RawApiTicket): import('@3sc/types').Ticket {
@@ -219,8 +282,8 @@ function mapRawTicket(raw: RawApiTicket): import('@3sc/types').Ticket {
     createdBy: raw.requester_id ?? '',
     assignedTo: raw.assignee_id ?? undefined,
     organizationId: raw.tenant_id,
-    projectId: undefined,
-    sla: undefined,
+    projectId: raw.project_id ?? undefined,
+    sla: computeSla(raw),
     attachments: (raw.attachments ?? []).map((a) => ({
       id: String(a.id),
       fileName: a.file_name,
@@ -230,14 +293,81 @@ function mapRawTicket(raw: RawApiTicket): import('@3sc/types').Ticket {
       uploadedBy: raw.tenant_id,
       created_at: a.created_at,
     })),
-    commentCount: raw._count?.comments ?? 0,
-    creator: mapRawTicketUser(raw.requester),
-    assignee: mapRawTicketUser(raw.assignee),
+    commentCount: raw.comment_count ?? raw._count?.comments ?? 0,
+    creator: mapRawTicketUser(raw.creator ?? raw.requester),
+    assignee: mapRawTicketUser(raw.assignee ?? undefined),
     created_at: raw.created_at,
     updated_at: raw.updated_at,
     resolved_at: raw.resolved_at ?? undefined,
     closed_at: raw.closed_at ?? undefined,
   };
+}
+
+function mapRawUser(raw: any): import('@3sc/types').User {
+  if (!raw) return raw;
+  const displayName =
+    raw.displayName ||
+    [raw.first_name, raw.last_name].filter(Boolean).join(' ') ||
+    raw.email ||
+    '';
+  return {
+    id: raw.id,
+    email: raw.email ?? '',
+    displayName,
+    firstName: raw.first_name ?? raw.firstName ?? '',
+    lastName: raw.last_name ?? raw.lastName ?? '',
+    avatarUrl: raw.avatar_url ?? raw.avatarUrl ?? undefined,
+    role: (raw.role ?? 'CLIENT_USER') as import('@3sc/types').UserRole,
+    permissions: raw.permissions ?? [],
+    organizationId: raw.tenant_id ?? raw.organizationId ?? '',
+    isActive: raw.is_active ?? raw.isActive ?? true,
+    lastLoginAt: raw.last_login_at ?? raw.lastLoginAt ?? undefined,
+    created_at: raw.created_at ?? '',
+    updated_at: raw.updated_at ?? '',
+    internalSubRole: raw.internal_sub_role ?? raw.internalSubRole ?? undefined,
+    department: raw.department ?? undefined,
+    timezone: raw.timezone ?? undefined,
+    mfaEnabled: raw.mfaEnabled ?? raw.mfa_enabled ?? undefined,
+    skills: raw.skills ?? undefined,
+    workload: raw.workload ?? undefined,
+    permissionOverrides: raw.permissionOverrides ?? raw.permission_overrides ?? undefined,
+  };
+}
+
+function mapRawRoutingRule(raw: any): import('@3sc/types').RoutingRule {
+  const conditions: import('@3sc/types').RoutingCondition[] = Array.isArray(raw.condition)
+    ? raw.condition
+    : Array.isArray(raw.conditions)
+      ? raw.conditions
+      : [];
+  const assignTo: string =
+    (raw.action as any)?.assignTo ??
+    (raw.action as any)?.assign_to ??
+    raw.assign_to ??
+    raw.assignTo ??
+    '';
+  return {
+    id: raw.id,
+    name: raw.name ?? '',
+    description: raw.description ?? undefined,
+    conditions,
+    assignTo,
+    priority: raw.priority ?? 0,
+    isActive: raw.is_active ?? raw.isActive ?? true,
+    created_at: raw.created_at ?? '',
+    updated_at: raw.updated_at ?? undefined,
+  };
+}
+
+function routingRuleToBackend(rule: Partial<import('@3sc/types').RoutingRule>): Record<string, unknown> {
+  const out: Record<string, unknown> = {};
+  if (rule.name !== undefined) out.name = rule.name;
+  if (rule.description !== undefined) out.description = rule.description;
+  if (rule.conditions !== undefined) out.condition = rule.conditions;
+  if (rule.assignTo !== undefined) out.action = { assignTo: rule.assignTo };
+  if (rule.priority !== undefined) out.priority = rule.priority;
+  if (rule.isActive !== undefined) out.is_active = rule.isActive;
+  return out;
 }
 
 // ── Base Query with Auth Retry ──────────────────────────────────
@@ -295,6 +425,7 @@ export const api = createApi({
     'Notification', 'User', 'Organization', 'AuditLog',
     'Analytics', 'Dashboard', 'RoutingRule', 'AI',
     'Session', 'UserPreferences', 'Delivery', 'Onboarding', 'Roadmap', 'Escalations',
+    'SLAPolicy', 'SystemSettings',
   ],
   endpoints: (builder) => ({
     // ── Auth ────────────────────────────────────────────────
@@ -328,13 +459,16 @@ export const api = createApi({
         url: '/tickets/list',
         params: filters,
       }),
-      transformResponse: (response: { data: RawApiTicket[]; page: number; page_size: number; total: number; total_pages: number }) => ({
-        data: response.data.map(mapRawTicket),
-        total: response.total,
-        page: response.page,
-        page_size: response.page_size,
-        total_pages: response.total_pages,
-      }),
+      transformResponse: (response: { data: RawApiTicket[]; page?: number; page_size?: number; total?: number; total_pages?: number }) => {
+        const arr: RawApiTicket[] = Array.isArray(response.data) ? response.data : [];
+        return {
+          data: arr.map(mapRawTicket),
+          total: response.total ?? arr.length,
+          page: response.page ?? 1,
+          page_size: response.page_size ?? arr.length,
+          total_pages: response.total_pages ?? 1,
+        };
+      },
       providesTags: (result) =>
         result
           ? [
@@ -356,7 +490,10 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
-      transformResponse: (response: RawApiTicket) => mapRawTicket(response),
+      transformResponse: (response: ApiResponse<RawApiTicket> | RawApiTicket) => {
+        const raw = (response as ApiResponse<RawApiTicket>).data ?? (response as RawApiTicket);
+        return mapRawTicket(raw);
+      },
       invalidatesTags: ['TicketList', 'Dashboard'],
     }),
 
@@ -366,7 +503,10 @@ export const api = createApi({
         method: 'PATCH',
         body: payload,
       }),
-      transformResponse: (response: RawApiTicket) => mapRawTicket(response),
+      transformResponse: (response: ApiResponse<RawApiTicket> | RawApiTicket) => {
+        const raw = (response as ApiResponse<RawApiTicket>).data ?? (response as RawApiTicket);
+        return mapRawTicket(raw);
+      },
       invalidatesTags: (_result, _error, { id }) => [
         { type: 'Ticket', id },
         { type: 'TicketList' },
@@ -387,12 +527,15 @@ export const api = createApi({
     }),
 
     transitionTicket: builder.mutation<Ticket, TicketTransitionPayload>({
-      query: ({ ticketId, ...body }) => ({
+      query: ({ ticketId, toStatus, comment }) => ({
         url: `/tickets/${ticketId}/transition`,
         method: 'POST',
-        body,
+        body: { to_status: toStatus, comment },
       }),
-      transformResponse: (response: RawApiTicket) => mapRawTicket(response),
+      transformResponse: (response: ApiResponse<RawApiTicket> | RawApiTicket) => {
+        const raw = (response as ApiResponse<RawApiTicket>).data ?? (response as RawApiTicket);
+        return mapRawTicket(raw);
+      },
       invalidatesTags: (_result, _error, { ticketId }) => [
         { type: 'Ticket', id: ticketId },
         { type: 'TicketList' },
@@ -405,7 +548,8 @@ export const api = createApi({
       query: (ticketId) => `/tickets/${ticketId}/comments`,
       transformResponse: (response: ApiResponse<any[]> | any[]) => {
         const raw = Array.isArray(response) ? response : response.data;
-        return raw.map((c: any): Comment => ({
+
+        const mapOne = (c: any): Comment => ({
           id: c.id,
           ticketId: c.ticket_id,
           authorId: c.author?.id ?? '',
@@ -440,7 +584,17 @@ export const api = createApi({
             : undefined,
           created_at: c.created_at,
           updated_at: c.updated_at,
-        }));
+        });
+
+        // Flatten nested replies into the same array so the UI's parentId lookup works
+        const result: Comment[] = [];
+        for (const c of raw) {
+          result.push(mapOne(c));
+          for (const r of c.replies ?? []) {
+            result.push(mapOne(r));
+          }
+        }
+        return result;
       },
       providesTags: (_result, _error, ticketId) => [{ type: 'Comment', id: ticketId }],
     }),
@@ -680,12 +834,19 @@ export const api = createApi({
     // ── Users ───────────────────────────────────────────────
     getUsers: builder.query<PaginatedResponse<User>, { page?: number; role?: string; search?: string }>({
       query: (params) => ({ url: '/users', params }),
+      transformResponse: (response: any) => ({
+        data: (response.data ?? []).map(mapRawUser),
+        total: response.total ?? 0,
+        page: response.page ?? 1,
+        page_size: response.page_size ?? 25,
+        total_pages: response.total_pages ?? 1,
+      }),
       providesTags: ['User'],
     }),
 
     getUser: builder.query<User, string>({
       query: (id) => `/users/${id}`,
-      transformResponse: (response: ApiResponse<User>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => mapRawUser(response.data ?? response),
       providesTags: (_result, _error, id) => [{ type: 'User', id }],
     }),
 
@@ -695,7 +856,7 @@ export const api = createApi({
         method: 'PATCH',
         body: payload,
       }),
-      transformResponse: (response: ApiResponse<User>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => mapRawUser(response.data ?? response),
       invalidatesTags: ['User'],
     }),
 
@@ -713,7 +874,7 @@ export const api = createApi({
         method: 'POST',
         body,
       }),
-      transformResponse: (response: ApiResponse<User>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => mapRawUser(response.data ?? response),
       invalidatesTags: ['User'],
     }),
 
@@ -723,7 +884,7 @@ export const api = createApi({
       providesTags: ['Organization'],
     }),
 
-    updateOrganization: builder.mutation<Organization, { id: string; payload: Partial<Pick<Organization, 'name' | 'domain' | 'logoUrl'>> }>({
+    updateOrganization: builder.mutation<Organization, { id: string; payload: Partial<Pick<Organization, 'name' | 'domain' | 'logoUrl' | 'isActive'>> }>({
       query: ({ id, payload }) => ({
         url: `/organizations/${id}`,
         method: 'PATCH',
@@ -802,6 +963,48 @@ export const api = createApi({
       invalidatesTags: ['UserPreferences'],
     }),
 
+    getMe: builder.query<User, void>({
+      query: () => '/users/me',
+      transformResponse: (response: ApiResponse<any>) => mapRawUser(response.data ?? response),
+      providesTags: [{ type: 'User', id: 'ME' }],
+    }),
+
+    updateMe: builder.mutation<User, { firstName?: string; lastName?: string; jobTitle?: string; phone?: string; avatarUrl?: string }>({
+      query: (payload) => ({ url: '/users/me', method: 'PATCH', body: payload }),
+      transformResponse: (response: ApiResponse<any>) => mapRawUser(response.data ?? response),
+      invalidatesTags: ['User', { type: 'User', id: 'ME' }],
+    }),
+
+    changePassword: builder.mutation<{ message: string }, { currentPassword: string; newPassword: string }>({
+      query: (payload) => ({ url: '/auth/change-password', method: 'POST', body: payload }),
+    }),
+
+    // ── SLA Policy ──────────────────────────────────────────
+    getSLAPolicy: builder.query<SLAPolicy, void>({
+      query: () => '/sla-policy',
+      transformResponse: (response: ApiResponse<SLAPolicy>) => response.data,
+      providesTags: ['SLAPolicy'],
+    }),
+
+    updateSLAPolicy: builder.mutation<SLAPolicy, SLAPolicyUpdatePayload>({
+      query: (payload) => ({ url: '/sla-policy', method: 'PATCH', body: payload }),
+      transformResponse: (response: ApiResponse<SLAPolicy>) => response.data,
+      invalidatesTags: ['SLAPolicy'],
+    }),
+
+    // ── System Settings ─────────────────────────────────────
+    getSystemSettings: builder.query<SystemSettings, void>({
+      query: () => '/system-settings',
+      transformResponse: (response: ApiResponse<SystemSettings>) => response.data,
+      providesTags: ['SystemSettings'],
+    }),
+
+    updateSystemSettings: builder.mutation<SystemSettings, SystemSettingsUpdatePayload>({
+      query: (payload) => ({ url: '/system-settings', method: 'PATCH', body: payload }),
+      transformResponse: (response: ApiResponse<SystemSettings>) => response.data,
+      invalidatesTags: ['SystemSettings'],
+    }),
+
     // ── Audit Logs ──────────────────────────────────────────
     getAuditLogs: builder.query<PaginatedResponse<AuditLogEntry>, {
       page?: number;
@@ -816,17 +1019,21 @@ export const api = createApi({
     // ── Routing Rules ───────────────────────────────────────
     getRoutingRules: builder.query<RoutingRule[], void>({
       query: () => '/routing-rules',
-      transformResponse: (response: ApiResponse<RoutingRule[]>) => response.data,
+      transformResponse: (response: ApiResponse<any[]> | any[]) => {
+        const arr: any[] = (response as ApiResponse<any[]>).data ?? (response as any[]);
+        if (!Array.isArray(arr)) return [];
+        return arr.map(mapRawRoutingRule);
+      },
       providesTags: ['RoutingRule'],
     }),
 
-    createRoutingRule: builder.mutation<RoutingRule, Omit<RoutingRule, 'id' | 'created_at'>>({
+    createRoutingRule: builder.mutation<RoutingRule, Omit<RoutingRule, 'id' | 'created_at' | 'updated_at'>>({
       query: (body) => ({
         url: '/routing-rules',
         method: 'POST',
-        body,
+        body: routingRuleToBackend(body),
       }),
-      transformResponse: (response: ApiResponse<RoutingRule>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => mapRawRoutingRule(response.data ?? response),
       invalidatesTags: ['RoutingRule'],
     }),
 
@@ -834,9 +1041,9 @@ export const api = createApi({
       query: ({ id, payload }) => ({
         url: `/routing-rules/${id}`,
         method: 'PATCH',
-        body: payload,
+        body: routingRuleToBackend(payload),
       }),
-      transformResponse: (response: ApiResponse<RoutingRule>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => mapRawRoutingRule(response.data ?? response),
       invalidatesTags: ['RoutingRule'],
     }),
 
@@ -966,7 +1173,49 @@ export const api = createApi({
     // ── Delivery Board ──────────────────────────────────────────
     getDeliveryFeatures: builder.query<DeliveryFeature[], void>({
       query: () => '/delivery/features',
-      transformResponse: (response: ApiResponse<DeliveryFeature[]>) => response.data,
+      transformResponse: (response: ApiResponse<any[]> | any) => {
+        const raw: any[] = Array.isArray(response) ? response : (response.data ?? []);
+        return raw.map((f: any): DeliveryFeature => {
+          const dateStr: string = f.updated_at ?? f.created_at ?? new Date().toISOString();
+          const d = new Date(dateStr);
+          const q = Math.ceil((d.getMonth() + 1) / 3);
+          const quarter: string = f.quarter ?? `Q${q} ${d.getFullYear()}`;
+
+          const t = (f.title ?? '').toLowerCase();
+          const category: string = f.category ?? (
+            t.includes('ai') || t.includes('suggest') || t.includes('classif') ? 'AI'
+            : t.includes('sla') || t.includes('breach') || t.includes('alert') ? 'Notifications'
+            : t.includes('analytic') || t.includes('dashboard') || t.includes('report') ? 'Analytics'
+            : t.includes('2fa') || t.includes('auth') || t.includes('security') || t.includes('factor') ? 'Security'
+            : t.includes('mobile') || t.includes('ios') || t.includes('android') ? 'Mobile'
+            : t.includes('webhook') || t.includes('integration') || t.includes('slack') || t.includes('jira') ? 'Integrations'
+            : t.includes('roadmap') || t.includes('portal') || t.includes('branding') || t.includes('theme') ? 'Portal'
+            : t.includes('onboarding') || t.includes('tracker') ? 'Onboarding'
+            : t.includes('ticket') || t.includes('bulk') ? 'Tickets'
+            : 'Other'
+          );
+
+          const status = (f.status ?? 'BACKLOG').toUpperCase().replace(/ /g, '_') as DeliveryStatus;
+
+          return {
+            id: f.id,
+            title: f.title ?? '',
+            description: f.description ?? '',
+            status,
+            upvotes: f.upvotes ?? f.votes ?? 0,
+            quarter,
+            category,
+            isPublic: f.is_public ?? f.isPublic ?? true,
+            hasVoted: f.has_voted ?? f.hasVoted ?? false,
+            eta: f.due_date ?? f.eta ?? undefined,
+            assignee: f.assignee ?? undefined,
+            assigneeId: f.assignee_id ?? f.assigneeId ?? undefined,
+            requestedByOrgIds: f.requested_by_org_ids ?? f.requestedByOrgIds ?? undefined,
+            created_at: f.created_at,
+            updated_at: f.updated_at,
+          };
+        });
+      },
       providesTags: ['Delivery'],
     }),
     createDeliveryFeature: builder.mutation<DeliveryFeature, DeliveryFeatureCreatePayload>({
@@ -994,6 +1243,20 @@ export const api = createApi({
       query: (id) => `/onboarding/${id}`,
       transformResponse: (response: ApiResponse<OnboardingProject>) => response.data,
       providesTags: ['Onboarding'],
+    }),
+    createOnboardingProject: builder.mutation<OnboardingProject, OnboardingCreatePayload>({
+      query: (body) => ({ url: '/onboarding', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<OnboardingProject>) => response.data,
+      invalidatesTags: ['Onboarding'],
+    }),
+    updateOnboardingProject: builder.mutation<OnboardingProject, { id: string; data: OnboardingUpdatePayload }>({
+      query: ({ id, data }) => ({ url: `/onboarding/${id}`, method: 'PATCH', body: data }),
+      transformResponse: (response: ApiResponse<OnboardingProject>) => response.data,
+      invalidatesTags: ['Onboarding'],
+    }),
+    deleteOnboardingProject: builder.mutation<{ success: boolean }, string>({
+      query: (id) => ({ url: `/onboarding/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['Onboarding'],
     }),
     updateOnboardingTask: builder.mutation<OnboardingProject, { onboardingId: string; taskId: string; data: OnboardingTaskUpdatePayload }>({
       query: ({ onboardingId, taskId, data }) => ({
@@ -1051,7 +1314,7 @@ export const api = createApi({
             category,
             isPublic: true,
             hasVoted: f.has_voted ?? f.hasVoted ?? false,
-            eta: f.eta ?? undefined,
+            eta: f.due_date ?? f.eta ?? undefined,
             assignee: f.assignee ?? undefined,
             assigneeId: f.assignee_id ?? f.assigneeId ?? undefined,
             requestedByOrgIds: f.requested_by_org_ids ?? f.requestedByOrgIds ?? undefined,
@@ -1128,7 +1391,31 @@ export const api = createApi({
     // ── Escalations ─────────────────────────────────────────────
     getEscalations: builder.query<EscalatedTicket[], void>({
       query: () => '/escalations',
-      transformResponse: (response: ApiResponse<EscalatedTicket[]>) => response.data,
+      transformResponse: (response: ApiResponse<any[]>) => {
+        const now = Date.now();
+        return (response.data ?? []).map((e: any) => {
+          const createdAt = new Date(e.created_at).getTime();
+          const timeInEscalationMinutes = Math.floor((now - createdAt) / 60_000);
+          const priority = e.ticket?.priority ?? 'MEDIUM';
+          const slaState =
+            timeInEscalationMinutes >= 240 ? 'breached' :
+            timeInEscalationMinutes >= 60  ? 'at_risk'  : 'on_track';
+          return {
+            ticketId: e.id,
+            ticketNumber: e.ticket?.ticket_number ?? '',
+            title: e.ticket?.title ?? '',
+            clientName: e.ticket?.title ?? 'Unknown',
+            clientId: e.tenant_id,
+            severity: priority,
+            reason: e.reason ?? '',
+            timeInEscalationMinutes,
+            assignedTo: e.escalated_to ?? undefined,
+            slaState,
+            created_at: e.created_at,
+            _ticketId: e.ticket_id,
+          } as EscalatedTicket & { _ticketId: string };
+        });
+      },
       providesTags: ['Escalations'],
     }),
     getEscalationAgents: builder.query<{ id: string; displayName: string; currentLoad: number }[], void>({
@@ -1150,13 +1437,41 @@ export const api = createApi({
     /** Get skills assigned to a specific user */
     getUserSkills: builder.query<UserSkill[], string>({
       query: (userId) => `/users/${userId}/skills`,
-      transformResponse: (response: ApiResponse<UserSkill[]>) => response.data,
+      transformResponse: (response: ApiResponse<any[]>) => {
+        const arr: any[] = response.data ?? (response as any) ?? [];
+        return arr.map((us) => ({
+          skillId: us.skill_id ?? us.skillId ?? us.id,
+          skill: us.skill
+            ? { id: us.skill.id, name: us.skill.name, category: us.skill.category, description: us.skill.description }
+            : us.skill_id
+              ? { id: us.skill_id, name: us.name ?? '', category: us.category ?? undefined, description: undefined }
+              : undefined,
+          level: (us.level ?? 'BEGINNER') as import('@3sc/types').SkillLevel,
+          endorsements: us.proficiency,
+        }));
+      },
       providesTags: (_result, _error, id) => [{ type: 'User', id }],
     }),
     /** Replace a user's full skill list (ADMIN/LEAD only) */
     updateUserSkills: builder.mutation<UserSkill[], { userId: string; skillIds: { skillId: string; level: string }[] }>({
-      query: ({ userId, skillIds }) => ({ url: `/users/${userId}/skills`, method: 'PATCH', body: { skills: skillIds } }),
-      transformResponse: (response: ApiResponse<UserSkill[]>) => response.data,
+      query: ({ userId, skillIds }) => ({
+        url: `/users/${userId}/skills`,
+        method: 'PATCH',
+        body: { skills: skillIds.map((s) => ({ skill_id: s.skillId, level: s.level })) },
+      }),
+      transformResponse: (response: ApiResponse<any[]>) => {
+        const arr: any[] = response.data ?? (response as any) ?? [];
+        return arr.map((us) => ({
+          skillId: us.skill_id ?? us.skillId ?? us.id,
+          skill: us.skill
+            ? { id: us.skill.id, name: us.skill.name, category: us.skill.category, description: us.skill.description }
+            : us.skill_id
+              ? { id: us.skill_id, name: us.name ?? '', category: us.category ?? undefined, description: undefined }
+              : undefined,
+          level: (us.level ?? 'BEGINNER') as import('@3sc/types').SkillLevel,
+          endorsements: us.proficiency,
+        }));
+      },
       invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
     }),
 
@@ -1164,13 +1479,16 @@ export const api = createApi({
     /** Get the global skill taxonomy list */
     getSkills: builder.query<Skill[], { category?: string; search?: string } | void>({
       query: (params) => ({ url: '/skills', params: params ?? {} }),
-      transformResponse: (response: ApiResponse<Skill[]>) => response.data,
+      transformResponse: (response: ApiResponse<Skill[]> | { data: Skill[] }) => {
+        const arr = (response as ApiResponse<Skill[]>).data ?? (response as any);
+        return Array.isArray(arr) ? arr : [];
+      },
       providesTags: ['User'],
     }),
     /** ADMIN: add a new skill to the global taxonomy */
     createSkill: builder.mutation<Skill, { name: string; category: string; description?: string }>({
       query: (body) => ({ url: '/skills', method: 'POST', body }),
-      transformResponse: (response: ApiResponse<Skill>) => response.data,
+      transformResponse: (response: ApiResponse<Skill>) => response.data ?? (response as any),
       invalidatesTags: ['User'],
     }),
 
@@ -1178,13 +1496,31 @@ export const api = createApi({
     /** Get live workload metrics for a user */
     getUserWorkload: builder.query<UserWorkload, string>({
       query: (userId) => `/users/${userId}/workload`,
-      transformResponse: (response: ApiResponse<UserWorkload>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => {
+        const d = response.data ?? response;
+        return {
+          assignedTickets: d.assigned_tickets ?? d.assignedTickets ?? 0,
+          maxCapacity: d.max_capacity ?? d.maxCapacity ?? 20,
+          availabilityStatus: (d.availability_status ?? d.availabilityStatus ?? 'AVAILABLE') as import('@3sc/types').AvailabilityStatus,
+          availableFrom: d.available_from ?? d.availableFrom,
+          utilizationPct: d.utilization_pct ?? d.utilizationPct ?? 0,
+        };
+      },
       providesTags: (_result, _error, id) => [{ type: 'User', id }],
     }),
     /** Update max capacity or availability status (ADMIN/LEAD) */
     updateUserWorkload: builder.mutation<UserWorkload, { userId: string; data: UserWorkloadUpdatePayload }>({
       query: ({ userId, data }) => ({ url: `/users/${userId}/workload`, method: 'PATCH', body: data }),
-      transformResponse: (response: ApiResponse<UserWorkload>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => {
+        const d = response.data ?? response;
+        return {
+          assignedTickets: d.assigned_tickets ?? d.assignedTickets ?? 0,
+          maxCapacity: d.max_capacity ?? d.maxCapacity ?? 20,
+          availabilityStatus: (d.availability_status ?? d.availabilityStatus ?? 'AVAILABLE') as import('@3sc/types').AvailabilityStatus,
+          availableFrom: d.available_from ?? d.availableFrom,
+          utilizationPct: d.utilization_pct ?? d.utilizationPct ?? 0,
+        };
+      },
       invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
     }),
     /** Get aggregated workload summary for all agents (LEAD/ADMIN dashboard widget) */
@@ -1198,15 +1534,18 @@ export const api = createApi({
       overloadedAgents: number;
     }, void>({
       query: () => '/users/workload-summary',
-      transformResponse: (response: ApiResponse<{
-        totalAgents: number;
-        availableAgents: number;
-        busyAgents: number;
-        awayAgents: number;
-        offlineAgents: number;
-        avgUtilization: number;
-        overloadedAgents: number;
-      }>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => {
+        const d = response.data ?? response;
+        return {
+          totalAgents: d.total_agents ?? d.totalAgents ?? 0,
+          availableAgents: d.available_agents ?? d.availableAgents ?? 0,
+          busyAgents: d.busy_agents ?? d.busyAgents ?? 0,
+          awayAgents: d.away_agents ?? d.awayAgents ?? 0,
+          offlineAgents: d.offline_agents ?? d.offlineAgents ?? 0,
+          avgUtilization: d.avg_utilization ?? d.avgUtilization ?? 0,
+          overloadedAgents: d.overloaded_agents ?? d.overloadedAgents ?? 0,
+        };
+      },
       providesTags: ['User'],
     }),
 
@@ -1238,12 +1577,19 @@ export const api = createApi({
     /** CLIENT_ADMIN: get org-scoped member list (never includes internal 3SC staff) */
     getTeamMembers: builder.query<PaginatedResponse<User>, { page?: number; search?: string; role?: string }>({
       query: (params) => ({ url: '/team/members', params }),
+      transformResponse: (response: any) => ({
+        data: (response.data ?? []).map(mapRawUser),
+        total: response.total ?? 0,
+        page: response.page ?? 1,
+        page_size: response.page_size ?? 25,
+        total_pages: response.total_pages ?? 1,
+      }),
       providesTags: ['User'],
     }),
     /** CLIENT_ADMIN: change a member's role within [CLIENT_ADMIN, CLIENT_USER] */
     updateTeamMemberRole: builder.mutation<User, { memberId: string; role: 'CLIENT_ADMIN' | 'CLIENT_USER' }>({
       query: ({ memberId, role }) => ({ url: `/team/members/${memberId}/role`, method: 'PATCH', body: { role } }),
-      transformResponse: (response: ApiResponse<User>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => mapRawUser(response.data ?? response),
       invalidatesTags: ['User'],
     }),
     /** CLIENT_ADMIN: deactivate a member (soft delete only) */
@@ -1365,6 +1711,15 @@ export const {
   // User Preferences
   useGetUserPreferencesQuery,
   useUpdateUserPreferencesMutation,
+  useGetMeQuery,
+  useUpdateMeMutation,
+  useChangePasswordMutation,
+  // SLA Policy
+  useGetSLAPolicyQuery,
+  useUpdateSLAPolicyMutation,
+  // System Settings
+  useGetSystemSettingsQuery,
+  useUpdateSystemSettingsMutation,
   // Audit
   useGetAuditLogsQuery,
   // Routing
@@ -1398,6 +1753,9 @@ export const {
   // Onboarding
   useGetOnboardingProjectsQuery,
   useGetOnboardingProjectQuery,
+  useCreateOnboardingProjectMutation,
+  useUpdateOnboardingProjectMutation,
+  useDeleteOnboardingProjectMutation,
   useUpdateOnboardingTaskMutation,
   useGetMyOnboardingQuery,
   // Roadmap

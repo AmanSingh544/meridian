@@ -9,6 +9,7 @@ import {
   useGetAISummaryQuery, useGetAIETAQuery,
   useAcceptAISuggestionMutation, useRejectAISuggestionMutation,
   useGetAIKBSuggestionsQuery,
+  useGetUsersQuery,
 } from '@3sc/api';
 import {
   useDocumentTitle, usePermissions, useTicketTransitions,
@@ -19,7 +20,7 @@ import {
   Drawer, ConfirmDialog, Badge, Avatar, Select,
   ErrorState, Skeleton, Tabs, TabPanel, ConfidenceBar,
 } from '@3sc/ui';
-import { TicketStatus, Permission } from '@3sc/types';
+import { TicketStatus, Permission, UserRole } from '@3sc/types';
 import { getStatusLabel, getStatusColor, formatDateTime, getPriorityLabel } from '@3sc/utils';
 
 export const TicketWorkspacePage: React.FC = () => {
@@ -29,6 +30,7 @@ export const TicketWorkspacePage: React.FC = () => {
 
   const { data: ticket, isLoading, error, refetch } = useGetTicketQuery(id!);
   const { data: comments = [] } = useGetCommentsQuery(id!);
+  const { data: usersPage } = useGetUsersQuery({});
   const [transitionTicket, { isLoading: transitioning }] = useTransitionTicketMutation();
   const [updateTicket] = useUpdateTicketMutation();
   const [createComment] = useCreateCommentMutation();
@@ -60,9 +62,14 @@ export const TicketWorkspacePage: React.FC = () => {
     setConfirmTransition(null);
   };
 
-  const handleAddComment = async (content: string, isInternal?: boolean) => {
+  // Internal agents can mention anyone on the tenant; filter to agents/leads/admins
+  const mentionableUsers = (usersPage?.data ?? []).filter(
+    (u) => u.role === UserRole.AGENT || u.role === UserRole.LEAD || u.role === UserRole.ADMIN,
+  );
+
+  const handleAddComment = async (content: string, isInternal?: boolean, mentionIds?: string[]) => {
     if (!id) return;
-    await createComment({ ticketId: id, content, isInternal });
+    await createComment({ ticket_id: id, message: content, isInternal, mentioned_user_ids: mentionIds ?? [] });
   };
 
   if (error) return <ErrorState onRetry={refetch} />;
@@ -172,8 +179,9 @@ export const TicketWorkspacePage: React.FC = () => {
             )}
             <ThreadedComments
               comments={comments.filter((c) => !c.isInternal)}
-              onAddComment={(content) => handleAddComment(content, false)}
-              onReply={(parentId, content) => createComment({ ticketId: id!, content, parentId })}
+              mentionableUsers={mentionableUsers}
+              onAddComment={(content, _isInternal, mentionIds) => handleAddComment(content, false, mentionIds)}
+              onReply={(parentId, content, mentionIds) => createComment({ ticket_id: id!, message: content, parent_id: parentId, mentioned_user_ids: mentionIds ?? [] })}
               showInternalToggle={false}
             />
           </TabPanel>
@@ -182,7 +190,8 @@ export const TicketWorkspacePage: React.FC = () => {
             {permissions.canCreateInternalComments() ? (
               <ThreadedComments
                 comments={comments.filter((c) => c.isInternal)}
-                onAddComment={(content) => handleAddComment(content, true)}
+                mentionableUsers={mentionableUsers}
+                onAddComment={(content, _isInternal, mentionIds) => handleAddComment(content, true, mentionIds)}
                 showInternalToggle={false}
               />
             ) : (

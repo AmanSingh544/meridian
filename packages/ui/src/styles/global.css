@@ -99,6 +99,30 @@
   --shadow-xl: 0 20px 32px -5px rgb(0 0 0 / 0.7), 0 8px 12px -6px rgb(0 0 0 / 0.5);
 }
 
+/* ── Density ─────────────────────────────────────────────────────
+   data-density="compact" on <html> tightens spacing.
+   Components use these variables for padding / gap.
+────────────────────────────────────────────────────────────── */
+:root {
+  --density-spacing-xs: 0.25rem;
+  --density-spacing-sm: 0.5rem;
+  --density-spacing-md: 0.75rem;
+  --density-spacing-lg: 1rem;
+  --density-spacing-xl: 1.5rem;
+  --density-font-sm: 0.875rem;
+  --density-font-xs: 0.8125rem;
+}
+
+[data-density="compact"] {
+  --density-spacing-xs: 0.125rem;
+  --density-spacing-sm: 0.25rem;
+  --density-spacing-md: 0.5rem;
+  --density-spacing-lg: 0.625rem;
+  --density-spacing-xl: 1rem;
+  --density-font-sm: 0.8125rem;
+  --density-font-xs: 0.75rem;
+}
+
 *, *::before, *::after {
   box-sizing: border-box;
   margin: 0;

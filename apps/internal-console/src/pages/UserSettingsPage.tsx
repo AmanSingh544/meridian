@@ -1,6 +1,12 @@
-import React, { useState, useRef } from 'react';
-import { useDocumentTitle, useSession } from '@3sc/hooks';
+import React, { useState, useRef, useEffect } from 'react';
+import { useDocumentTitle, useSession, useTheme, applyAccentColor, applyDensity } from '@3sc/hooks';
 import { Card, Button, Avatar } from '@3sc/ui';
+import {
+  useGetUserPreferencesQuery,
+  useUpdateUserPreferencesMutation,
+  useUpdateMeMutation,
+  useChangePasswordMutation,
+} from '@3sc/api';
 
 // ── Types ────────────────────────────────────────────────────────────────────
 
@@ -101,9 +107,27 @@ const Toggle: React.FC<{ value: boolean; onChange: (v: boolean) => void }> = ({ 
 
 const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ session }) => {
   const avatarRef = useRef<HTMLInputElement>(null);
+  const [updateMe, { isLoading: isSaving }] = useUpdateMeMutation();
+
   const [displayName, setDisplayName] = useState(session?.displayName ?? '');
   const [jobTitle, setJobTitle]       = useState('');
   const [saved, setSaved]             = useState(false);
+  const [saveError, setSaveError]     = useState('');
+
+  const handleSave = async () => {
+    setSaveError('');
+    try {
+      await updateMe({
+        firstName: displayName.split(' ')[0] ?? '',
+        lastName: displayName.split(' ').slice(1).join(' ') ?? '',
+        jobTitle,
+      }).unwrap();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      setSaveError('Failed to save changes. Please try again.');
+    }
+  };
 
   return (
     <div>
@@ -142,9 +166,14 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
         </div>
       </div>
 
+      {saveError && (
+        <div style={{ marginTop: '0.75rem', padding: '0.625rem 0.875rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: '#b91c1c', maxWidth: '22rem' }}>
+          {saveError}
+        </div>
+      )}
       <div style={{ marginTop: '1rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <Button onClick={() => { /* TODO: PATCH /api/v1/users/me */ setSaved(true); setTimeout(() => setSaved(false), 2500); }}>
-          Save changes
+        <Button onClick={handleSave} disabled={isSaving}>
+          {isSaving ? 'Saving…' : 'Save changes'}
         </Button>
         {saved && <span style={{ fontSize: '0.875rem', color: 'var(--color-success)' }}>✓ Saved</span>}
       </div>
@@ -155,12 +184,35 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
 // ── Appearance tab ───────────────────────────────────────────────────────────
 
 const AppearanceTab: React.FC = () => {
-  const [accentId, setAccentId]   = useState(() => localStorage.getItem('accentColor') ?? 'cobalt');
-  const [colorMode, setColorMode] = useState<ColorMode>(() => (localStorage.getItem('colorMode') as ColorMode) ?? 'system');
-  const [density, setDensity]     = useState<'comfortable' | 'compact'>('comfortable');
+  const { data: prefs } = useGetUserPreferencesQuery();
+  const [updatePrefs] = useUpdateUserPreferencesMutation();
+  const { setColorMode: applyColorMode } = useTheme();
+
+  const [accentId, setAccentId]   = useState(() => prefs?.accentColor ?? localStorage.getItem('3sc_pref_accent') ?? 'cobalt');
+  const [colorMode, setColorMode] = useState<ColorMode>(() => prefs?.colorMode ?? (localStorage.getItem('3sc_pref_color_mode') as ColorMode) ?? 'system');
+  const [density, setDensity]     = useState<'comfortable' | 'compact'>(() => prefs?.density ?? (localStorage.getItem('3sc_pref_density') as 'comfortable' | 'compact') ?? 'comfortable');
   const [saved, setSaved]         = useState(false);
 
+  // Sync local form state from server prefs (do NOT apply to DOM here —
+  // that would race with user edits and overwrite localStorage on every
+  // refetch, including when the API returns defaults for unmapped fields).
+  useEffect(() => {
+    if (!prefs) return;
+    setAccentId(prefs.accentColor ?? 'cobalt');
+    setColorMode((prefs.colorMode as ColorMode) ?? 'system');
+    setDensity(prefs.density ?? 'comfortable');
+  }, [prefs]);
+
   const selectedAccent = ACCENT_COLORS.find((c) => c.id === accentId) ?? ACCENT_COLORS[0];
+
+  const handleSave = async () => {
+    applyAccentColor(accentId);
+    applyColorMode(colorMode);
+    applyDensity(density);
+    await updatePrefs({ accentColor: accentId as any, colorMode: colorMode as any, density });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
 
   return (
     <div>
@@ -211,21 +263,11 @@ const AppearanceTab: React.FC = () => {
         fontSize: '0.8125rem', marginBottom: '1.5rem',
       }}>
         <span style={{ color: selectedAccent.value, fontWeight: 700 }}>Preview:</span>
-        <div style={{
-          padding: '0.25rem 0.625rem',
-          borderRadius: 'var(--radius-sm)',
-          background: selectedAccent.value,
-          color: '#fff', fontSize: '0.75rem', fontWeight: 600,
-        }}>
+        <div style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-sm)', background: selectedAccent.value, color: '#fff', fontSize: '0.75rem', fontWeight: 600 }}>
           Button
         </div>
         <span style={{ color: selectedAccent.value, textDecoration: 'underline', fontSize: '0.8125rem' }}>Link text</span>
-        <div style={{
-          width: 14, height: 14, borderRadius: 3,
-          background: selectedAccent.value,
-          display: 'flex', alignItems: 'center', justifyContent: 'center',
-          color: '#fff', fontSize: '0.625rem',
-        }}>
+        <div style={{ width: 14, height: 14, borderRadius: 3, background: selectedAccent.value, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.625rem' }}>
           ✓
         </div>
       </div>
@@ -250,11 +292,7 @@ const AppearanceTab: React.FC = () => {
           >
             <span style={{ fontSize: '1.375rem' }}>{opt.icon}</span>
             <div>
-              <div style={{
-                fontSize: '0.8125rem', fontWeight: colorMode === opt.value ? 600 : 400,
-                color: colorMode === opt.value ? 'var(--color-brand-700)' : 'var(--color-text)',
-                textAlign: 'center',
-              }}>
+              <div style={{ fontSize: '0.8125rem', fontWeight: colorMode === opt.value ? 600 : 400, color: colorMode === opt.value ? 'var(--color-brand-700)' : 'var(--color-text)', textAlign: 'center' }}>
                 {opt.label}
               </div>
               <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', textAlign: 'center', marginTop: '0.125rem' }}>
@@ -286,19 +324,10 @@ const AppearanceTab: React.FC = () => {
           >
             <div style={{ display: 'flex', flexDirection: 'column', gap: d === 'comfortable' ? '4px' : '2px' }}>
               {[65, 50, 80].map((w, i) => (
-                <div key={i} style={{
-                  height: d === 'comfortable' ? 5 : 3,
-                  width: `${w}%`,
-                  background: density === d ? 'var(--color-brand-300)' : 'var(--color-border)',
-                  borderRadius: 2,
-                }} />
+                <div key={i} style={{ height: d === 'comfortable' ? 5 : 3, width: `${w}%`, background: density === d ? 'var(--color-brand-300)' : 'var(--color-border)', borderRadius: 2 }} />
               ))}
             </div>
-            <span style={{
-              fontSize: '0.8125rem', fontWeight: density === d ? 600 : 400,
-              color: density === d ? 'var(--color-brand-700)' : 'var(--color-text)',
-              textTransform: 'capitalize',
-            }}>
+            <span style={{ fontSize: '0.8125rem', fontWeight: density === d ? 600 : 400, color: density === d ? 'var(--color-brand-700)' : 'var(--color-text)', textTransform: 'capitalize' }}>
               {d}
             </span>
           </button>
@@ -306,15 +335,7 @@ const AppearanceTab: React.FC = () => {
       </div>
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <Button onClick={() => {
-          localStorage.setItem('accentColor', accentId);
-          localStorage.setItem('colorMode', colorMode);
-          // TODO: PATCH /api/v1/users/me/preferences
-          setSaved(true);
-          setTimeout(() => setSaved(false), 2500);
-        }}>
-          Save preferences
-        </Button>
+        <Button onClick={handleSave}>Save preferences</Button>
         {saved && <span style={{ fontSize: '0.875rem', color: 'var(--color-success)' }}>✓ Preferences saved</span>}
       </div>
     </div>
@@ -324,18 +345,40 @@ const AppearanceTab: React.FC = () => {
 // ── Notifications tab ────────────────────────────────────────────────────────
 
 const NotificationsTab: React.FC = () => {
-  const [ticketAssigned, setTicketAssigned]   = useState(true);
-  const [ticketReplied, setTicketReplied]     = useState(true);
-  const [slaWarning, setSlaWarning]           = useState(true);
-  const [escalationAlert, setEscalationAlert] = useState(true);
-  const [dailyDigest, setDailyDigest]         = useState(false);
+  const { data: prefs } = useGetUserPreferencesQuery();
+  const [updatePrefs] = useUpdateUserPreferencesMutation();
+
+  console.log('Loaded user preferences:', prefs);
+  const [ticketAssigned, setTicketAssigned]   = useState(prefs?.emailOnTicketAssigned ?? true);
+  const [ticketReplied, setTicketReplied]     = useState(prefs?.emailOnNewReply ?? true);
+  const [slaWarning, setSlaWarning]           = useState(prefs?.emailOnSLAWarning ?? true);
+  const [escalationAlert, setEscalationAlert] = useState(prefs?.emailOnEscalation ?? true);
+  const [dailyDigest, setDailyDigest]         = useState(prefs?.emailDailyDigest ?? false);
   const [saved, setSaved] = useState(false);
 
+  useEffect(() => {
+    if (!prefs) return;
+    setTicketAssigned(prefs.emailOnTicketAssigned ?? true);
+    setTicketReplied(prefs.emailOnNewReply ?? true);
+    setSlaWarning(prefs.emailOnSLAWarning ?? true);
+    setEscalationAlert(prefs.emailOnEscalation ?? true);
+    setDailyDigest(prefs.emailDailyDigest ?? false);
+  }, [prefs]);
+
+  const handleSave = async () => {
+    await updatePrefs({
+      emailOnTicketAssigned: ticketAssigned,
+      emailOnNewReply: ticketReplied,
+      emailOnSLAWarning: slaWarning,
+      emailOnEscalation: escalationAlert,
+      emailDailyDigest: dailyDigest,
+    });
+    setSaved(true);
+    setTimeout(() => setSaved(false), 2500);
+  };
+
   const NotifRow: React.FC<{ label: string; hint: string; value: boolean; onChange: (v: boolean) => void }> = ({ label, hint, value, onChange }) => (
-    <div style={{
-      display: 'flex', alignItems: 'center', justifyContent: 'space-between',
-      padding: '0.875rem 0', borderBottom: '1px solid var(--color-border)',
-    }}>
+    <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.875rem 0', borderBottom: '1px solid var(--color-border)' }}>
       <div>
         <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>{label}</div>
         <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>{hint}</div>
@@ -353,9 +396,7 @@ const NotificationsTab: React.FC = () => {
       <NotifRow label="Escalation alert" hint="When a ticket is escalated and unassigned" value={escalationAlert} onChange={setEscalationAlert} />
       <NotifRow label="Daily digest email" hint="A summary of your queue activity each morning" value={dailyDigest} onChange={setDailyDigest} />
       <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <Button onClick={() => { setSaved(true); setTimeout(() => setSaved(false), 2500); }}>
-          Save preferences
-        </Button>
+        <Button onClick={handleSave}>Save preferences</Button>
         {saved && <span style={{ fontSize: '0.875rem', color: 'var(--color-success)' }}>✓ Saved</span>}
       </div>
     </div>
@@ -365,6 +406,7 @@ const NotificationsTab: React.FC = () => {
 // ── Security tab ─────────────────────────────────────────────────────────────
 
 const SecurityTab: React.FC = () => {
+  const [changePassword, { isLoading: isChanging }] = useChangePasswordMutation();
   const [currentPw, setCurrentPw]   = useState('');
   const [newPw, setNewPw]           = useState('');
   const [confirmPw, setConfirmPw]   = useState('');
@@ -379,15 +421,19 @@ const SecurityTab: React.FC = () => {
   const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'];
   const strengthColor = ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'];
 
-  const handleChange = () => {
+  const handleChange = async () => {
     setError('');
     if (!currentPw) { setError('Enter your current password.'); return; }
     if (newPw.length < 8) { setError('New password must be at least 8 characters.'); return; }
     if (newPw !== confirmPw) { setError('Passwords do not match.'); return; }
-    // TODO: POST /api/v1/users/me/change-password
-    setSuccess(true);
-    setCurrentPw(''); setNewPw(''); setConfirmPw('');
-    setTimeout(() => setSuccess(false), 3000);
+    try {
+      await changePassword({ currentPassword: currentPw, newPassword: newPw }).unwrap();
+      setSuccess(true);
+      setCurrentPw(''); setNewPw(''); setConfirmPw('');
+      setTimeout(() => setSuccess(false), 3000);
+    } catch (err: any) {
+      setError(err?.data?.message ?? 'Failed to change password. Check your current password.');
+    }
   };
 
   return (
@@ -405,11 +451,7 @@ const SecurityTab: React.FC = () => {
             <div style={{ marginTop: '0.5rem' }}>
               <div style={{ display: 'flex', gap: '0.25rem', marginBottom: '0.25rem' }}>
                 {[1, 2, 3, 4].map((level) => (
-                  <div key={level} style={{
-                    flex: 1, height: 4, borderRadius: 2,
-                    background: level <= strength ? strengthColor[strength] : 'var(--color-border)',
-                    transition: 'background 0.2s',
-                  }} />
+                  <div key={level} style={{ flex: 1, height: 4, borderRadius: 2, background: level <= strength ? strengthColor[strength] : 'var(--color-border)', transition: 'background 0.2s' }} />
                 ))}
               </div>
               <span style={{ fontSize: '0.75rem', color: strengthColor[strength], fontWeight: 500 }}>
@@ -432,18 +474,14 @@ const SecurityTab: React.FC = () => {
             ✓ Password changed successfully.
           </div>
         )}
-        <Button onClick={handleChange}>Update password</Button>
+        <Button onClick={handleChange} disabled={isChanging}>
+          {isChanging ? 'Updating…' : 'Update password'}
+        </Button>
       </div>
 
       <Divider />
       <SectionHeader title="Active Sessions" />
-      <div style={{
-        padding: '0.875rem 1rem',
-        border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
-        display: 'flex', alignItems: 'center', gap: '0.875rem',
-        marginBottom: '0.75rem', maxWidth: '26rem',
-      }}>
+      <div style={{ padding: '0.875rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '0.75rem', maxWidth: '26rem' }}>
         <span style={{ fontSize: '1.25rem' }}>💻</span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>This device</div>
@@ -510,14 +548,7 @@ export const UserSettingsPage: React.FC = () => {
             ))}
           </Card>
 
-          <div style={{
-            marginTop: '1rem', padding: '0.875rem',
-            border: '1px solid var(--color-border)',
-            borderRadius: 'var(--radius-md)',
-            background: 'var(--color-bg-subtle)',
-            display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem',
-            textAlign: 'center',
-          }}>
+          <div style={{ marginTop: '1rem', padding: '0.875rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-subtle)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', textAlign: 'center' }}>
             <Avatar name={session?.displayName ?? 'Agent'} size={44} />
             <div>
               <div style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{session?.displayName}</div>

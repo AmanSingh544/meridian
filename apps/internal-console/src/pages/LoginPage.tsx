@@ -74,7 +74,6 @@ export const LoginPage: React.FC = () => {
         alignItems: 'center',
         justifyContent: 'center',
         padding: '1rem',
-        overflow: 'hidden',
         fontFamily: 'var(--font-body)',
         background: 'linear-gradient(160deg, #05040f 0%, #0d0b20 40%, #0f0e28 70%, #0d0c23 100%)',
         position: 'relative',

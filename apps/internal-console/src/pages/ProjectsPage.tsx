@@ -4,7 +4,7 @@ import { useGetProjectsQuery, useCreateProjectMutation, useGetProjectHealthQuery
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
 import { Card, Badge, Button, Skeleton, EmptyState, useToast } from '@3sc/ui';
 import { formatDate } from '@3sc/utils';
-import { Permission } from '@3sc/types';
+import { Permission, ProjectStatus } from '@3sc/types';
 import type { Project, ProjectHealthColor } from '@3sc/types';
 
 // ── Health badge ─────────────────────────────────────────────────────────────
@@ -15,8 +15,12 @@ const HEALTH_COLORS: Record<ProjectHealthColor, { bg: string; text: string; labe
   red:   { bg: 'var(--color-danger-light, #fee2e2)',  text: 'var(--color-danger)',  label: 'Critical' },
 };
 
-const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'neutral' | 'danger' | 'info'> = {
-  active: 'success', planning: 'info', on_hold: 'warning', completed: 'neutral', cancelled: 'danger',
+const STATUS_COLOR: Record<string, { color: string; bg: string }> = {
+  active:    { color: 'var(--color-success)', bg: 'var(--color-success-light, #d1fae5)' },
+  planning:  { color: 'var(--color-info, #3b82f6)', bg: '#eff6ff' },
+  on_hold:   { color: 'var(--color-warning)', bg: 'var(--color-warning-light, #fef3c7)' },
+  completed: { color: 'var(--color-text-muted)', bg: 'var(--color-bg-muted)' },
+  cancelled: { color: 'var(--color-danger)', bg: 'var(--color-danger-light, #fee2e2)' },
 };
 
 // Fetch health for a single card — isolated so each card re-renders independently
@@ -48,7 +52,7 @@ const CreateModal: React.FC<CreateModalProps> = ({ onClose, onCreate, creating }
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!name.trim()) return;
-    onCreate({ name: name.trim(), description: description.trim(), scope: scope.trim(), targetDate: targetDate || undefined, status: 'planning' });
+    onCreate({ name: name.trim(), description: description.trim(), scope: scope.trim(), targetDate: targetDate || undefined, status: ProjectStatus.PLANNING });
   };
 
   const inputStyle: React.CSSProperties = {
@@ -104,7 +108,8 @@ export const ProjectsPage: React.FC = () => {
   useDocumentTitle('Projects');
   const navigate = useNavigate();
   const permissions = usePermissions();
-  const { showToast } = useToast();
+  const { toast } = useToast();
+  const showToast = ({ message, variant }: { message: string; variant?: string }) => toast(message, variant as any);
   const canCreate = permissions.has(Permission.PROJECT_CREATE);
   const canViewInsights = permissions.has(Permission.AI_PROJECT_INSIGHTS);
 
@@ -191,7 +196,10 @@ export const ProjectsPage: React.FC = () => {
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, flex: 1, lineHeight: 1.3 }}>{project.name}</h3>
                   <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: '0.25rem', flexShrink: 0 }}>
-                    <Badge variant={STATUS_VARIANT[project.status] ?? 'neutral'}>
+                    <Badge
+                      color={(STATUS_COLOR[project.status] ?? STATUS_COLOR.completed).color}
+                      bgColor={(STATUS_COLOR[project.status] ?? STATUS_COLOR.completed).bg}
+                    >
                       {project.status.replace('_', ' ')}
                     </Badge>
                     {canViewInsights && ['active', 'on_hold'].includes(project.status) && (

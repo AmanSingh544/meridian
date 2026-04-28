@@ -13,7 +13,7 @@ import {
   useGetTicketsQuery,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, ErrorState, useToast } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, ErrorState, StatusBadge, PriorityBadge, useToast } from '@3sc/ui';
 import { formatDate } from '@3sc/utils';
 import { Permission } from '@3sc/types';
 import type { ProjectHealthColor, ProjectQAAnswer } from '@3sc/types';
@@ -51,7 +51,8 @@ export const ProjectDetailPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const permissions = usePermissions();
-  const { showToast } = useToast();
+  const { toast } = useToast();
+  const showToast = ({ message, variant }: { message: string; variant?: string }) => toast(message, variant as any);
   const canInsights = permissions.has(Permission.AI_PROJECT_INSIGHTS);
   const canReports = permissions.has(Permission.AI_PROJECT_REPORTS);
   const canQA = permissions.has(Permission.AI_PROJECT_QA);
@@ -107,8 +108,8 @@ export const ProjectDetailPage: React.FC = () => {
     return (
       <ErrorState
         title="Project not found"
-        description="This project may have been deleted or you don't have access."
-        action={<Button variant="primary" onClick={() => navigate('/projects')}>Back to Projects</Button>}
+        message="This project may have been deleted or you don't have access."
+        onRetry={() => navigate('/projects')}
       />
     );
   }
@@ -139,16 +140,19 @@ export const ProjectDetailPage: React.FC = () => {
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', flexWrap: 'wrap', marginBottom: '0.375rem' }}>
             <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>{project.name}</h1>
-            <Badge variant={STATUS_VARIANT[project.status] ?? 'neutral'}>{project.status.replace('_', ' ')}</Badge>
-            {health && canInsights && (
-              <span style={{
-                fontSize: '0.75rem', fontWeight: 700, padding: '0.2rem 0.625rem',
-                borderRadius: '999px', border: `1px solid ${HEALTH_CONFIG[health.color].border}`,
-                background: HEALTH_CONFIG[health.color].bg, color: HEALTH_CONFIG[health.color].color,
-              }}>
-                {HEALTH_CONFIG[health.color].icon} {health.color === 'green' ? 'Healthy' : health.color === 'amber' ? 'At Risk' : 'Critical'} — {health.score}/100
-              </span>
-            )}
+            <StatusBadge status={project.status as any} />
+            {health && canInsights && (() => {
+              const hc = HEALTH_CONFIG[health.color] ?? HEALTH_CONFIG['green'];
+              return (
+                <span style={{
+                  fontSize: '0.75rem', fontWeight: 700, padding: '0.2rem 0.625rem',
+                  borderRadius: '999px', border: `1px solid ${hc.border}`,
+                  background: hc.bg, color: hc.color,
+                }}>
+                  {hc.icon} {health.color === 'green' ? 'Healthy' : health.color === 'amber' ? 'At Risk' : 'Critical'} — {health.score}/100
+                </span>
+              );
+            })()}
           </div>
           <p style={{ margin: 0, fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>{project.description}</p>
         </div>
@@ -539,14 +543,10 @@ export const ProjectDetailPage: React.FC = () => {
                         <span style={{ fontWeight: 500 }}>{ticket.title}</span>
                       </td>
                       <td style={{ padding: '0.625rem 1rem', whiteSpace: 'nowrap' }}>
-                        <Badge variant={ticket.status === 'OPEN' ? 'danger' : ticket.status === 'RESOLVED' || ticket.status === 'CLOSED' ? 'success' : 'warning'}>
-                          {ticket.status}
-                        </Badge>
+                        <StatusBadge status={ticket.status} />
                       </td>
                       <td style={{ padding: '0.625rem 1rem', whiteSpace: 'nowrap' }}>
-                        <Badge variant={ticket.priority === 'CRITICAL' || ticket.priority === 'HIGH' ? 'danger' : ticket.priority === 'MEDIUM' ? 'warning' : 'neutral'}>
-                          {ticket.priority}
-                        </Badge>
+                        <PriorityBadge priority={ticket.priority} />
                       </td>
                       <td style={{ padding: '0.625rem 1rem', color: 'var(--color-text-secondary)', fontSize: '0.8125rem', whiteSpace: 'nowrap' }}>
                         {ticket.assignee?.displayName ?? '—'}
@@ -661,7 +661,7 @@ export const ProjectDetailPage: React.FC = () => {
                                     background: 'var(--color-brand-500)', color: '#fff',
                                     fontSize: '0.5625rem', fontWeight: 700,
                                     display: 'flex', alignItems: 'center', justifyContent: 'center',
-                                    flexShrink: 0, title: ticket.assignee.displayName,
+                                    flexShrink: 0,
                                   }}>
                                     {ticket.assignee.displayName.split(' ').map(p => p[0]).join('').slice(0, 2).toUpperCase()}
                                   </div>

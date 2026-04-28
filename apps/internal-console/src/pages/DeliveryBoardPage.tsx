@@ -264,7 +264,7 @@ const DeliveryBoardPage: React.FC = () => {
     return <EmptyState title="No delivery data" description="Could not load delivery board." />;
   }
 
-  const byStatus = (status: DeliveryStatus) => features.filter(f => f.status === status);
+  const byStatus = (status: DeliveryStatus) => features.filter(f => f.status?.toLowerCase() === status?.toLowerCase());
 
   return (
     <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1rem', height: '100%', boxSizing: 'border-box' }}>
