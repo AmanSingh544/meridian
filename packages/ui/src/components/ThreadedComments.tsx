@@ -59,7 +59,7 @@ function renderContent(content: string, mentions: string[], users: User[]) {
 
 // ── Mention autocomplete textarea ────────────────────────────────
 
-interface MentionTextareaProps {
+export interface MentionTextareaProps {
   value: string;
   onChange: (val: string) => void;
   onMentionsChange: (ids: string[]) => void;
@@ -68,7 +68,7 @@ interface MentionTextareaProps {
   rows?: number;
 }
 
-const MentionTextarea: React.FC<MentionTextareaProps> = ({
+export const MentionTextarea: React.FC<MentionTextareaProps> = ({
   value,
   onChange,
   onMentionsChange,

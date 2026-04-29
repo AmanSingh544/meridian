@@ -652,7 +652,13 @@ export interface EscalationResolvePayload {
 // ── System Settings Types ───────────────────────────────────────
 
 export interface SystemNotificationSettings {
+  // per-event email toggles (controlled from System Settings → Notifications)
+  emailOnTicketCreated: boolean;
+  emailOnTicketStatusChanged: boolean;
+  emailOnTicketAssigned: boolean;
+  emailOnCommentAdded: boolean;
   emailOnSLABreach: boolean;
+  // other channels
   slackIntegrationEnabled: boolean;
   slackChannel?: string;
   dailyDigestEnabled: boolean;

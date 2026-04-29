@@ -6,6 +6,9 @@ import {
   useGetAIKBDeflectionsQuery,
   useClassifyTextMutation,
   useGetProjectsQuery,
+  useGetSystemSettingsQuery,
+  useGetSLAPolicyQuery,
+  useGetSimilarTicketsQuery,
 } from '@3sc/api';
 import { useDocumentTitle, useDebouncedValue, useIsMobile } from '@3sc/hooks';
 import { Button, Input, TextArea, Select, FileUpload, Card, useToast, ConfidenceBar } from '@3sc/ui';
@@ -224,6 +227,13 @@ export const CreateTicketPage: React.FC = () => {
   const [createAttachment] = useCreateAttachmentMutation();
   const [classifyText, { isLoading: classifying }] = useClassifyTextMutation();
 
+  // Feature flags + SLA data
+  const { data: systemSettings } = useGetSystemSettingsQuery();
+  const { data: slaPolicy } = useGetSLAPolicyQuery();
+  const triageEnabled   = systemSettings?.aiFeatures?.triageAgentEnabled ?? true;
+  const kbEnabled       = systemSettings?.aiFeatures?.kbDeflectionEnabled ?? true;
+  const similarEnabled  = systemSettings?.aiFeatures?.similarTicketSuggestionsEnabled ?? false;
+
   // Fetch projects for the dropdown
   const { data: projectsData } = useGetProjectsQuery({ page: 1, page_size: 100 });
   const projectOptions = [
@@ -259,10 +269,16 @@ export const CreateTicketPage: React.FC = () => {
 
   const { data: kbDeflections } = useGetAIKBDeflectionsQuery(
     { query: `${debouncedTitle} ${debouncedDescription}`.trim(), limit: 3 },
-    { skip: debouncedTitle.length < 5 },
+    { skip: debouncedTitle.length < 5 || !kbEnabled },
+  );
+
+  const { data: similarTickets } = useGetSimilarTicketsQuery(
+    { title: debouncedTitle, description: debouncedDescription },
+    { skip: debouncedTitle.length < 5 || !similarEnabled },
   );
 
   useEffect(() => {
+    if (!triageEnabled) return;
     // Don't re-classify while a suggestion is already showing
     if (aiSuggestion !== null) return;
     if (debouncedTitle.length < 10 || debouncedDescription.length < 30) return;
@@ -273,7 +289,7 @@ export const CreateTicketPage: React.FC = () => {
       .catch(() => {
         // Silently ignore — AI is enhancement only
       });
-  }, [debouncedTitle, debouncedDescription]);
+  }, [debouncedTitle, debouncedDescription, triageEnabled]);
 
   // Reset suggestion when user meaningfully changes the title (new topic)
   useEffect(() => {
@@ -344,7 +360,8 @@ export const CreateTicketPage: React.FC = () => {
 
   const hasAISuggestion = aiSuggestion !== null && !classifying;
   const hasKBDeflections = kbDeflections && kbDeflections.length > 0;
-  const hasSidebarContent = classifying || hasAISuggestion || hasKBDeflections;
+  const hasSimilarTickets = similarEnabled && similarTickets && similarTickets.length > 0;
+  const hasSidebarContent = classifying || hasAISuggestion || hasKBDeflections || hasSimilarTickets;
 
   // ── Layout ───────────────────────────────────────────────────────────────────
   return (
@@ -566,6 +583,48 @@ export const CreateTicketPage: React.FC = () => {
             </div>
           )}
 
+          {/* Similar resolved tickets */}
+          {hasSimilarTickets && (
+            <div style={{
+              background: '#f0fdf4',
+              border: '1px solid #bbf7d0',
+              borderRadius: 'var(--radius-lg)',
+              padding: '1rem',
+            }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.625rem' }}>
+                <span style={{ fontSize: '1rem' }}>🔍</span>
+                <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#15803d' }}>
+                  Similar Resolved Tickets
+                </span>
+              </div>
+              <p style={{ margin: '0 0 0.625rem', fontSize: '0.8125rem', color: '#166534', lineHeight: 1.4 }}>
+                These tickets were resolved previously — they may help:
+              </p>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
+                {similarTickets!.map((t) => (
+                  <button
+                    key={t.ticketId}
+                    type="button"
+                    onClick={() => navigate(`/tickets/${t.ticketId}`)}
+                    style={{
+                      display: 'flex', alignItems: 'flex-start', gap: '0.5rem', textAlign: 'left',
+                      width: '100%', cursor: 'pointer',
+                      background: 'rgba(255,255,255,0.75)', border: '1px solid #bbf7d0',
+                      borderRadius: 'var(--radius-md)', padding: '0.5rem 0.625rem',
+                    }}
+                  >
+                    <span style={{ fontSize: '0.875rem', marginTop: '0.1rem', flexShrink: 0 }}>✅</span>
+                    <div style={{ minWidth: 0 }}>
+                      <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: '#15803d', lineHeight: 1.3 }}>
+                        #{t.ticketNumber} — {t.title}
+                      </div>
+                    </div>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Tips for a great ticket — always visible fallback */}
           <div style={{
             background: 'var(--color-bg-subtle)',
@@ -598,7 +657,18 @@ export const CreateTicketPage: React.FC = () => {
             fontSize: '0.75rem', color: 'var(--color-text-muted)', lineHeight: 1.5,
           }}>
             <span style={{ fontWeight: 600, color: 'var(--color-text-secondary)' }}>Response times</span><br />
-            Critical &amp; High priority tickets are responded to within <strong>2 hours</strong>. Medium within <strong>8 hours</strong>. Low within <strong>1 business day</strong>.
+            {slaPolicy ? (
+              <>
+                Critical &amp; High priority tickets are responded to within{' '}
+                <strong>{slaPolicy.priorities?.CRITICAL?.responseHours ?? 2}h</strong>.{' '}
+                Medium within <strong>{slaPolicy.priorities?.MEDIUM?.responseHours ?? 8}h</strong>.{' '}
+                Low within <strong>1 business day</strong>.
+              </>
+            ) : (
+              <>
+                Critical &amp; High priority tickets are responded to within <strong>2 hours</strong>. Medium within <strong>8 hours</strong>. Low within <strong>1 business day</strong>.
+              </>
+            )}
           </div>
 
         </div>

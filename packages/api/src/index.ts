@@ -425,7 +425,7 @@ export const api = createApi({
     'Notification', 'User', 'Organization', 'AuditLog',
     'Analytics', 'Dashboard', 'RoutingRule', 'AI',
     'Session', 'UserPreferences', 'Delivery', 'Onboarding', 'Roadmap', 'Escalations',
-    'SLAPolicy', 'SystemSettings',
+    'SLAPolicy', 'SystemSettings', 'SimilarTickets',
   ],
   endpoints: (builder) => ({
     // ── Auth ────────────────────────────────────────────────
@@ -1059,37 +1059,37 @@ export const api = createApi({
     getAIClassification: builder.query<AISuggestion<AIClassificationSuggestion>, string>({
       query: (ticketId) => `/ai/classify/${ticketId}`,
       transformResponse: (response: ApiResponse<AISuggestion<AIClassificationSuggestion>>) => response.data,
-      providesTags: ['AI'],
+      providesTags: (_r, _e, ticketId) => [{ type: 'AI' as const, id: `${ticketId}_classification` }],
     }),
 
     getAIPriority: builder.query<AISuggestion<AIPrioritySuggestion>, string>({
       query: (ticketId) => `/ai/priority/${ticketId}`,
       transformResponse: (response: ApiResponse<AISuggestion<AIPrioritySuggestion>>) => response.data,
-      providesTags: ['AI'],
+      providesTags: (_r, _e, ticketId) => [{ type: 'AI' as const, id: `${ticketId}_priority` }],
     }),
 
     getAIRouting: builder.query<AISuggestion<AIRoutingSuggestion>, string>({
       query: (ticketId) => `/ai/route/${ticketId}`,
       transformResponse: (response: ApiResponse<AISuggestion<AIRoutingSuggestion>>) => response.data,
-      providesTags: ['AI'],
+      providesTags: (_r, _e, ticketId) => [{ type: 'AI' as const, id: `${ticketId}_route` }],
     }),
 
     getAISuggestedReply: builder.query<AISuggestion<AIReplySuggestion>, string>({
       query: (ticketId) => `/ai/suggest-reply/${ticketId}`,
       transformResponse: (response: ApiResponse<AISuggestion<AIReplySuggestion>>) => response.data,
-      providesTags: ['AI'],
+      providesTags: (_r, _e, ticketId) => [{ type: 'AI' as const, id: `${ticketId}_reply` }],
     }),
 
     getAISummary: builder.query<AISuggestion<AISummarySuggestion>, string>({
       query: (ticketId) => `/ai/summary/${ticketId}`,
       transformResponse: (response: ApiResponse<AISuggestion<AISummarySuggestion>>) => response.data,
-      providesTags: ['AI'],
+      providesTags: (_r, _e, ticketId) => [{ type: 'AI' as const, id: `${ticketId}_summary` }],
     }),
 
     getAIETA: builder.query<AISuggestion<AIETASuggestion>, string>({
       query: (ticketId) => `/ai/eta/${ticketId}`,
       transformResponse: (response: ApiResponse<AISuggestion<AIETASuggestion>>) => response.data,
-      providesTags: ['AI'],
+      providesTags: (_r, _e, ticketId) => [{ type: 'AI' as const, id: `${ticketId}_eta` }],
     }),
 
     getAIDigest: builder.query<AIDigest, void>({
@@ -1112,12 +1112,22 @@ export const api = createApi({
       transformResponse: (response: ApiResponse<AISearchResult>) => response.data,
     }),
 
-    acceptAISuggestion: builder.mutation<void, { suggestionId: string }>({
-      query: ({ suggestionId }) => ({
+    acceptAISuggestion: builder.mutation<void, { suggestionId: string; agentId?: string }>({
+      query: ({ suggestionId, agentId }) => ({
         url: `/ai/suggestions/${suggestionId}/accept`,
         method: 'POST',
+        body: agentId ? { agentId } : undefined,
       }),
-      invalidatesTags: ['AI'],
+      // suggestionId = "sugg_{ticketId}_{type}" — only invalidate the one suggestion + its ticket
+      invalidatesTags: (_r, _e, { suggestionId }) => {
+        const parts = suggestionId.split('_');
+        const type = parts[parts.length - 1];
+        const ticketId = parts.slice(1, parts.length - 1).join('_');
+        return [
+          { type: 'AI' as const, id: `${ticketId}_${type}` },
+          { type: 'Ticket' as const, id: ticketId },
+        ];
+      },
     }),
 
     rejectAISuggestion: builder.mutation<void, { suggestionId: string; reason?: string }>({
@@ -1126,7 +1136,13 @@ export const api = createApi({
         method: 'POST',
         body: { reason },
       }),
-      invalidatesTags: ['AI'],
+      // Only invalidate the one suggestion that was rejected
+      invalidatesTags: (_r, _e, { suggestionId }) => {
+        const parts = suggestionId.split('_');
+        const type = parts[parts.length - 1];
+        const ticketId = parts.slice(1, parts.length - 1).join('_');
+        return [{ type: 'AI' as const, id: `${ticketId}_${type}` }];
+      },
     }),
 
     // ── AI Knowledge Base ──────────────────────────────────────────
@@ -1638,6 +1654,14 @@ export const api = createApi({
       query: (userId) => ({ url: `/users/${userId}/reset-password`, method: 'POST' }),
       transformResponse: (response: ApiResponse<{ success: boolean }>) => response.data,
     }),
+
+    // ── Similar Tickets ─────────────────────────────────────────
+    /** Find resolved/closed tickets with similar title+description keywords */
+    getSimilarTickets: builder.query<Array<{ ticketId: string; ticketNumber: string; title: string; status: string }>, { title: string; description?: string }>({
+      query: (params) => ({ url: '/ai/similar-tickets', params }),
+      transformResponse: (response: ApiResponse<Array<{ ticketId: string; ticketNumber: string; title: string; status: string }>>) => response.data ?? [],
+      providesTags: ['SimilarTickets'],
+    }),
   }),
 });
 
@@ -1806,4 +1830,6 @@ export const {
   useSuggestAgentSkillsMutation,
   // Password Reset
   useAdminResetPasswordMutation,
+  // Similar Tickets
+  useGetSimilarTicketsQuery,
 } = api;

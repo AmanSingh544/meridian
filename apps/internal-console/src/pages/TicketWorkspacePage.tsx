@@ -16,7 +16,7 @@ import {
 } from '@3sc/hooks';
 import {
   Button, Card, StatusBadge, PriorityBadge, SLATimer,
-  ThreadedComments, AISuggestionCard, AIBanner,
+  ThreadedComments, MentionTextarea, AISuggestionCard, AIBanner,
   Drawer, ConfirmDialog, Badge, Avatar, Select,
   ErrorState, Skeleton, Tabs, TabPanel, ConfidenceBar,
 } from '@3sc/ui';
@@ -34,8 +34,9 @@ export const TicketWorkspacePage: React.FC = () => {
   const [transitionTicket, { isLoading: transitioning }] = useTransitionTicketMutation();
   const [updateTicket] = useUpdateTicketMutation();
   const [createComment] = useCreateCommentMutation();
-  const [acceptSuggestion] = useAcceptAISuggestionMutation();
-  const [rejectSuggestion] = useRejectAISuggestionMutation();
+  const [acceptSuggestion, { isLoading: accepting }] = useAcceptAISuggestionMutation();
+  const [rejectSuggestion, { isLoading: rejecting }] = useRejectAISuggestionMutation();
+  const suggestionActing = accepting || rejecting;
 
   // AI queries
   const canAI = permissions.canUseAI();
@@ -51,6 +52,9 @@ export const TicketWorkspacePage: React.FC = () => {
   const [confirmTransition, setConfirmTransition] = useState<TicketStatus | null>(null);
   const [activeTab, setActiveTab] = useState('conversation');
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [editingReply, setEditingReply] = useState(false);
+  const [editedReplyText, setEditedReplyText] = useState('');
+  const [editedReplyMentions, setEditedReplyMentions] = useState<string[]>([]);
 
   useDocumentTitle(ticket ? `${ticket.ticketNumber} — Workspace` : 'Ticket');
 
@@ -166,14 +170,46 @@ export const TicketWorkspacePage: React.FC = () => {
                   type="Suggested Reply"
                   title="Draft Response"
                   content={
-                    <div style={{ whiteSpace: 'pre-wrap' }}>
-                      {aiReply.suggestion?.content}
-                    </div>
+                    editingReply ? (
+                      <MentionTextarea
+                        value={editedReplyText}
+                        onChange={setEditedReplyText}
+                        onMentionsChange={setEditedReplyMentions}
+                        mentionableUsers={mentionableUsers}
+                        placeholder="Edit the draft reply... Use @ to mention someone"
+                        rows={4}
+                      />
+                    ) : (
+                      <div style={{ whiteSpace: 'pre-wrap' }}>
+                        {aiReply.suggestion?.reply}
+                      </div>
+                    )
                   }
                   confidence={aiReply.confidence}
-                  onAccept={() => acceptSuggestion({ suggestionId: aiReply.id })}
-                  onEdit={() => {/* Would open editor */}}
-                  onReject={() => rejectSuggestion({ suggestionId: aiReply.id })}
+                  loading={suggestionActing}
+                  acceptLabel={editingReply ? 'Send' : 'Accept'}
+                  onAccept={async () => {
+                    const text = editingReply ? editedReplyText : aiReply.suggestion?.reply;
+                    const mentions = editingReply ? editedReplyMentions : [];
+                    if (text) await handleAddComment(text, false, mentions);
+                    await acceptSuggestion({ suggestionId: aiReply.id });
+                    setEditingReply(false);
+                    setEditedReplyText('');
+                    setEditedReplyMentions([]);
+                  }}
+                  onEdit={editingReply ? undefined : () => {
+                    setEditedReplyText(aiReply.suggestion?.reply ?? '');
+                    setEditedReplyMentions([]);
+                    setEditingReply(true);
+                  }}
+                  onCancel={editingReply ? () => {
+                    setEditingReply(false);
+                    setEditedReplyText('');
+                    setEditedReplyMentions([]);
+                  } : undefined}
+                  onReject={editingReply ? undefined : () => {
+                    rejectSuggestion({ suggestionId: aiReply.id });
+                  }}
                 />
               </div>
             )}
@@ -299,6 +335,7 @@ export const TicketWorkspacePage: React.FC = () => {
             content={`Subcategory: ${aiClassification?.suggestion?.subcategory || 'N/A'}`}
             confidence={aiClassification?.confidence ?? 0}
             status={aiClassification?.status}
+            loading={suggestionActing}
             onAccept={aiClassification?.status === 'pending' ? () => acceptSuggestion({ suggestionId: aiClassification!.id }) : undefined}
             onReject={aiClassification?.status === 'pending' ? () => rejectSuggestion({ suggestionId: aiClassification!.id }) : undefined}
           />
@@ -320,7 +357,8 @@ export const TicketWorkspacePage: React.FC = () => {
               }
               confidence={aiRouting.confidence}
               status={aiRouting.status}
-              onAccept={aiRouting.status === 'pending' ? () => acceptSuggestion({ suggestionId: aiRouting.id }) : undefined}
+              loading={suggestionActing}
+              onAccept={aiRouting.status === 'pending' ? () => acceptSuggestion({ suggestionId: aiRouting.id, agentId: aiRouting.suggestion?.agentId }) : undefined}
               onReject={aiRouting.status === 'pending' ? () => rejectSuggestion({ suggestionId: aiRouting.id }) : undefined}
             />
           )}

@@ -20,6 +20,10 @@ interface ToggleProps {
 // ── Initial state ────────────────────────────────────────────────
 
 const INITIAL_NOTIFICATIONS: SystemNotificationSettings = {
+  emailOnTicketCreated: true,
+  emailOnTicketStatusChanged: true,
+  emailOnTicketAssigned: true,
+  emailOnCommentAdded: true,
   emailOnSLABreach: true,
   slackIntegrationEnabled: true,
   slackChannel: '#support-alerts',
@@ -444,6 +448,34 @@ export const SystemSettingsPage: React.FC = () => {
         <Card>
           <SectionHeader text="Notifications" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+            <ToggleRow
+              label="Email on ticket created"
+              description="Notify requester when their ticket is created"
+              checked={notifications.emailOnTicketCreated}
+              onChange={v => mark(setNotifications)({ ...notifications, emailOnTicketCreated: v })}
+              disabled={!canEdit}
+            />
+            <ToggleRow
+              label="Email on status change"
+              description="Notify requester and assignee on every status transition"
+              checked={notifications.emailOnTicketStatusChanged}
+              onChange={v => mark(setNotifications)({ ...notifications, emailOnTicketStatusChanged: v })}
+              disabled={!canEdit}
+            />
+            <ToggleRow
+              label="Email on ticket assigned"
+              description="Notify agent when a ticket is assigned to them"
+              checked={notifications.emailOnTicketAssigned}
+              onChange={v => mark(setNotifications)({ ...notifications, emailOnTicketAssigned: v })}
+              disabled={!canEdit}
+            />
+            <ToggleRow
+              label="Email on new comment"
+              description="Notify requester and assignee when a public comment is added"
+              checked={notifications.emailOnCommentAdded}
+              onChange={v => mark(setNotifications)({ ...notifications, emailOnCommentAdded: v })}
+              disabled={!canEdit}
+            />
             <ToggleRow
               label="Email alerts on SLA breach"
               description="Admin receives email when breach triggered"

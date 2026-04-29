@@ -10,9 +10,12 @@ export interface AISuggestionCardProps {
   confidence: number;
   reasoning?: string;
   status?: AISuggestionStatus;
+  loading?: boolean;
+  acceptLabel?: string;
   onAccept?: () => void;
   onReject?: () => void;
   onEdit?: () => void;
+  onCancel?: () => void;
 }
 
 export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
@@ -22,9 +25,12 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
   confidence,
   reasoning,
   status = 'pending',
+  loading = false,
+  acceptLabel = 'Accept',
   onAccept,
   onReject,
   onEdit,
+  onCancel,
 }) => {
   const isResolved = status === 'accepted' || status === 'rejected' || status === 'edited';
 
@@ -78,11 +84,12 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
             Reasoning: {reasoning}
           </p>
         )}
-        {!isResolved && (onAccept || onEdit || onReject) && (
+        {!isResolved && (onAccept || onEdit || onReject || onCancel) && (
           <div style={{ display: 'flex', gap: '0.5rem', marginTop: '0.75rem' }}>
-            {onAccept && <Button variant="primary" size="sm" onClick={onAccept}>Accept</Button>}
-            {onEdit && <Button variant="secondary" size="sm" onClick={onEdit}>Edit</Button>}
-            {onReject && <Button variant="ghost" size="sm" onClick={onReject}>Dismiss</Button>}
+            {onAccept && <Button variant="primary" size="sm" loading={loading} onClick={onAccept}>{acceptLabel}</Button>}
+            {onEdit && !onCancel && <Button variant="secondary" size="sm" disabled={loading} onClick={onEdit}>Edit</Button>}
+            {onCancel && <Button variant="secondary" size="sm" disabled={loading} onClick={onCancel}>Cancel</Button>}
+            {onReject && <Button variant="ghost" size="sm" disabled={loading} onClick={onReject}>Dismiss</Button>}
           </div>
         )}
       </div>
