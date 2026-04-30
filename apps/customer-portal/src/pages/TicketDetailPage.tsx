@@ -188,7 +188,6 @@ export const TicketDetailPage: React.FC = () => {
     await createComment({
       ticket_id: id,
       message: content,
-      user_id: '1',
       isInternal,
       mentioned_user_ids: mentionIds ?? [],
       attachment_ids,

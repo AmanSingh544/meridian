@@ -9,7 +9,7 @@ import {
   type FetchArgs,
   type FetchBaseQueryError,
 } from '@reduxjs/toolkit/query/react';
-import { API_CONFIG, AUTH_CONFIG } from '@3sc/config';
+import { API_CONFIG, AUTH_CONFIG, PORTAL_CONFIG } from '@3sc/config';
 import type {
   Ticket,
   TicketCreatePayload,
@@ -375,6 +375,10 @@ const rawBaseQuery = fetchBaseQuery({
   baseUrl: API_CONFIG.baseUrl,
   credentials: 'include', // Send HttpOnly cookies with every request
   timeout: API_CONFIG.timeout,
+  prepareHeaders: (headers) => {
+    headers.set('X-Portal-Type', PORTAL_CONFIG.type);
+    return headers;
+  },
 });
 
 const baseQueryWithReauth: BaseQueryFn<

@@ -8,7 +8,7 @@ import type {
   PasswordResetRequest,
   PasswordResetConfirm,
 } from '@3sc/types';
-import { API_CONFIG, AUTH_CONFIG } from '@3sc/config';
+import { API_CONFIG, AUTH_CONFIG, PORTAL_CONFIG } from '@3sc/config';
 
 const baseUrl = API_CONFIG.baseUrl;
 
@@ -64,7 +64,10 @@ export async function login(credentials: LoginCredentials): Promise<SessionInfo>
   const response = await fetch(`${baseUrl}${AUTH_CONFIG.loginPath}`, {
     method: 'POST',
     credentials: 'include', // Receive HttpOnly cookie from server
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Portal-Type': PORTAL_CONFIG.type,
+    },
     body: JSON.stringify({ email: credentials.email, password: credentials.password }),
   });
 
@@ -85,6 +88,7 @@ export async function logout(): Promise<void> {
   await fetch(`${baseUrl}${AUTH_CONFIG.logoutPath}`, {
     method: 'POST',
     credentials: 'include', // Server clears the HttpOnly cookie
+    headers: { 'X-Portal-Type': PORTAL_CONFIG.type },
   });
 }
 
@@ -92,6 +96,7 @@ export async function getSession(tenantId: string | number): Promise<SessionInfo
   const response = await fetch(`${baseUrl}${AUTH_CONFIG.sessionPath}?tenant_id=${tenantId}`, {
     method: 'GET',
     credentials: 'include', // Browser sends cookie automatically
+    headers: { 'X-Portal-Type': PORTAL_CONFIG.type },
   });
 
   if (!response.ok) return null;
@@ -106,7 +111,10 @@ export async function requestPasswordReset(payload: PasswordResetRequest): Promi
   const response = await fetch(`${baseUrl}${AUTH_CONFIG.resetPasswordPath}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Portal-Type': PORTAL_CONFIG.type,
+    },
     body: JSON.stringify(payload),
   });
 
@@ -124,7 +132,10 @@ export async function confirmPasswordReset(payload: PasswordResetConfirm): Promi
   const response = await fetch(`${baseUrl}${AUTH_CONFIG.confirmResetPath}`, {
     method: 'POST',
     credentials: 'include',
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+      'Content-Type': 'application/json',
+      'X-Portal-Type': PORTAL_CONFIG.type,
+    },
     body: JSON.stringify(payload),
   });
 

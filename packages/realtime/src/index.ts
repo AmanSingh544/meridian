@@ -2,7 +2,7 @@
 // @3sc/realtime — WebSocket & Realtime Layer
 // ═══════════════════════════════════════════════════════════════
 
-import { REALTIME_CONFIG } from '@3sc/config';
+import { REALTIME_CONFIG, PORTAL_CONFIG } from '@3sc/config';
 import type { RealtimeEvent, RealtimeEventType } from '@3sc/types';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'failed';
@@ -166,6 +166,7 @@ export class RealtimeClient {
       try {
         const response = await fetch('/api/v1/realtime/poll', {
           credentials: 'include',
+          headers: { 'X-Portal-Type': PORTAL_CONFIG.type },
         });
         if (response.ok) {
           const events: RealtimeEvent[] = await response.json();

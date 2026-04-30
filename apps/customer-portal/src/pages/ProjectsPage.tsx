@@ -46,48 +46,52 @@ export const ProjectsPage: React.FC = () => {
             const progress = totalMilestones > 0 ? Math.round((completedMilestones / totalMilestones) * 100) : 0;
 
             return (
-              <Card key={project.id} hover onClick={() => navigate(`/projects/${project.id}`)} style={{ cursor: 'pointer' }}>
-                {/* Name + status */}
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', gap: '0.5rem' }}>
-                  <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, flex: 1, lineHeight: 1.3 }}>{project.name}</h3>
-                  <Badge variant={STATUS_VARIANT[project.status] ?? 'neutral'}>
-                    {project.status.replace('_', ' ')}
-                  </Badge>
-                </div>
-
-                {/* Description */}
-                <p style={{ margin: '0 0 0.875rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
-                  {(project.description ?? '').slice(0, 100)}{(project.description ?? '').length > 100 ? '…' : ''}
-                </p>
-
-                {/* Stats */}
-                <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.875rem', flexWrap: 'wrap' }}>
-                  <span>{project.ticketCount} tickets</span>
-                  {(project.openTicketCount ?? 0) > 0 && (
-                    <span style={{ color: 'var(--color-warning)' }}>{project.openTicketCount} open</span>
-                  )}
-                  {(project.resolvedThisWeek ?? 0) > 0 && (
-                    <span style={{ color: 'var(--color-success)' }}>+{project.resolvedThisWeek} this week</span>
-                  )}
-                  {project.targetDate && <span>Due {formatDate(project.targetDate)}</span>}
-                </div>
-
-                {/* Milestone progress */}
-                {totalMilestones > 0 && (
-                  <div>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>
-                      <span>Milestones</span>
-                      <span>{completedMilestones}/{totalMilestones}</span>
-                    </div>
-                    <div style={{ height: 4, background: 'var(--color-bg-muted)', borderRadius: 2, overflow: 'hidden' }}>
-                      <div style={{
-                        height: '100%', width: `${progress}%`,
-                        background: progress === 100 ? 'var(--color-success)' : 'var(--color-brand-500)',
-                        borderRadius: 2, transition: 'width 0.4s ease',
-                      }} />
-                    </div>
+              <Card key={project.id} hover onClick={() => navigate(`/projects/${project.id}`)} style={{ cursor: 'pointer', display: 'flex', flexDirection: 'column' }}>
+                <div style={{ flex: 1 }}>
+                  {/* Name + status */}
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem', gap: '0.5rem' }}>
+                    <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, flex: 1, lineHeight: 1.3 }}>{project.name}</h3>
+                    <Badge variant={STATUS_VARIANT[project.status] ?? 'neutral'}>
+                      {project.status.replace('_', ' ')}
+                    </Badge>
                   </div>
-                )}
+
+                  {/* Description */}
+                  <p style={{ margin: '0 0 0.875rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>
+                    {(project.description ?? '').slice(0, 100)}{(project.description ?? '').length > 100 ? '…' : ''}
+                  </p>
+
+                  {/* Stats */}
+                  <div style={{ display: 'flex', gap: '1rem', fontSize: '0.75rem', color: 'var(--color-text-muted)', marginBottom: '0.875rem', flexWrap: 'wrap' }}>
+                    <span>{project.ticketCount} tickets</span>
+                    {(project.openTicketCount ?? 0) > 0 && (
+                      <span style={{ color: 'var(--color-warning)' }}>{project.openTicketCount} open</span>
+                    )}
+                    {(project.resolvedThisWeek ?? 0) > 0 && (
+                      <span style={{ color: 'var(--color-success)' }}>+{project.resolvedThisWeek} this week</span>
+                    )}
+                    {project.targetDate && <span>Due {formatDate(project.targetDate)}</span>}
+                  </div>
+                </div>
+
+                {/* Milestone progress — always rendered so cards align */}
+                <div style={{ minHeight: 18 }}>
+                  {totalMilestones > 0 && (
+                    <>
+                      <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>
+                        <span>Milestones</span>
+                        <span>{completedMilestones}/{totalMilestones}</span>
+                      </div>
+                      <div style={{ height: 4, background: 'var(--color-bg-muted)', borderRadius: 2, overflow: 'hidden' }}>
+                        <div style={{
+                          height: '100%', width: `${progress}%`,
+                          background: progress === 100 ? 'var(--color-success)' : 'var(--color-brand-500)',
+                          borderRadius: 2, transition: 'width 0.4s ease',
+                        }} />
+                      </div>
+                    </>
+                  )}
+                </div>
               </Card>
             );
           })}

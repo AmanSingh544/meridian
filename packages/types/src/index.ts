@@ -874,7 +874,6 @@ export interface Comment {
 
 export interface CommentCreatePayload {
   ticket_id: UUID;
-  user_id?: UUID;
   message: string;
   isInternal?: boolean;
   parent_id?: UUID;

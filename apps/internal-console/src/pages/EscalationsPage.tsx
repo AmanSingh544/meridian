@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
 import { Button, Card, Avatar, ConfirmDialog, Skeleton, useToast, PermissionGate } from '@3sc/ui';
@@ -87,7 +87,9 @@ interface AssignDropdownProps {
 const AssignDropdown: React.FC<AssignDropdownProps> = ({ ticketId, currentAssigneeId, agents, onAssign }) => {
   const [open, setOpen] = useState(false);
   const [selected, setSelected] = useState(currentAssigneeId ?? '');
+  const [flipUp, setFlipUp] = useState(false);
   const dropRef = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handler = (e: MouseEvent) => {
@@ -96,6 +98,19 @@ const AssignDropdown: React.FC<AssignDropdownProps> = ({ ticketId, currentAssign
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useLayoutEffect(() => {
+    if (open && dropRef.current && menuRef.current) {
+      const rect = dropRef.current.getBoundingClientRect();
+      const menuHeight = menuRef.current.offsetHeight;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < menuHeight && rect.top > menuHeight) {
+        setFlipUp(true);
+      } else {
+        setFlipUp(false);
+      }
+    }
+  }, [open]);
 
   return (
     <div ref={dropRef} style={{ position: 'relative', display: 'inline-block' }}>
@@ -115,8 +130,10 @@ const AssignDropdown: React.FC<AssignDropdownProps> = ({ ticketId, currentAssign
       </button>
 
       {open && (
-        <div style={{
-          position: 'absolute', top: 'calc(100% + 4px)', right: 0, zIndex: 200,
+        <div ref={menuRef} style={{
+          position: 'absolute',
+          ...(flipUp ? { bottom: 'calc(100% + 4px)' } : { top: 'calc(100% + 4px)' }),
+          right: 0, zIndex: 200,
           background: 'var(--color-bg)', border: '1px solid var(--color-border)',
           borderRadius: 'var(--radius-md)', boxShadow: 'var(--shadow-lg)',
           minWidth: '14rem', overflow: 'hidden',
@@ -314,15 +331,15 @@ export const EscalationsPage: React.FC = () => {
       </div>
 
       {/* Table */}
-      <Card style={{ padding: 0, overflow: 'hidden' }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.7fr 1.1fr 1.4fr 1.1fr 1.5fr', gap: '0.75rem', padding: '0.625rem 1rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)' }}>
+      <Card style={{ padding: 0 }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.7fr 1.1fr 1.4fr 1.1fr 1.5fr', gap: '0.75rem', padding: '0.625rem 1rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0' }}>
           {['Ticket', 'Client', 'Severity', 'Escalated By', 'Reason', 'Time in Escalation', 'Actions'].map(h => (
             <span key={h} style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--color-text-muted)' }}>{h}</span>
           ))}
         </div>
 
         {filtered.length === 0 ? (
-          <div style={{ padding: '3rem', textAlign: 'center' }}>
+          <div style={{ padding: '3rem', textAlign: 'center', borderRadius: 'var(--radius-lg)' }}>
             <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>🎉</div>
             <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)' }}>No escalations found</p>
             <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>All tickets are on track. Check back later.</p>
@@ -336,7 +353,7 @@ export const EscalationsPage: React.FC = () => {
             return (
               <div
                 key={escalation.ticketId}
-                style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.7fr 1.1fr 1.4fr 1.1fr 1.5fr', gap: '0.75rem', padding: '0.875rem 1rem', borderBottom: idx === filtered.length - 1 ? 'none' : '1px solid var(--color-border)', alignItems: 'center', transition: 'background var(--transition-fast)' }}
+                style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.7fr 1.1fr 1.4fr 1.1fr 1.5fr', gap: '0.75rem', padding: '0.875rem 1rem', borderBottom: idx === filtered.length - 1 ? 'none' : '1px solid var(--color-border)', borderRadius: idx === filtered.length - 1 ? '0 0 var(--radius-lg) var(--radius-lg)' : undefined, alignItems: 'center', transition: 'background var(--transition-fast)' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-bg-subtle)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = ''; }}
               >

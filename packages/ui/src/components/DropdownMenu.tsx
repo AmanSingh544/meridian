@@ -1,4 +1,4 @@
-import React, { useState, useRef, useCallback } from 'react';
+import React, { useState, useRef, useCallback, useLayoutEffect } from 'react';
 import { useClickOutside } from '@3sc/hooks';
 
 export interface DropdownItemProps {
@@ -39,18 +39,34 @@ export interface DropdownMenuProps {
 
 export const DropdownMenu: React.FC<DropdownMenuProps> = ({ trigger, children, align = 'right' }) => {
   const [open, setOpen] = useState(false);
+  const [flip, setFlip] = useState(false);
   const ref = useRef<HTMLDivElement>(null);
+  const menuRef = useRef<HTMLDivElement>(null);
   useClickOutside(ref, () => setOpen(false));
+
+  useLayoutEffect(() => {
+    if (open && ref.current && menuRef.current) {
+      const rect = ref.current.getBoundingClientRect();
+      const menuHeight = menuRef.current.offsetHeight;
+      const spaceBelow = window.innerHeight - rect.bottom;
+      if (spaceBelow < menuHeight && rect.top > menuHeight) {
+        setFlip(true);
+      } else {
+        setFlip(false);
+      }
+    }
+  }, [open]);
 
   return (
     <div ref={ref} style={{ position: 'relative', display: 'inline-block' }}>
       <div onClick={() => setOpen(!open)} style={{ cursor: 'pointer' }}>{trigger}</div>
       {open && (
         <div
+          ref={menuRef}
           onClick={() => setOpen(false)}
           style={{
             position: 'absolute',
-            top: 'calc(100% + 4px)',
+            ...(flip ? { bottom: 'calc(100% + 4px)' } : { top: 'calc(100% + 4px)' }),
             [align]: 0,
             minWidth: '10rem',
             background: 'var(--color-bg)',

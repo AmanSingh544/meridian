@@ -61,3 +61,7 @@ export const AI_CONFIG = {
   highConfidenceThreshold: 0.85,
   suggestionTimeout: 15_000,
 } as const;
+
+export const PORTAL_CONFIG = {
+  type: (import.meta.env?.VITE_PORTAL_TYPE as 'customer' | 'internal') || 'customer',
+} as const;

@@ -20,7 +20,7 @@ import {
   Drawer, ConfirmDialog, Badge, Avatar, Select,
   ErrorState, Skeleton, Tabs, TabPanel, ConfidenceBar,
 } from '@3sc/ui';
-import { TicketStatus, Permission, UserRole } from '@3sc/types';
+import { TicketStatus, Permission } from '@3sc/types';
 import { getStatusLabel, getStatusColor, formatDateTime, getPriorityLabel } from '@3sc/utils';
 
 export const TicketWorkspacePage: React.FC = () => {
@@ -66,10 +66,8 @@ export const TicketWorkspacePage: React.FC = () => {
     setConfirmTransition(null);
   };
 
-  // Internal agents can mention anyone on the tenant; filter to agents/leads/admins
-  const mentionableUsers = (usersPage?.data ?? []).filter(
-    (u) => u.role === UserRole.AGENT || u.role === UserRole.LEAD || u.role === UserRole.ADMIN,
-  );
+  // Internal staff can mention anyone on the tenant (including client users)
+  const mentionableUsers = usersPage?.data ?? [];
 
   const handleAddComment = async (content: string, isInternal?: boolean, mentionIds?: string[]) => {
     if (!id) return;
