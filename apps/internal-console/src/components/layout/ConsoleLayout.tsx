@@ -1,10 +1,12 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { NavLink, Outlet, useNavigate, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
 import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
+import { useGetNotificationsQuery } from '@3sc/api';
 import { Avatar, ConnectionIndicator, Badge, ThemeToggle } from '@3sc/ui';
 import { Permission } from '@3sc/types';
 import { logout } from '../../features/auth/authSlice';
+import { setUnreadCount } from '../../features/notifications/notificationsSlice';
 import type { AppDispatch, RootState } from '../../store';
 
 interface NavItem {
@@ -50,6 +52,13 @@ export const ConsoleLayout: React.FC = () => {
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const connectionStatus = useSelector((state: RootState) => state.realtime.connectionStatus);
   const unreadCount = useSelector((state: RootState) => state.notifications.unreadCount);
+
+  const { data: notifMeta } = useGetNotificationsQuery({ limit: 1, unreadOnly: true });
+  useEffect(() => {
+    if (notifMeta?.unreadCount !== undefined) {
+      dispatch(setUnreadCount(notifMeta.unreadCount));
+    }
+  }, [notifMeta?.unreadCount, dispatch]);
 
   const handleLogout = async () => {
     await dispatch(logout());

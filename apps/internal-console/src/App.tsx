@@ -31,6 +31,7 @@ const SLAConfigPage = lazy(() => import('./pages/SLAConfigPage').then(m => ({ de
 const SystemSettingsPage = lazy(() => import('./pages/SystemSettingsPage').then(m => ({ default: m.SystemSettingsPage })));
 const RoutingRulesPage = lazy(() => import('./pages/RoutingRulesPage').then(m => ({ default: m.RoutingRulesPage })));
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage').then(m => ({ default: m.UserSettingsPage })));
+const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const DeliveryBoardPage = lazy(() => import('./pages/DeliveryBoardPage'));
 const OnboardingListPage = lazy(() => import('./pages/OnboardingListPage'));
 
@@ -91,7 +92,7 @@ const AppRoutes: React.FC = () => (
         } />
         <Route path="/tickets/:id" element={<TicketWorkspacePage />} />
         <Route path="/search" element={<SearchPage />} />
-        <Route path="/notifications" element={<AgentDashboardPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
 
         {/* Permission-gated internal routes */}
         <Route path="/analytics" element={

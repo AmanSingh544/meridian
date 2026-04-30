@@ -814,8 +814,52 @@ export const api = createApi({
     }),
 
     // ── Notifications ───────────────────────────────────────
-    getNotifications: builder.query<PaginatedResponse<Notification>, { page?: number; unreadOnly?: boolean }>({
-      query: (params) => ({ url: '/notifications', params }),
+    getNotifications: builder.query<
+      PaginatedResponse<Notification> & { unreadCount: number },
+      { page?: number; limit?: number; unreadOnly?: boolean }
+    >({
+      query: (params) => {
+        const queryParams: Record<string, any> = {};
+        if (params.page !== undefined) queryParams.page = params.page;
+        if (params.limit !== undefined) queryParams.limit = params.limit;
+        if (params.unreadOnly !== undefined) queryParams.unread_only = params.unreadOnly;
+        return { url: '/notifications', params: queryParams };
+      },
+      transformResponse: (response: any) => {
+        const rawData = Array.isArray(response.data) ? response.data : [];
+        const mapped = rawData.map((n: any) => {
+          const data = n.data ?? {};
+          let resourceType: string | undefined = n.resourceType;
+          let resourceId: string | undefined = n.resourceId;
+          if (!resourceType && data.ticket_id) {
+            resourceType = 'ticket';
+            resourceId = data.ticket_id;
+          } else if (!resourceType && data.project_id) {
+            resourceType = 'project';
+            resourceId = data.project_id;
+          }
+          return {
+            id: n.id,
+            userId: n.user_id ?? n.userId,
+            type: n.type,
+            title: n.title,
+            message: n.body ?? n.message,
+            isRead: n.is_read ?? n.isRead,
+            data,
+            resourceType,
+            resourceId,
+            created_at: n.created_at,
+          };
+        });
+        return {
+          data: mapped,
+          page: response.page ?? 1,
+          page_size: response.page_size ?? mapped.length,
+          total: response.total ?? mapped.length,
+          total_pages: response.total_pages ?? 1,
+          unreadCount: response.unread_count ?? 0,
+        };
+      },
       providesTags: ['Notification'],
     }),
 

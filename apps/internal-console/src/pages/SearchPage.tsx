@@ -60,9 +60,9 @@ export const SearchPage: React.FC = () => {
               <Card key={i}><Skeleton height="3.5rem" /></Card>
             ))}
           </div>
-        ) : data && data.results.length > 0 ? (
+        ) : data && data.length > 0 ? (
           <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
-            {data.results.map((result) => (
+            {data.map((result) => (
               <Card
                 key={result.id}
                 hover
