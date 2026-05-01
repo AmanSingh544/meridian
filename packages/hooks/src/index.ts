@@ -204,6 +204,11 @@ export function useIsMobile(): boolean {
 
 // ── Document Title Hook ─────────────────────────────────────────
 
+export { useCopilot } from './useCopilot';
+export { usePageContext } from './usePageContext';
+export type { PageContext } from './usePageContext';
+export type { CopilotMessage } from './useCopilot';
+
 export function useDocumentTitle(title: string): void {
   useEffect(() => {
     const prevTitle = document.title;

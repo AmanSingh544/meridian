@@ -42,7 +42,7 @@ export const REALTIME_CONFIG = {
 } as const;
 
 export const FILE_CONFIG = {
-  maxFileSize: 25 * 1024 * 1024, // 25MB
+  maxFileSize: 50 * 1024 * 1024, // 50MB
   allowedTypes: [
     'image/jpeg', 'image/png', 'image/gif', 'image/webp',
     'application/pdf',
@@ -50,8 +50,12 @@ export const FILE_CONFIG = {
     'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
     'application/vnd.ms-excel',
     'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+    'application/vnd.ms-powerpoint',
+    'application/vnd.openxmlformats-officedocument.presentationml.presentation',
     'text/plain', 'text/csv',
-    'application/zip',
+    'video/mp4',
+    'video/quicktime',
+    'video/webm',
   ],
   maxAttachments: 10,
 } as const;

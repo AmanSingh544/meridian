@@ -32,6 +32,7 @@ const AuditLogPage = lazy(() => import('./pages/AuditLogPage').then(m => ({ defa
 const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage').then(m => ({ default: m.UserSettingsPage })));
 const OnboardingTrackerPage = lazy(() => import('./pages/OnboardingTrackerPage'));
 const RoadmapPage = lazy(() => import('./pages/RoadmapPage'));
+const DocumentsPage = lazy(() => import('./pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
 
 const PageLoader: React.FC = () => (
   <div style={{
@@ -157,6 +158,9 @@ const AppRoutes: React.FC = () => (
 
         {/* Account settings — accessible to all authenticated users */}
         <Route path="/settings" element={<UserSettingsPage />} />
+
+        {/* Documents — all authenticated users */}
+        <Route path="/documents" element={<DocumentsPage />} />
 
         {/* Audit Log — no client role has AUDIT_VIEW, redirect away */}
         <Route path="/audit" element={<Navigate to="/dashboard" replace />} />

@@ -15,6 +15,8 @@ import type {
   TicketCreatePayload,
   TicketUpdatePayload,
   TicketTransitionPayload,
+  BulkTicketUpdatePayload,
+  BulkTicketUpdateResult,
   TicketFilters,
   Comment,
   CommentCreatePayload,
@@ -38,6 +40,10 @@ import type {
   CategoryBreakdownData,
   SeverityDistributionData,
   ResolutionBySeverityData,
+  CsatKpiData,
+  CsatTrendData,
+  NpsBreakdownData,
+  FeedbackThemeData,
   UserPreferences,
   UserPreferencesUpdatePayload,
   User,
@@ -108,6 +114,12 @@ import type {
   SLAPolicyUpdatePayload,
   SystemSettings,
   SystemSettingsUpdatePayload,
+  // Documents
+  Document,
+  DocumentCreatePayload,
+  DocumentUpdatePayload,
+  DocumentStats,
+  DocumentDepartment,
 } from '@3sc/types';
 import { SLAState } from '@3sc/types';
 
@@ -429,7 +441,8 @@ export const api = createApi({
     'Notification', 'User', 'Organization', 'AuditLog',
     'Analytics', 'Dashboard', 'RoutingRule', 'AI',
     'Session', 'UserPreferences', 'Delivery', 'Onboarding', 'Roadmap', 'Escalations',
-    'SLAPolicy', 'SystemSettings', 'SimilarTickets',
+    'SLAPolicy', 'SystemSettings', 'SimilarTickets', 'CopilotHistory', 'CopilotSessions',
+    'Document', 'DocumentList', 'DocumentStats',
   ],
   endpoints: (builder) => ({
     // ── Auth ────────────────────────────────────────────────
@@ -545,6 +558,23 @@ export const api = createApi({
         { type: 'TicketList' },
         'Dashboard',
       ],
+    }),
+
+    bulkUpdateTickets: builder.mutation<BulkTicketUpdateResult, BulkTicketUpdatePayload>({
+      query: (body) => ({
+        url: '/tickets/bulk-update',
+        method: 'POST',
+        body,
+      }),
+      transformResponse: (response: any) => {
+        // Handle both wrapped { data: { data: [...], updated: N } } and unwrapped { data: [...], updated: N }
+        const raw = response.data && response.updated === undefined ? response.data : response;
+        return {
+          data: raw.data.map(mapRawTicket),
+          updated: raw.updated,
+        };
+      },
+      invalidatesTags: ['TicketList', 'Dashboard'],
     }),
 
     // ── Comments ────────────────────────────────────────────
@@ -880,7 +910,7 @@ export const api = createApi({
     }),
 
     // ── Users ───────────────────────────────────────────────
-    getUsers: builder.query<PaginatedResponse<User>, { page?: number; role?: string; search?: string }>({
+    getUsers: builder.query<PaginatedResponse<User>, { page?: number; role?: string; search?: string; tenant_id?: string }>({
       query: (params) => ({ url: '/users', params }),
       transformResponse: (response: any) => ({
         data: (response.data ?? []).map(mapRawUser),
@@ -995,6 +1025,31 @@ export const api = createApi({
     getResolutionBySeverity: builder.query<ResolutionBySeverityData[], AnalyticsFilters>({
       query: (params) => ({ url: '/analytics/resolution-by-severity', params }),
       transformResponse: (response: ApiResponse<ResolutionBySeverityData[]>) => response.data,
+      providesTags: ['Analytics'],
+    }),
+
+    // ── CSAT / NPS ──────────────────────────────────────────
+    getCsatKpis: builder.query<CsatKpiData, AnalyticsFilters>({
+      query: (params) => ({ url: '/feedback/kpis', params }),
+      transformResponse: (response: ApiResponse<CsatKpiData>) => response.data,
+      providesTags: ['Analytics'],
+    }),
+
+    getCsatTrends: builder.query<CsatTrendData[], AnalyticsFilters>({
+      query: (params) => ({ url: '/feedback/trends', params }),
+      transformResponse: (response: ApiResponse<CsatTrendData[]>) => response.data,
+      providesTags: ['Analytics'],
+    }),
+
+    getNpsBreakdown: builder.query<NpsBreakdownData, AnalyticsFilters>({
+      query: (params) => ({ url: '/feedback/nps-breakdown', params }),
+      transformResponse: (response: ApiResponse<NpsBreakdownData>) => response.data,
+      providesTags: ['Analytics'],
+    }),
+
+    getFeedbackThemes: builder.query<FeedbackThemeData[], AnalyticsFilters>({
+      query: (params) => ({ url: '/feedback/themes', params }),
+      transformResponse: (response: ApiResponse<FeedbackThemeData[]>) => response.data,
       providesTags: ['Analytics'],
     }),
 
@@ -1710,6 +1765,123 @@ export const api = createApi({
       transformResponse: (response: ApiResponse<Array<{ ticketId: string; ticketNumber: string; title: string; status: string }>>) => response.data ?? [],
       providesTags: ['SimilarTickets'],
     }),
+
+    // ── AI Copilot ──────────────────────────────────────────────
+    createCopilotSession: builder.mutation<{ id: string }, { context?: { page?: string; entityType?: string; entityId?: string } }>({
+      query: (body) => ({ url: '/ai/copilot/sessions', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<{ id: string }>) => response.data,
+    }),
+    getCopilotSessions: builder.query<Array<{ id: string; title?: string; updated_at: string }>, { limit?: number }>({
+      query: (params) => ({ url: '/ai/copilot/sessions', params }),
+      transformResponse: (response: ApiResponse<Array<{ id: string; title?: string; updated_at: string }>>) => response.data ?? [],
+      providesTags: ['CopilotSessions'],
+    }),
+    getCopilotHistory: builder.query<Array<{ id: string; role: string; content: string; toolCalls?: unknown; toolCallId?: string; createdAt: string }>, string>({
+      query: (conversationId) => ({ url: `/ai/copilot/sessions/${conversationId}` }),
+      transformResponse: (response: ApiResponse<Array<{ id: string; role: string; content: string; toolCalls?: unknown; toolCallId?: string; createdAt: string }>>) => response.data ?? [],
+      providesTags: (result, error, id) => [{ type: 'CopilotHistory', id }],
+    }),
+    sendCopilotMessage: builder.mutation<
+      { messages: Array<{ role: string; content: string; toolCalls?: unknown; toolCallId?: string }>; done: boolean },
+      { conversationId: string; message: string }
+    >({
+      query: ({ conversationId, message }) => ({ url: `/ai/copilot/sessions/${conversationId}/chat`, method: 'POST', body: { conversationId, message } }),
+      transformResponse: (response: ApiResponse<{ messages: Array<{ role: string; content: string; toolCalls?: unknown; toolCallId?: string }>; done: boolean }>) => response.data,
+      invalidatesTags: (result, error, { conversationId }) => [{ type: 'CopilotHistory', id: conversationId }],
+    }),
+    executeCopilotDraft: builder.mutation<
+      { type: string; data: unknown; message?: string },
+      { conversationId: string; tool: string; payload: Record<string, unknown> }
+    >({
+      query: ({ conversationId, tool, payload }) => ({ url: `/ai/copilot/sessions/${conversationId}/execute-draft`, method: 'POST', body: { tool, payload } }),
+      transformResponse: (response: ApiResponse<{ type: string; data: unknown; message?: string }>) => response.data,
+      invalidatesTags: (result, error, { conversationId }) => [{ type: 'CopilotHistory', id: conversationId }],
+    }),
+    renameCopilotSession: builder.mutation<void, { conversationId: string; title: string }>({
+      query: ({ conversationId, title }) => ({ url: `/ai/copilot/sessions/${conversationId}`, method: 'PATCH', body: { title } }),
+      invalidatesTags: ['CopilotSessions'],
+    }),
+    deleteCopilotSession: builder.mutation<void, string>({
+      query: (conversationId) => ({ url: `/ai/copilot/sessions/${conversationId}`, method: 'DELETE' }),
+      invalidatesTags: ['CopilotSessions'],
+    }),
+
+    // ── Documents ───────────────────────────────────────────
+    getDocuments: builder.query<PaginatedResponse<Document>, { tenant_id?: string; department?: string; search?: string; page?: number; page_size?: number }>({
+      query: (params) => ({ url: '/documents', params }),
+      transformResponse: (response: PaginatedResponse<Document> & { data: any[] }) => ({
+        ...response,
+        data: response.data.map((d: any) => ({
+          id: d.id,
+          tenantId: d.tenant_id,
+          department: d.department,
+          filename: d.filename,
+          mimeType: d.mime_type,
+          sizeBytes: d.size_bytes,
+          downloadCount: d.download_count,
+          uploadedBy: d.uploaded_by,
+          uploaderName: d.uploader_name,
+          created_at: d.created_at,
+          updated_at: d.updated_at,
+        })),
+      }),
+      providesTags: (result) =>
+        result
+          ? [
+              ...result.data.map(({ id }) => ({ type: 'Document' as const, id })),
+              { type: 'DocumentList' },
+            ]
+          : [{ type: 'DocumentList' }],
+    }),
+
+    getDocumentStats: builder.query<DocumentStats, { tenant_id?: string }>({
+      query: (params) => ({ url: '/documents/stats', params }),
+      transformResponse: (response: { total_files: number; total_departments: number; total_downloads: number }) => ({
+        totalFiles: response.total_files,
+        totalDepartments: response.total_departments,
+        totalDownloads: response.total_downloads,
+      }),
+      providesTags: ['DocumentStats'],
+    }),
+
+    uploadDocument: builder.mutation<Document, DocumentCreatePayload>({
+      query: (payload) => {
+        const formData = new FormData();
+        formData.append('file', payload.file);
+        formData.append('filename', payload.filename);
+        formData.append('department', payload.department);
+        if (payload.targetTenantId) {
+          formData.append('target_tenant_id', payload.targetTenantId);
+        }
+        return {
+          url: '/documents',
+          method: 'POST',
+          body: formData,
+          formData: true,
+        };
+      },
+      transformResponse: (response: ApiResponse<Document>) => response.data,
+      invalidatesTags: ['DocumentList', 'DocumentStats'],
+    }),
+
+    updateDocument: builder.mutation<Document, { id: string; body: DocumentUpdatePayload }>({
+      query: ({ id, body }) => ({
+        url: `/documents/${id}`,
+        method: 'PATCH',
+        body,
+      }),
+      transformResponse: (response: ApiResponse<Document>) => response.data,
+      invalidatesTags: (_result, _error, { id }) => [
+        { type: 'Document', id },
+        'DocumentList',
+        'DocumentStats',
+      ],
+    }),
+
+    deleteDocument: builder.mutation<void, string>({
+      query: (id) => ({ url: `/documents/${id}`, method: 'DELETE' }),
+      invalidatesTags: ['DocumentList', 'DocumentStats'],
+    }),
   }),
 });
 
@@ -1724,6 +1896,7 @@ export const {
   useGetTicketQuery,
   useCreateTicketMutation,
   useUpdateTicketMutation,
+  useBulkUpdateTicketsMutation,
   useDeleteTicketMutation,
   useTransitionTicketMutation,
   // Comments
@@ -1780,6 +1953,11 @@ export const {
   useGetCategoryBreakdownQuery,
   useGetSeverityDistributionQuery,
   useGetResolutionBySeverityQuery,
+  // CSAT / NPS
+  useGetCsatKpisQuery,
+  useGetCsatTrendsQuery,
+  useGetNpsBreakdownQuery,
+  useGetFeedbackThemesQuery,
   // User Preferences
   useGetUserPreferencesQuery,
   useUpdateUserPreferencesMutation,
@@ -1880,4 +2058,18 @@ export const {
   useAdminResetPasswordMutation,
   // Similar Tickets
   useGetSimilarTicketsQuery,
+  // AI Copilot
+  useCreateCopilotSessionMutation,
+  useGetCopilotSessionsQuery,
+  useGetCopilotHistoryQuery,
+  useSendCopilotMessageMutation,
+  useExecuteCopilotDraftMutation,
+  useRenameCopilotSessionMutation,
+  useDeleteCopilotSessionMutation,
+  // Documents
+  useGetDocumentsQuery,
+  useGetDocumentStatsQuery,
+  useUploadDocumentMutation,
+  useUpdateDocumentMutation,
+  useDeleteDocumentMutation,
 } = api;

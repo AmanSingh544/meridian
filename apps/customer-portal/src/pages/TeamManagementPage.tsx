@@ -51,6 +51,7 @@ const PERM_LABELS: Partial<Record<Permission, string>> = {
   [Permission.PROJECT_VIEW]:        'View Projects',
   [Permission.ROADMAP_VOTE]:        'Vote on Roadmap',
   [Permission.ROADMAP_REQUEST]:     'Request Features',
+  [Permission.AI_COPILOT_CHAT]:     'AI Copilot Chat',
   [Permission.REPORT_VIEW]:         'View Reports',
   [Permission.REPORT_EXPORT]:       'Export Reports',
   [Permission.WORKSPACE_CONFIGURE]: 'Configure Workspace',

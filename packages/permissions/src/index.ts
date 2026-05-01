@@ -22,6 +22,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.AI_KB_SUGGEST,
     Permission.PROJECT_VIEW,
     Permission.ROADMAP_VOTE,
+    Permission.AI_COPILOT_CHAT,
+    Permission.DOCUMENT_VIEW,
   ],
 
   [UserRole.CLIENT_ADMIN]: [
@@ -47,6 +49,8 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.AI_KB_SUGGEST,
     Permission.ROADMAP_VOTE,
     Permission.ROADMAP_REQUEST,
+    Permission.AI_COPILOT_CHAT,
+    Permission.DOCUMENT_VIEW,
   ],
 
   [UserRole.AGENT]: [
@@ -65,6 +69,12 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.MEMBER_VIEW,
     Permission.PROJECT_VIEW,
     Permission.AI_PROJECT_QA,
+    Permission.AI_COPILOT_CHAT,
+    Permission.AI_COPILOT_WRITE,
+    Permission.DOCUMENT_VIEW,
+    Permission.DOCUMENT_UPLOAD,
+    Permission.DOCUMENT_EDIT,
+    Permission.DOCUMENT_DELETE,
   ],
 
   [UserRole.LEAD]: [
@@ -101,6 +111,12 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.ONBOARDING_MANAGE,
     Permission.WORKLOAD_VIEW,
     Permission.SKILL_ASSIGN,
+    Permission.AI_COPILOT_CHAT,
+    Permission.AI_COPILOT_WRITE,
+    Permission.DOCUMENT_VIEW,
+    Permission.DOCUMENT_UPLOAD,
+    Permission.DOCUMENT_EDIT,
+    Permission.DOCUMENT_DELETE,
   ],
 
   [UserRole.ADMIN]: [
@@ -154,6 +170,12 @@ const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.SCORING_CONFIGURE,
     Permission.USER_IMPORT,
     Permission.PASSWORD_RESET,
+    Permission.AI_COPILOT_CHAT,
+    Permission.AI_COPILOT_WRITE,
+    Permission.DOCUMENT_VIEW,
+    Permission.DOCUMENT_UPLOAD,
+    Permission.DOCUMENT_EDIT,
+    Permission.DOCUMENT_DELETE,
   ],
 };
 
@@ -183,6 +205,10 @@ export const INTERNAL_ONLY_PERMISSIONS: Set<Permission> = new Set([
   Permission.SCORING_CONFIGURE,
   Permission.USER_IMPORT,
   Permission.PASSWORD_RESET,
+  Permission.AI_COPILOT_WRITE,
+  Permission.DOCUMENT_UPLOAD,
+  Permission.DOCUMENT_EDIT,
+  Permission.DOCUMENT_DELETE,
 ]);
 
 // ── Default sub-role per UserRole ───────────────────────────────
@@ -281,6 +307,10 @@ export class PermissionChecker {
   // ── AI ──────────────────────────────────────────────────────
   canUseAI(): boolean       { return this.has(Permission.AI_SUGGEST); }
   canGiveAIFeedback(): boolean { return this.has(Permission.AI_FEEDBACK); }
+
+  // ── AI Copilot ──────────────────────────────────────────────
+  canUseCopilot(): boolean     { return this.has(Permission.AI_COPILOT_CHAT); }
+  canUseCopilotWrite(): boolean { return this.has(Permission.AI_COPILOT_WRITE); }
 
   // ── Audit & Workspace ───────────────────────────────────────
   canViewAuditLog(): boolean      { return this.has(Permission.AUDIT_VIEW); }

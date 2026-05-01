@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
 import { useGetNotificationsQuery } from '@3sc/api';
 import { Avatar, ThemeToggle } from '@3sc/ui';
+import { CopilotWidget } from '../../features/copilot/CopilotWidget';
 import { logout } from '../../features/auth/authSlice';
 import { setUnreadCount } from '../../features/notifications/notificationsSlice';
 import type { AppDispatch, RootState } from '../../store';
@@ -14,6 +15,7 @@ const NAV_ITEMS = [
   // CLIENT_USER sees TICKET_VIEW_OWN; CLIENT_ADMIN sees TICKET_VIEW_ORG — both grant access
   { path: '/tickets', label: 'Tickets', icon: '🎫', perm: Permission.TICKET_VIEW_OWN },
   { path: '/knowledge', label: 'Knowledge Base', icon: '📚', perm: Permission.KB_VIEW },
+  { path: '/documents', label: 'Documents', icon: '📁', perm: Permission.DOCUMENT_VIEW },
   { path: '/projects', label: 'Projects', icon: '📁', perm: Permission.PROJECT_VIEW },
   { path: '/onboarding', label: 'Onboarding', icon: '🛫', perm: null },
   { path: '/roadmap', label: 'Roadmap', icon: '🗺️', perm: Permission.ROADMAP_VOTE },
@@ -249,6 +251,7 @@ export const CustomerLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+      <CopilotWidget />
     </div>
   );
 };

@@ -18,6 +18,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
   const inputRef = useRef<HTMLInputElement>(null);
   const [dragActive, setDragActive] = useState(false);
   const [selectedFiles, setSelectedFiles] = useState<File[]>([]);
+  const [rejectedCount, setRejectedCount] = useState(0);
 
   const handleFiles = (fileList: FileList) => {
     const files = Array.from(fileList).slice(0, maxFiles);
@@ -26,6 +27,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
     );
     setSelectedFiles(valid);
     onFilesSelected(valid);
+    setRejectedCount(files.length - valid.length);
   };
 
   return (
@@ -49,7 +51,7 @@ export const FileUpload: React.FC<FileUploadProps> = ({
           ref={inputRef}
           type="file"
           multiple
-          accept={accept}
+          accept={accept ?? FILE_CONFIG.allowedTypes.join(',')}
           onChange={(e) => e.target.files && handleFiles(e.target.files)}
           style={{ display: 'none' }}
         />
@@ -85,6 +87,11 @@ export const FileUpload: React.FC<FileUploadProps> = ({
             </div>
           ))}
         </div>
+      )}
+      {rejectedCount > 0 && (
+        <p style={{ marginTop: '0.5rem', fontSize: '0.75rem', color: 'var(--color-error)' }}>
+          {rejectedCount} file(s) rejected (invalid type or exceeds {formatFileSize(FILE_CONFIG.maxFileSize)})
+        </p>
       )}
       {uploading && (
         <div style={{ marginTop: '0.5rem', fontSize: '0.8125rem', color: 'var(--color-brand-600)' }}>

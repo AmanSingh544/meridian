@@ -16,6 +16,7 @@ const LoginPage = lazy(() => import('./pages/LoginPage').then(m => ({ default: m
 const ForgotPasswordPage = lazy(() => import('./pages/ForgotPasswordPage').then(m => ({ default: m.ForgotPasswordPage })));
 const AgentDashboardPage = lazy(() => import('./pages/AgentDashboardPage').then(m => ({ default: m.AgentDashboardPage })));
 const TicketQueuePage = lazy(() => import('./pages/TicketQueuePage').then(m => ({ default: m.TicketQueuePage })));
+const TriagePage = lazy(() => import('./pages/TriagePage').then(m => ({ default: m.TriagePage })));
 const TicketWorkspacePage = lazy(() => import('./pages/TicketWorkspacePage').then(m => ({ default: m.TicketWorkspacePage })));
 const AnalyticsPage = lazy(() => import('./pages/AnalyticsPage').then(m => ({ default: m.AnalyticsPage })));
 const SearchPage = lazy(() => import('./pages/SearchPage').then(m => ({ default: m.SearchPage })));
@@ -34,6 +35,8 @@ const UserSettingsPage = lazy(() => import('./pages/UserSettingsPage').then(m =>
 const NotificationsPage = lazy(() => import('./pages/NotificationsPage').then(m => ({ default: m.NotificationsPage })));
 const DeliveryBoardPage = lazy(() => import('./pages/DeliveryBoardPage'));
 const OnboardingListPage = lazy(() => import('./pages/OnboardingListPage'));
+const DocumentsPage = lazy(() => import('./pages/DocumentsPage').then(m => ({ default: m.DocumentsPage })));
+const CsatDashboardPage = lazy(() => import('./pages/CsatDashboardPage').then(m => ({ default: m.CsatDashboardPage })));
 
 const PageLoader: React.FC = () => (
   <div style={{
@@ -87,7 +90,7 @@ const AppRoutes: React.FC = () => (
         {/* Triage — TICKET_ASSIGN is LEAD and ADMIN only */}
         <Route path="/tickets/triage" element={
           <ProtectedRoute permission={Permission.TICKET_ASSIGN}>
-            <TicketQueuePage />
+            <TriagePage />
           </ProtectedRoute>
         } />
         <Route path="/tickets/:id" element={<TicketWorkspacePage />} />
@@ -98,6 +101,11 @@ const AppRoutes: React.FC = () => (
         <Route path="/analytics" element={
           <ProtectedRoute permission={Permission.REPORT_VIEW}>
             <AnalyticsPage />
+          </ProtectedRoute>
+        } />
+        <Route path="/csat" element={
+          <ProtectedRoute permission={Permission.REPORT_VIEW}>
+            <CsatDashboardPage />
           </ProtectedRoute>
         } />
         <Route path="/users" element={
@@ -175,6 +183,9 @@ const AppRoutes: React.FC = () => (
             <KBArticleEditorPage />
           </ProtectedRoute>
         } />
+
+        {/* Documents — all authenticated internal users */}
+        <Route path="/documents" element={<DocumentsPage />} />
       </Route>
 
       <Route path="/" element={<Navigate to="/dashboard" replace />} />

@@ -2,7 +2,8 @@
 // @3sc/realtime — WebSocket & Realtime Layer
 // ═══════════════════════════════════════════════════════════════
 
-import { REALTIME_CONFIG, PORTAL_CONFIG } from '@3sc/config';
+import { io, Socket as IOSocket } from 'socket.io-client';
+import { REALTIME_CONFIG, PORTAL_CONFIG, API_CONFIG } from '@3sc/config';
 import type { RealtimeEvent, RealtimeEventType } from '@3sc/types';
 
 export type ConnectionStatus = 'connecting' | 'connected' | 'disconnected' | 'reconnecting' | 'failed';
@@ -203,4 +204,96 @@ export function getRealtimeClient(url?: string): RealtimeClient {
 export function destroyRealtimeClient(): void {
   clientInstance?.disconnect();
   clientInstance = null;
+}
+// ── Copilot Socket.IO Client ──────────────────────────────────────────────
+
+export type CopilotStreamEvent =
+  | { type: 'token'; content: string }
+  | { type: 'tool_start'; tools: string[] }
+  | { type: 'tool_end'; results: unknown[] }
+  | { type: 'draft'; draft: unknown }
+  | { type: 'done'; conversationId: string }
+  | { type: 'error'; message: string };
+
+export class CopilotSocketClient {
+  private socket: IOSocket | null = null;
+  private url: string;
+  private listeners = new Set<(event: CopilotStreamEvent) => void>();
+
+  constructor(url?: string) {
+    // Derive base URL from API config (strip /api/v1)
+    const baseUrl = url ?? API_CONFIG.baseUrl.replace(/\/api\/v1$/, '').replace(/\/api\/v1\/$/, '');
+    this.url = baseUrl;
+  }
+
+  connect(): void {
+    if (this.socket?.connected) return;
+
+    this.socket = io(`${this.url}/copilot`, {
+      withCredentials: true,
+      transports: ['websocket', 'polling'],
+    });
+
+    this.socket.on('connect', () => {
+      console.log('[CopilotSocket] Connected');
+    });
+
+    this.socket.on('disconnect', (reason) => {
+      console.log('[CopilotSocket] Disconnected:', reason);
+    });
+
+    this.socket.on('copilot:stream', (event: CopilotStreamEvent) => {
+      this.listeners.forEach((fn) => fn(event));
+    });
+
+    this.socket.on('copilot:done', (data: { conversationId: string }) => {
+      this.listeners.forEach((fn) => fn({ type: 'done', conversationId: data.conversationId }));
+    });
+
+    this.socket.on('copilot:error', (data: { message: string }) => {
+      this.listeners.forEach((fn) => fn({ type: 'error', message: data.message }));
+    });
+
+    this.socket.on('copilot:draft-result', (data: { conversationId: string; result: unknown }) => {
+      this.listeners.forEach((fn) =>
+        fn({ type: 'tool_end', results: [data.result] }),
+      );
+    });
+  }
+
+  disconnect(): void {
+    this.socket?.disconnect();
+    this.socket = null;
+  }
+
+  get isConnected(): boolean {
+    return this.socket?.connected ?? false;
+  }
+
+  onEvent(listener: (event: CopilotStreamEvent) => void): () => void {
+    this.listeners.add(listener);
+    return () => this.listeners.delete(listener);
+  }
+
+  sendChat(conversationId: string, message: string, context?: Record<string, unknown>): void {
+    this.socket?.emit('copilot:chat_stream', { conversationId, message, context });
+  }
+
+  executeDraft(conversationId: string, tool: string, payload: Record<string, unknown>): void {
+    this.socket?.emit('copilot:execute-draft', { conversationId, tool, payload });
+  }
+}
+
+let copilotClientInstance: CopilotSocketClient | null = null;
+
+export function getCopilotSocketClient(url?: string): CopilotSocketClient {
+  if (!copilotClientInstance) {
+    copilotClientInstance = new CopilotSocketClient(url);
+  }
+  return copilotClientInstance;
+}
+
+export function destroyCopilotSocketClient(): void {
+  copilotClientInstance?.disconnect();
+  copilotClientInstance = null;
 }

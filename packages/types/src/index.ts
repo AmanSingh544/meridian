@@ -292,6 +292,9 @@ export interface SkillGap {
  * │ ONBOARDING_MANAGE       │              │             │       │  ✓   │   ✓   │
  * │ ROADMAP_VOTE            │      ✓       │      ✓      │       │      │       │
  * │ ROADMAP_REQUEST         │      ✓       │             │       │      │       │
+ * ├─────────────────────────┼──────────────┼─────────────┼───────┼──────┼───────┤
+ * │ AI_COPILOT_CHAT         │      ✓       │      ✓      │   ✓   │  ✓   │   ✓   │
+ * │ AI_COPILOT_WRITE        │              │             │   ✓   │  ✓   │   ✓   │
  * └─────────────────────────┴──────────────┴─────────────┴───────┴──────┴───────┘
  */
 export enum Permission {
@@ -474,6 +477,22 @@ export enum Permission {
    * Internal ADMIN only.
    */
   PASSWORD_RESET = 'PASSWORD_RESET',
+
+  // ── AI Copilot ────────────────────────────────────────────────────────────
+  /** Access the AI Copilot chat bot. Available to all authenticated roles. */
+  AI_COPILOT_CHAT = 'AI_COPILOT_CHAT',
+  /** Execute write actions via AI Copilot (status changes, assignments, etc.). */
+  AI_COPILOT_WRITE = 'AI_COPILOT_WRITE',
+
+  // ── Documents ───────────────────────────────────────────────────────────────
+  /** View and download documents from the department library. Available to all roles. */
+  DOCUMENT_VIEW = 'DOCUMENT_VIEW',
+  /** Upload new documents to the department library. Internal staff only. */
+  DOCUMENT_UPLOAD = 'DOCUMENT_UPLOAD',
+  /** Edit document metadata (name, department). Internal staff only. */
+  DOCUMENT_EDIT = 'DOCUMENT_EDIT',
+  /** Delete a document from the library. Internal staff only. */
+  DOCUMENT_DELETE = 'DOCUMENT_DELETE',
 }
 
 export interface User {
@@ -820,6 +839,16 @@ export interface TicketTransitionPayload {
   comment?: string;
 }
 
+export interface BulkTicketUpdatePayload {
+  ticket_ids: UUID[];
+  updates: TicketUpdatePayload;
+}
+
+export interface BulkTicketUpdateResult {
+  data: Ticket[];
+  updated: number;
+}
+
 export interface TicketFilters {
   status?: TicketStatus[];
   priority?: TicketPriority[];
@@ -913,6 +942,56 @@ export interface PresignedUpload {
   uploadUrl: string;
   fileKey: string;
   expiresAt: ISO8601;
+}
+
+// ── Document Types ──────────────────────────────────────────────
+export const DOCUMENT_DEPARTMENTS = [
+  'Delivery Team',
+  'Integration Team',
+  'Support Team',
+  'Product Team',
+  'Engineering',
+  'Sales',
+  'HR',
+  'Finance',
+  'Legal',
+  'Marketing',
+  'Operations',
+  'General',
+] as const;
+
+export type DocumentDepartment = (typeof DOCUMENT_DEPARTMENTS)[number];
+
+export interface Document {
+  id: UUID;
+  tenantId: UUID;
+  department: DocumentDepartment;
+  filename: string;
+  mimeType: string | null;
+  sizeBytes: number;
+  downloadCount: number;
+  uploadedBy: UUID;
+  uploaderName?: string;
+  created_at: ISO8601;
+  updated_at: ISO8601;
+}
+
+export interface DocumentCreatePayload {
+  file: File;
+  filename: string;
+  department: DocumentDepartment;
+  targetTenantId?: string;
+}
+
+export interface DocumentUpdatePayload {
+  filename?: string;
+  department?: DocumentDepartment;
+}
+
+export interface DocumentStats {
+  totalFiles: number;
+  totalDepartments: number;
+  totalDownloads: number;
 }
 
 // ── Project Types ───────────────────────────────────────────────
@@ -1090,6 +1169,34 @@ export interface SeverityDistributionData {
 export interface ResolutionBySeverityData {
   priority: string;
   avgHours: number;
+}
+
+// ── CSAT / NPS Types ────────────────────────────────────────────
+export interface CsatKpiData {
+  avgCsat: number;
+  npsScore: number;
+  totalResponses: number;
+  responseRate: number;
+  positiveSentiment: number;
+  flaggedIssues: number;
+}
+
+export interface CsatTrendData {
+  date: string;
+  csat: number;
+  nps: number;
+}
+
+export interface NpsBreakdownData {
+  promoters: number;
+  passives: number;
+  detractors: number;
+}
+
+export interface FeedbackThemeData {
+  theme: string;
+  count: number;
+  sentiment: string;
 }
 
 export interface UserPreferences {

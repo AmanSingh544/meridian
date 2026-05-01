@@ -4,6 +4,7 @@ import { useDispatch, useSelector } from 'react-redux';
 import { useSession, usePermissions, useIsMobile } from '@3sc/hooks';
 import { useGetNotificationsQuery } from '@3sc/api';
 import { Avatar, ConnectionIndicator, Badge, ThemeToggle } from '@3sc/ui';
+import { CopilotWidget } from '../../features/copilot/CopilotWidget';
 import { Permission } from '@3sc/types';
 import { logout } from '../../features/auth/authSlice';
 import { setUnreadCount } from '../../features/notifications/notificationsSlice';
@@ -30,7 +31,9 @@ const NAV_ITEMS: NavItem[] = [
   { path: '/tickets/triage', label: 'Triage',    icon: '🔀', permission: Permission.TICKET_ASSIGN },
   { path: '/search',      label: 'Search',       icon: '🔍' },
   { path: '/analytics',   label: 'Analytics',    icon: '📈', permission: Permission.REPORT_VIEW },
+  { path: '/csat',        label: 'CSAT & NPS',   icon: '😊', permission: Permission.REPORT_VIEW },
   { path: '/knowledge',   label: 'Knowledge Base', icon: '📚', permission: Permission.KB_VIEW },
+  { path: '/documents',   label: 'Documents',      icon: '📁', permission: Permission.DOCUMENT_VIEW },
   { path: '/delivery',    label: 'Delivery Board', icon: '🚀', permission: Permission.DELIVERY_VIEW },
   { path: '/onboarding',  label: 'Onboarding',     icon: '🛫', permission: Permission.ONBOARDING_VIEW },
 
@@ -272,6 +275,7 @@ export const ConsoleLayout: React.FC = () => {
           <Outlet />
         </main>
       </div>
+      <CopilotWidget />
     </div>
   );
 };

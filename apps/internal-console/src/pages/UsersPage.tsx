@@ -126,6 +126,7 @@ const PERMISSION_GROUPS: { label: string; perms: Permission[] }[] = [
       Permission.AI_SUGGEST, Permission.AI_FEEDBACK, Permission.AI_DIGEST,
       Permission.AI_KB_SUGGEST, Permission.AI_PROJECT_INSIGHTS,
       Permission.AI_PROJECT_REPORTS, Permission.AI_PROJECT_QA,
+      Permission.AI_COPILOT_CHAT, Permission.AI_COPILOT_WRITE,
     ],
   },
   {
@@ -209,6 +210,8 @@ const PERM_LABELS: Partial<Record<Permission, string>> = {
   [Permission.SCORING_CONFIGURE]:       'Configure Scoring',
   [Permission.USER_IMPORT]:             'Import Users',
   [Permission.PASSWORD_RESET]:          'Reset Passwords',
+  [Permission.AI_COPILOT_CHAT]:         'AI Copilot Chat',
+  [Permission.AI_COPILOT_WRITE]:        'AI Copilot Write',
 };
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -1004,6 +1007,7 @@ export const UsersPage: React.FC = () => {
     page,
     role:   roleFilter || (activeTab === 'internal' ? 'ADMIN,LEAD,AGENT' : 'CLIENT_ADMIN,CLIENT_USER'),
     search: debouncedSearch || undefined,
+    tenant_id: activeTab === 'clients' ? '' : undefined,
   });
 
   const { data: allSkills = [] } = useGetSkillsQuery();
