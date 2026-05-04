@@ -335,7 +335,7 @@ const TriageCard: React.FC<TriageCardProps> = ({ ticket, agents, selected, onSel
           ticketId={ticket.id}
           enabled={aiEnabled}
           onAccept={(updates) => {
-            onUpdate(ticket.id, { payload: updates });
+            onUpdate(ticket.id, updates);
           }}
         />
       </div>
