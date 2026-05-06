@@ -341,15 +341,16 @@ function mapRawUser(raw: any): import('@3sc/types').User {
     lastLoginAt: raw.last_login_at ?? raw.lastLoginAt ?? undefined,
     created_at: raw.created_at ?? '',
     updated_at: raw.updated_at ?? '',
-    internalSubRole: raw.internal_sub_role ?? raw.internalSubRole ?? undefined,
+    internal_sub_role: raw.internal_sub_role ?? raw.internalSubRole ?? undefined,
     department: raw.department ?? undefined,
     timezone: raw.timezone ?? undefined,
     mfaEnabled: raw.mfaEnabled ?? raw.mfa_enabled ?? undefined,
-    jobTitle: raw.jobTitle ?? raw.job_title ?? undefined,
+    job_title: raw.job_title ?? raw.jobTitle ?? undefined,
     phone: raw.phone ?? undefined,
     skills: raw.skills ?? undefined,
     workload: raw.workload ?? undefined,
     permissionOverrides: raw.permissionOverrides ?? raw.permission_overrides ?? undefined,
+    projects: raw.projects ?? undefined,
   };
 }
 
@@ -730,7 +731,7 @@ export const api = createApi({
     }),
 
     // ── Projects ────────────────────────────────────────────
-    getProjects: builder.query<PaginatedResponse<Project>, { page?: number; page_size?: number }>({
+    getProjects: builder.query<PaginatedResponse<Project>, { page?: number; page_size?: number; tenant_id?: string }>({
       query: (params) => ({ url: '/projects', params }),
       transformResponse: (response: { data: Project[]; page: number; page_size: number; total: number; total_pages: number }) => ({
         data: response.data.map((p) => ({
@@ -767,6 +768,32 @@ export const api = createApi({
       query: ({ id, ...body }) => ({ url: `/projects/${id}`, method: 'PATCH', body }),
       transformResponse: (response: ApiResponse<Project>) => response.data,
       invalidatesTags: (_result, _error, { id }) => [{ type: 'Project', id }, 'Project'],
+    }),
+
+    // ── Project Members ──────────────────────────────────────
+
+    getProjectMembers: builder.query<{ data: any[] }, { projectId: string; tenant_id: string }>({
+      query: ({ projectId, tenant_id }) => ({ url: `/projects/${projectId}/members`, params: { tenant_id } }),
+      providesTags: (_result, _error, { projectId }) => [{ type: 'Project', id: projectId }, 'User'],
+    }),
+
+    addProjectMember: builder.mutation<{ data: any[] }, { projectId: string; tenant_id: string; user_id: string; role?: string }>({
+      query: ({ projectId, tenant_id, user_id, role }) => ({
+        url: `/projects/${projectId}/members`,
+        method: 'POST',
+        params: { tenant_id },
+        body: { user_id, role: role ?? 'MEMBER' },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [{ type: 'Project', id: projectId }, 'User'],
+    }),
+
+    removeProjectMember: builder.mutation<{ data: any[] }, { projectId: string; userId: string; tenant_id: string }>({
+      query: ({ projectId, userId, tenant_id }) => ({
+        url: `/projects/${projectId}/members/${userId}`,
+        method: 'DELETE',
+        params: { tenant_id },
+      }),
+      invalidatesTags: (_result, _error, { projectId }) => [{ type: 'Project', id: projectId }, 'User'],
     }),
 
     // ── AI Projects ──────────────────────────────────────────
@@ -1966,6 +1993,10 @@ export const {
   useGetProjectQuery,
   useCreateProjectMutation,
   useUpdateProjectMutation,
+  // Project Members
+  useGetProjectMembersQuery,
+  useAddProjectMemberMutation,
+  useRemoveProjectMemberMutation,
   // AI Projects
   useGetProjectHealthQuery,
   useGetProjectClustersQuery,

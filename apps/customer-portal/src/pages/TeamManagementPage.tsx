@@ -5,8 +5,9 @@ import {
   useToggleTeamMemberPermissionMutation,
   useDeactivateTeamMemberMutation,
   useInviteUserMutation,
+  useGetProjectsQuery,
 } from '@3sc/api';
-import { useDocumentTitle, useDebouncedValue, usePermissions } from '@3sc/hooks';
+import { useDocumentTitle, useDebouncedValue, usePermissions, useSession } from '@3sc/hooks';
 import {
   Card, Button, Badge, Avatar, Skeleton, EmptyState, ErrorState,
   SearchInput, Modal, Input, Select, PermissionGate,
@@ -337,22 +338,37 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({ member, onClose, onSa
 interface InviteMemberModalProps { onClose: () => void; onInvited: () => void; }
 const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvited }) => {
   const [inviteUser, { isLoading: inviting }] = useInviteUserMutation();
+  const session = useSession();
+  const tenantId = session?.tenantId;
 
-  const [firstName, setFirstName] = useState('');
-  const [lastName,  setLastName]  = useState('');
-  const [email,     setEmail]     = useState('');
-  const [role,      setRole]      = useState<UserRole>(UserRole.CLIENT_USER);
-  const [error,     setError]     = useState<string | null>(null);
-  const [sent,      setSent]      = useState(false);
+  const { data: projectsData } = useGetProjectsQuery(
+    { tenant_id: tenantId },
+    { skip: !tenantId },
+  );
+  const availableProjects = projectsData?.data ?? [];
+
+  const [firstName,  setFirstName]  = useState('');
+  const [lastName,   setLastName]   = useState('');
+  const [email,      setEmail]      = useState('');
+  const [role,       setRole]       = useState<UserRole>(UserRole.CLIENT_USER);
+  const [projectIds, setProjectIds] = useState<string[]>([]);
+  const [error,      setError]      = useState<string | null>(null);
+  const [sent,       setSent]       = useState(false);
+
+  const toggleProject = (id: string) =>
+    setProjectIds(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]);
 
   const handleSend = async () => {
     setError(null);
+    if (!tenantId) { setError('Session tenant not available. Please refresh and try again.'); return; }
     try {
       await inviteUser({
-        email: email.trim(),
-        firstName: firstName.trim() || undefined,
-        lastName: lastName.trim() || undefined,
+        email:      email.trim(),
+        first_name: firstName.trim() || undefined,
+        last_name:  lastName.trim() || undefined,
         role,
+        tenant_id:  tenantId,
+        project_ids: projectIds.length ? projectIds : undefined,
       }).unwrap();
       setSent(true);
       setTimeout(() => { onInvited(); onClose(); }, 1800);
@@ -366,7 +382,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvite
       <Modal isOpen onClose={onClose} title="Add Member" width="24rem">
         <div style={{ textAlign: 'center', padding: '2rem 0' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✅</div>
-          <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>Invitation sent!</div>
+          <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>Member added!</div>
           <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '0.25rem' }}>{email}</div>
         </div>
       </Modal>
@@ -374,7 +390,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvite
   }
 
   return (
-    <Modal isOpen onClose={onClose} title="Add Team Member" width="26rem">
+    <Modal isOpen onClose={onClose} title="Add Team Member" width="28rem">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <Input label="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" autoFocus />
@@ -387,12 +403,44 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvite
           onChange={e => setRole(e.target.value as UserRole)}
           options={CLIENT_ROLE_OPTIONS}
         />
+
+        {/* Project assignment */}
+        {availableProjects.length > 0 && (
+          <div>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--color-text-primary)' }}>
+              Assign to Projects <span style={{ fontWeight: 400, color: 'var(--color-text-muted)' }}>(optional)</span>
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+              {availableProjects.map(p => {
+                const selected = projectIds.includes(p.id);
+                return (
+                  <button
+                    key={p.id}
+                    onClick={() => toggleProject(p.id)}
+                    style={{
+                      padding: '0.3125rem 0.75rem', borderRadius: 'var(--radius-sm)',
+                      fontSize: '0.8125rem', cursor: 'pointer', transition: 'all 0.15s',
+                      background: selected ? 'var(--color-primary)' : 'var(--color-bg-subtle)',
+                      color: selected ? '#fff' : 'var(--color-text-secondary)',
+                      border: selected ? '1px solid var(--color-primary)' : '1px solid var(--color-border)',
+                      fontWeight: selected ? 500 : 400,
+                    }}
+                  >
+                    {p.name}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
         <div style={{
           padding: '0.75rem', background: 'var(--color-bg-subtle)',
           borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--color-text-muted)',
         }}>
-          An invitation email will be sent. The invitee will set their own password via the link.
+          An invitation email will be sent once the domain is active. The invitee will set their own password via the link.
         </div>
+
         {error && (
           <div style={{
             padding: '0.625rem 0.875rem', background: '#fef2f2',
@@ -405,7 +453,6 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvite
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSend} loading={inviting} disabled={!email.trim()}>
-            {/* Send Invite */}
             Add Team Member
           </Button>
         </div>
@@ -536,6 +583,26 @@ export const TeamManagementPage: React.FC = () => {
                   {(member.permissionOverrides ?? []).length > 0 && (
                     <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>
                       {(member.permissionOverrides ?? []).length} permission override{(member.permissionOverrides ?? []).length !== 1 ? 's' : ''}
+                    </div>
+                  )}
+                  {/* Project memberships */}
+                  {(member.projects ?? []).length > 0 && (
+                    <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.25rem', marginTop: '0.25rem' }}>
+                      {(member.projects ?? []).map(proj => (
+                        <span
+                          key={proj.id}
+                          style={{
+                            padding: '0.125rem 0.5rem',
+                            borderRadius: 'var(--radius-sm)',
+                            fontSize: '0.6875rem',
+                            background: 'var(--color-bg-subtle)',
+                            border: '1px solid var(--color-border)',
+                            color: 'var(--color-text-secondary)',
+                          }}
+                        >
+                          {proj.name}
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>

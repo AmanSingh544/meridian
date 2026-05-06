@@ -11,11 +11,15 @@ import {
   useGetProjectMilestonePredictionsQuery,
   useAskProjectMutation,
   useGetTicketsQuery,
+  useGetProjectMembersQuery,
+  useAddProjectMemberMutation,
+  useRemoveProjectMemberMutation,
+  useGetUsersQuery,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, ErrorState, StatusBadge, PriorityBadge, useToast } from '@3sc/ui';
+import { Card, Avatar, Button, Skeleton, ErrorState, StatusBadge, PriorityBadge, Select, useToast } from '@3sc/ui';
 import { formatDate } from '@3sc/utils';
-import { Permission } from '@3sc/types';
+import { Permission, UserRole } from '@3sc/types';
 import type { ProjectHealthColor, ProjectQAAnswer } from '@3sc/types';
 
 // ── Helpers ──────────────────────────────────────────────────────────────────
@@ -26,15 +30,12 @@ const HEALTH_CONFIG: Record<ProjectHealthColor, { color: string; bg: string; bor
   red:   { color: 'var(--color-danger)',  bg: 'var(--color-danger-light, #fee2e2)',   border: 'var(--color-danger)',  icon: '!' },
 };
 
-const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'neutral' | 'danger' | 'info'> = {
-  active: 'success', planning: 'info', on_hold: 'warning', completed: 'neutral', cancelled: 'danger',
-};
 
 const CHURN_COLORS: Record<string, string> = {
   low: 'var(--color-success)', medium: 'var(--color-warning)', high: 'var(--color-danger)',
 };
 
-type Tab = 'overview' | 'milestones' | 'tickets' | 'ai';
+type Tab = 'overview' | 'milestones' | 'tickets' | 'members' | 'ai';
 type TicketView = 'list' | 'kanban';
 
 // ── Section components ────────────────────────────────────────────────────────
@@ -56,6 +57,7 @@ export const ProjectDetailPage: React.FC = () => {
   const canInsights = permissions.has(Permission.AI_PROJECT_INSIGHTS);
   const canReports = permissions.has(Permission.AI_PROJECT_REPORTS);
   const canQA = permissions.has(Permission.AI_PROJECT_QA);
+  const canManageMembers = permissions.has(Permission.MEMBER_MANAGE);
 
   const [activeTab, setActiveTab] = useState<Tab>('overview');
   const [ticketView, setTicketView] = useState<TicketView>(() => {
@@ -67,6 +69,13 @@ export const ProjectDetailPage: React.FC = () => {
   const [draftExpanded, setDraftExpanded] = useState(false);
   const qaRef = useRef<HTMLInputElement>(null);
 
+  // Members tab state
+  const [addUserId, setAddUserId]     = useState('');
+  const [addRole, setAddRole]         = useState('MEMBER');
+  const [addingMember, setAddingMember] = useState(false);
+  const [memberError, setMemberError] = useState<string | null>(null);
+  const [confirmRemoveId, setConfirmRemoveId] = useState<string | null>(null);
+
   const { data: project, isLoading, isError } = useGetProjectQuery(id ?? '', { skip: !id });
   const { data: health } = useGetProjectHealthQuery(id ?? '', { skip: !id || !canInsights });
   const { data: clusters } = useGetProjectClustersQuery(id ?? '', { skip: !id || !canInsights });
@@ -77,6 +86,53 @@ export const ProjectDetailPage: React.FC = () => {
   const { data: milestonePredictions } = useGetProjectMilestonePredictionsQuery(id ?? '', { skip: !id });
   const { data: ticketsData } = useGetTicketsQuery({ projectId: id, page: 1, page_size: 50 } as Parameters<typeof useGetTicketsQuery>[0], { skip: !id });
   const [askProject] = useAskProjectMutation();
+
+  // Members queries — backend returns tenant_id directly; organizationId is a frontend alias not set by getProject
+  const projectTenantId = ((project as any)?.tenant_id ?? (project as any)?.organizationId) as string | undefined;
+  const { data: membersData, refetch: refetchMembers } = useGetProjectMembersQuery(
+    { projectId: id ?? '', tenant_id: projectTenantId ?? '' },
+    { skip: !id || !projectTenantId },
+  );
+  const members = membersData?.data ?? [];
+
+  // Internal staff eligible to be assigned to any project (ADMIN global query — no tenant filter needed)
+  const { data: usersData } = useGetUsersQuery(
+    { role: `${UserRole.ADMIN},${UserRole.LEAD},${UserRole.AGENT}` },
+    { skip: !id },
+  );
+  const candidateUsers = (usersData?.data ?? []).filter((u: any) =>
+    !members.some((m: any) => m.id === u.id),
+  );
+
+  const [addMember] = useAddProjectMemberMutation();
+  const [removeMember] = useRemoveProjectMemberMutation();
+
+  const handleAddMember = async () => {
+    if (!addUserId || !id || !projectTenantId) return;
+    setAddingMember(true);
+    setMemberError(null);
+    try {
+      await addMember({ projectId: id, tenant_id: projectTenantId, user_id: addUserId, role: addRole }).unwrap();
+      setAddUserId('');
+      setAddRole('MEMBER');
+      refetchMembers();
+    } catch (err: any) {
+      setMemberError(err?.data?.message ?? 'Failed to add member.');
+    } finally {
+      setAddingMember(false);
+    }
+  };
+
+  const handleRemoveMember = async (userId: string) => {
+    if (!id || !projectTenantId) return;
+    try {
+      await removeMember({ projectId: id, userId, tenant_id: projectTenantId }).unwrap();
+      setConfirmRemoveId(null);
+      refetchMembers();
+    } catch (err: any) {
+      setMemberError(err?.data?.message ?? 'Failed to remove member.');
+    }
+  };
 
   useDocumentTitle(project ? project.name : 'Project');
 
@@ -123,6 +179,7 @@ export const ProjectDetailPage: React.FC = () => {
     { key: 'overview', label: 'Overview' },
     { key: 'milestones', label: `Milestones (${project.milestones.length})` },
     { key: 'tickets', label: `Tickets (${project.ticketCount})` },
+    { key: 'members', label: `Members (${members.length})` },
     ...(canInsights || canReports ? [{ key: 'ai' as Tab, label: 'AI Intelligence' }] : []),
   ];
 
@@ -682,6 +739,164 @@ export const ProjectDetailPage: React.FC = () => {
                 </div>
               );
             })()
+          )}
+        </div>
+      )}
+
+      {/* ── Members Tab ── */}
+      {activeTab === 'members' && (
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+
+          {/* Add member form (LEAD/ADMIN only) */}
+          {canManageMembers && (
+            <Card>
+              <SectionLabel>Add Member</SectionLabel>
+              <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
+                <div style={{ flex: 2, minWidth: '12rem' }}>
+                  <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.25rem', color: 'var(--color-text-secondary)' }}>User</div>
+                  <select
+                    value={addUserId}
+                    onChange={e => setAddUserId(e.target.value)}
+                    style={{
+                      width: '100%', padding: '0.5rem 0.75rem',
+                      border: '1px solid var(--color-border-strong)',
+                      borderRadius: 'var(--radius-md)', fontSize: '0.875rem',
+                      background: 'var(--color-bg)', color: 'var(--color-text)',
+                      fontFamily: 'var(--font-body)',
+                    }}
+                  >
+                    <option value="">Select user…</option>
+                    {candidateUsers.map((u: any) => (
+                      <option key={u.id} value={u.id}>
+                        {u.displayName} ({u.email}) — {u.role}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <div style={{ flex: 1, minWidth: '8rem' }}>
+                  <Select
+                    label="Project Role"
+                    value={addRole}
+                    onChange={e => setAddRole(e.target.value)}
+                    options={[
+                      { value: 'VIEWER', label: 'Viewer' },
+                      { value: 'MEMBER', label: 'Member' },
+                      { value: 'LEAD',   label: 'Lead' },
+                    ]}
+                  />
+                </div>
+                <Button
+                  onClick={handleAddMember}
+                  loading={addingMember}
+                  disabled={!addUserId || addingMember}
+                  style={{ alignSelf: 'flex-end', marginBottom: '0.0625rem' }}
+                >
+                  Add
+                </Button>
+              </div>
+              {memberError && (
+                <div style={{
+                  marginTop: '0.75rem', padding: '0.5rem 0.75rem',
+                  background: '#fef2f2', border: '1px solid #fca5a5',
+                  borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: '#b91c1c',
+                }}>
+                  {memberError}
+                </div>
+              )}
+              {candidateUsers.length === 0 && (
+                <div style={{ marginTop: '0.5rem', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                  All eligible staff members are already assigned to this project.
+                </div>
+              )}
+            </Card>
+          )}
+
+          {/* Members list */}
+          {members.length === 0 ? (
+            <div style={{
+              textAlign: 'center', padding: '3rem',
+              background: 'var(--color-bg)', border: '2px dashed var(--color-border)',
+              borderRadius: 'var(--radius-lg)',
+            }}>
+              <div style={{ fontSize: '2rem', marginBottom: '0.5rem' }}>👥</div>
+              <p style={{ margin: 0, fontWeight: 600, color: 'var(--color-text)' }}>No members assigned</p>
+              <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
+                {canManageMembers ? 'Use the form above to assign team members.' : 'No team members have been assigned to this project yet.'}
+              </p>
+            </div>
+          ) : (
+            <Card padding="0">
+              {members.map((member: any, idx: number) => {
+                const roleColors: Record<string, { color: string; bg: string }> = {
+                  LEAD:   { color: '#6d28d9', bg: '#ede9fe' },
+                  MEMBER: { color: '#1d4ed8', bg: '#dbeafe' },
+                  VIEWER: { color: '#374151', bg: '#f3f4f6' },
+                };
+                const rc = roleColors[member.project_role] ?? roleColors['MEMBER'];
+                return (
+                  <div
+                    key={member.id}
+                    style={{
+                      display: 'flex', alignItems: 'center', gap: '1rem',
+                      padding: '0.875rem 1.25rem',
+                      borderBottom: idx < members.length - 1 ? '1px solid var(--color-border)' : 'none',
+                    }}
+                  >
+                    <Avatar name={member.displayName ?? member.email} src={member.avatarUrl} size={36} />
+                    <div style={{ flex: 1, minWidth: 0 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
+                        <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{member.displayName}</span>
+                        <span style={{
+                          padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-sm)',
+                          fontSize: '0.6875rem', fontWeight: 600,
+                          background: rc.bg, color: rc.color,
+                        }}>
+                          {member.project_role}
+                        </span>
+                        <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)', padding: '0.125rem 0.5rem', borderRadius: 'var(--radius-sm)' }}>
+                          {member.role}
+                        </span>
+                      </div>
+                      <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>
+                        {member.email}
+                      </div>
+                      {member.joined_at && (
+                        <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)', marginTop: '0.0625rem' }}>
+                          Joined {formatDate(member.joined_at)}
+                        </div>
+                      )}
+                    </div>
+
+                    {canManageMembers && (
+                      <div>
+                        {confirmRemoveId === member.id ? (
+                          <div style={{ display: 'flex', gap: '0.375rem', alignItems: 'center' }}>
+                            <span style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>Remove?</span>
+                            <Button variant="ghost" size="sm" onClick={() => setConfirmRemoveId(null)}>No</Button>
+                            <Button
+                              size="sm"
+                              onClick={() => handleRemoveMember(member.id)}
+                              style={{ background: '#ef4444', color: '#fff', borderColor: '#ef4444' }}
+                            >
+                              Yes
+                            </Button>
+                          </div>
+                        ) : (
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => { setMemberError(null); setConfirmRemoveId(member.id); }}
+                            style={{ color: 'var(--color-text-muted)' }}
+                          >
+                            Remove
+                          </Button>
+                        )}
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </Card>
           )}
         </div>
       )}
