@@ -98,6 +98,18 @@ export enum InternalSubRole {
   ADMIN     = 'ADMIN',
 }
 
+export enum ProjectRole {
+  VIEWER = 'VIEWER',
+  MEMBER = 'MEMBER',
+  LEAD   = 'LEAD',
+}
+
+export interface UserProject {
+  id: UUID;
+  name: string;
+  role: ProjectRole;
+}
+
 // ── Skill Types ────────────────────────────────────────────────────────────────
 
 export type SkillCategory = 'TECHNICAL' | 'DOMAIN' | 'LANGUAGE' | 'PRODUCT';
@@ -513,7 +525,7 @@ export interface User {
 
   // ── Extended fields (internal staff only) ──────────────────────────────────
   /** Sub-role for internal 3SC staff — drives skill-based routing and workload logic. */
-  internalSubRole?: InternalSubRole;
+  internal_sub_role?: InternalSubRole | string;
   /** Skills assigned to this agent. Only present for internal staff (AGENT/LEAD/ADMIN). */
   skills?: UserSkill[];
   /** Live workload metrics. Only present for internal staff. */
@@ -532,21 +544,27 @@ export interface User {
   /** Whether MFA is currently enrolled for this user. */
   mfaEnabled?: boolean;
   /** Job title or role description for the user's profile. */
-  jobTitle?: string;
+  job_title?: string;
   /** Contact phone number. */
   phone?: string;
+  /** Projects this user is assigned to, with their project-level role. */
+  projects?: UserProject[];
 }
 
 export interface InviteUserPayload {
   email: Email;
   role: UserRole;
-  firstName?: string;
-  lastName?: string;
-  /** Sub-role when inviting internal AGENT/LEAD staff. */
-  internalSubRole?: InternalSubRole;
-  /** Initial skill IDs to assign (optional, can be set later). */
-  skillIds?: string[];
+  /** Target tenant UUID. Required in request body. */
+  tenant_id: UUID;
+  first_name?: string;
+  last_name?: string;
+  /** Sub-role for internal staff only (AGENT/LEAD/ADMIN). Backend rejects for CLIENT_* roles. */
+  internal_sub_role?: InternalSubRole | string;
   department?: string;
+  /** Project IDs to assign at invite time. All must belong to tenant_id. */
+  project_ids?: UUID[];
+  /** Skill IDs to assign. Internal staff only. */
+  skill_ids?: UUID[];
 }
 
 /**

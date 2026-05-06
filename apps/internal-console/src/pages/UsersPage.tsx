@@ -16,6 +16,8 @@ import {
   useGetSkillGapsQuery,
   useSuggestAgentSkillsMutation,
   useAdminResetPasswordMutation,
+  useGetOrganizationsQuery,
+  useGetProjectsQuery,
 } from '@3sc/api';
 import { useDocumentTitle, useDebouncedValue, usePermissions } from '@3sc/hooks';
 import {
@@ -23,7 +25,7 @@ import {
   Button, EmptyState, Modal, Input, PermissionGate,
 } from '@3sc/ui';
 import {
-  Permission, UserRole, InternalSubRole, AvailabilityStatus,
+  Permission, UserRole, InternalSubRole, AvailabilityStatus, ProjectRole,
 } from '@3sc/types';
 import type {
   User, Skill, UserSkill,
@@ -824,65 +826,260 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSaved })
 
 interface InviteModalProps { tab: 'internal' | 'clients'; onClose: () => void; onInvited: () => void; }
 const InviteModal: React.FC<InviteModalProps> = ({ tab, onClose, onInvited }) => {
-  const [inviteUser, { isLoading: inviting }] = useInviteUserMutation();
+  return tab === 'internal'
+    ? <InternalInviteForm onClose={onClose} onInvited={onInvited} />
+    : <ClientInviteForm  onClose={onClose} onInvited={onInvited} />;
+};
 
-  const roleOptions = tab === 'internal' ? INTERNAL_ROLE_OPTIONS : CLIENT_ROLE_OPTIONS;
-  const defaultRole = tab === 'internal' ? UserRole.AGENT : UserRole.CLIENT_USER;
+// ── InternalInviteForm ───────────────────────────────────────────────────────
+
+const INTERNAL_TENANT_ID  = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'; // 3SC Internal (ORG-001)
+const INTERNAL_TENANT_NAME = '3SC Internal';
+
+const InternalInviteForm: React.FC<{ onClose: () => void; onInvited: () => void }> = ({ onClose, onInvited }) => {
+  const [inviteUser, { isLoading: inviting }] = useInviteUserMutation();
+  const { data: allSkills = [] } = useGetSkillsQuery();
+  const { data: projectsData } = useGetProjectsQuery({});
+
+  const [firstName,    setFirstName]    = useState('');
+  const [lastName,     setLastName]     = useState('');
+  const [email,        setEmail]        = useState('');
+  const [role,         setRole]         = useState<UserRole>(UserRole.AGENT);
+  const [subRole,      setSubRole]      = useState<string>(InternalSubRole.SUPPORT);
+  const [department,   setDepartment]   = useState('');
+  const [projectIds,   setProjectIds]   = useState<string[]>([]);
+  const [skillIds,     setSkillIds]     = useState<string[]>([]);
+  const [error,        setError]        = useState<string | null>(null);
+
+  const projectOptions = (projectsData?.data ?? []).map(p => ({ value: p.id, label: p.name }));
+  const skillOptions   = allSkills.map(s => ({ value: s.id, label: s.name }));
+
+  const handleInvite = async () => {
+    setError(null);
+    try {
+      await inviteUser({
+        email:             email.trim(),
+        first_name:        firstName.trim() || undefined,
+        last_name:         lastName.trim() || undefined,
+        role,
+        tenant_id:         INTERNAL_TENANT_ID,
+        internal_sub_role: subRole || undefined,
+        department:        department.trim() || undefined,
+        project_ids:       projectIds.length ? projectIds : undefined,
+        skill_ids:         skillIds.length ? skillIds : undefined,
+      }).unwrap();
+      onInvited();
+      onClose();
+    } catch (err: any) {
+      setError(err?.data?.message ?? 'Failed to add staff member.');
+    }
+  };
+
+  const valid = email.trim() && firstName.trim() && lastName.trim() && !!subRole;
+
+  return (
+    <Modal isOpen onClose={onClose} title="Add Staff Member" width="30rem">
+      <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <Input label="First Name *" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" autoFocus />
+          <Input label="Last Name *" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Smith" />
+        </div>
+        <Input label="Email Address *" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jane@3sc.com" />
+        <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
+          <Select label="Role *" value={role} onChange={e => setRole(e.target.value as UserRole)} options={INTERNAL_ROLE_OPTIONS} />
+          <Select label="Sub-Role *" value={subRole} onChange={e => setSubRole(e.target.value)} options={SUB_ROLE_OPTIONS} />
+        </div>
+        <Input label="Department (optional)" value={department} onChange={e => setDepartment(e.target.value)} placeholder="e.g. Engineering" />
+
+        {/* Tenant — read-only */}
+        <div>
+          <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.25rem', color: 'var(--color-text-secondary)' }}>Tenant</div>
+          <div style={{
+            padding: '0.5rem 0.75rem', background: 'var(--color-bg-subtle)',
+            border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)',
+            fontSize: '0.875rem', color: 'var(--color-text-muted)',
+          }}>
+            {INTERNAL_TENANT_NAME}
+          </div>
+        </div>
+
+        {/* Project assignment — optional */}
+        {projectOptions.length > 0 && (
+          <div>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}>
+              Assign to Projects (optional)
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+              {projectOptions.map(p => (
+                <button
+                  key={p.value}
+                  type="button"
+                  onClick={() => setProjectIds(prev => prev.includes(p.value) ? prev.filter(id => id !== p.value) : [...prev, p.value])}
+                  style={{
+                    padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)',
+                    border: `1px solid ${projectIds.includes(p.value) ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    background: projectIds.includes(p.value) ? 'var(--color-accent-subtle)' : 'transparent',
+                    color: projectIds.includes(p.value) ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                    fontSize: '0.8125rem', cursor: 'pointer',
+                  }}
+                >
+                  {p.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* Skill assignment — optional */}
+        {skillOptions.length > 0 && (
+          <div>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}>
+              Assign Skills (optional)
+            </div>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem', maxHeight: '6rem', overflowY: 'auto' }}>
+              {skillOptions.map(s => (
+                <button
+                  key={s.value}
+                  type="button"
+                  onClick={() => setSkillIds(prev => prev.includes(s.value) ? prev.filter(id => id !== s.value) : [...prev, s.value])}
+                  style={{
+                    padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)',
+                    border: `1px solid ${skillIds.includes(s.value) ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                    background: skillIds.includes(s.value) ? 'var(--color-accent-subtle)' : 'transparent',
+                    color: skillIds.includes(s.value) ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                    fontSize: '0.8125rem', cursor: 'pointer',
+                  }}
+                >
+                  {s.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {projectIds.length === 0 && (
+          <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+            No projects assigned — you can assign projects later from the user detail.
+          </div>
+        )}
+
+        {error && <div style={{ fontSize: '0.8125rem', color: 'var(--color-error)' }}>{error}</div>}
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
+          <Button variant="ghost" onClick={onClose}>Cancel</Button>
+          <Button onClick={handleInvite} loading={inviting} disabled={!valid}>Add Staff Member</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+};
+
+// ── ClientInviteForm ─────────────────────────────────────────────────────────
+
+const ClientInviteForm: React.FC<{ onClose: () => void; onInvited: () => void }> = ({ onClose, onInvited }) => {
+  const [inviteUser, { isLoading: inviting }] = useInviteUserMutation();
+  const { data: orgsData } = useGetOrganizationsQuery({});
 
   const [firstName,  setFirstName]  = useState('');
   const [lastName,   setLastName]   = useState('');
   const [email,      setEmail]      = useState('');
-  const [role,       setRole]       = useState<UserRole>(defaultRole);
-  const [subRole,    setSubRole]    = useState<InternalSubRole | ''>(InternalSubRole.SUPPORT);
-  const [department, setDepartment] = useState('');
+  const [role,       setRole]       = useState<UserRole>(UserRole.CLIENT_USER);
+  const [tenantId,   setTenantId]   = useState('');
+  const [projectIds, setProjectIds] = useState<string[]>([]);
+  const [error,      setError]      = useState<string | null>(null);
 
-  const isInternal = [UserRole.ADMIN, UserRole.LEAD, UserRole.AGENT].includes(role);
+  const { data: projectsData } = useGetProjectsQuery(
+    { tenant_id: tenantId },
+    { skip: !tenantId },
+  );
 
-  const handleInvite = async () => {
-    await inviteUser({
-      email: email.trim(),
-      firstName: firstName.trim(),
-      lastName: lastName.trim(),
-      role,
-      ...(isInternal && subRole ? { internalSubRole: subRole as InternalSubRole } : {}),
-      ...(department.trim() ? { department: department.trim() } : {}),
-    }).unwrap();
-    onInvited();
-    onClose();
+  const orgOptions = [
+    { value: '', label: '— Select organisation —' },
+    ...(orgsData?.data ?? []).map(o => ({ value: o.id, label: o.name })),
+  ];
+  const projectOptions = (projectsData?.data ?? []).map(p => ({ value: p.id, label: p.name }));
+
+  const handleTenantChange = (newTenantId: string) => {
+    setTenantId(newTenantId);
+    setProjectIds([]); // reset projects when tenant changes
   };
 
-  const valid = email.trim() && firstName.trim() && lastName.trim();
+  const handleInvite = async () => {
+    setError(null);
+    try {
+      await inviteUser({
+        email:       email.trim(),
+        first_name:  firstName.trim() || undefined,
+        last_name:   lastName.trim() || undefined,
+        role,
+        tenant_id:   tenantId,
+        project_ids: projectIds.length ? projectIds : undefined,
+      }).unwrap();
+      onInvited();
+      onClose();
+    } catch (err: any) {
+      setError(err?.data?.message ?? 'Failed to add client user.');
+    }
+  };
+
+  const valid = email.trim() && firstName.trim() && lastName.trim() && !!tenantId;
 
   return (
-    <Modal isOpen onClose={onClose} title={`Add ${tab === 'internal' ? 'Staff' : 'Client User'}`} width="28rem">
+    <Modal isOpen onClose={onClose} title="Add Client User" width="30rem">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
-          <Input label="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" autoFocus />
-          <Input label="Last Name" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Smith" />
+          <Input label="First Name *" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" autoFocus />
+          <Input label="Last Name *" value={lastName} onChange={e => setLastName(e.target.value)} placeholder="Smith" />
         </div>
-        <Input label="Email Address" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jane@3sc.com" />
-        <Select label="Role" value={role} onChange={e => setRole(e.target.value as UserRole)} options={roleOptions} />
-        {isInternal && (
-          <Select
-            label="Sub-Role"
-            value={subRole}
-            onChange={e => setSubRole(e.target.value as InternalSubRole)}
-            options={[{ value: '', label: '— None —' }, ...SUB_ROLE_OPTIONS]}
-          />
+        <Input label="Email Address *" type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="jane@client.com" />
+        <Select label="Role *" value={role} onChange={e => setRole(e.target.value as UserRole)} options={CLIENT_ROLE_OPTIONS} />
+
+        {/* Tenant selector — required */}
+        <Select
+          label="Client / Tenant *"
+          value={tenantId}
+          onChange={e => handleTenantChange(e.target.value)}
+          options={orgOptions}
+        />
+
+        {/* Project assignment — only available after tenant selected */}
+        {tenantId && (
+          <div>
+            <div style={{ fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}>
+              Assign to Projects (optional)
+            </div>
+            {projectOptions.length > 0 ? (
+              <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                {projectOptions.map(p => (
+                  <button
+                    key={p.value}
+                    type="button"
+                    onClick={() => setProjectIds(prev => prev.includes(p.value) ? prev.filter(id => id !== p.value) : [...prev, p.value])}
+                    style={{
+                      padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)',
+                      border: `1px solid ${projectIds.includes(p.value) ? 'var(--color-accent)' : 'var(--color-border)'}`,
+                      background: projectIds.includes(p.value) ? 'var(--color-accent-subtle)' : 'transparent',
+                      color: projectIds.includes(p.value) ? 'var(--color-accent)' : 'var(--color-text-secondary)',
+                      fontSize: '0.8125rem', cursor: 'pointer',
+                    }}
+                  >
+                    {p.label}
+                  </button>
+                ))}
+              </div>
+            ) : (
+              <div style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontStyle: 'italic' }}>
+                No projects found for this organisation.
+              </div>
+            )}
+          </div>
         )}
-        <Input label="Department (optional)" value={department} onChange={e => setDepartment(e.target.value)} placeholder="e.g. Engineering" />
 
-        <div style={{
-          padding: '0.75rem', background: 'var(--color-bg-subtle)',
-          borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: 'var(--color-text-muted)',
-        }}>
-          An invitation email will be sent with login instructions.
-        </div>
+        {error && <div style={{ fontSize: '0.8125rem', color: 'var(--color-error)' }}>{error}</div>}
 
-        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          {/* <Button onClick={handleInvite} loading={inviting} disabled={!valid}>Send Invite</Button> */}
-          <Button onClick={handleInvite} loading={inviting} disabled={!valid}>Add {tab === 'internal' ? ' Staff' : ' Client User'}</Button>
+          <Button onClick={handleInvite} loading={inviting} disabled={!valid}>Add Client User</Button>
         </div>
       </div>
     </Modal>
