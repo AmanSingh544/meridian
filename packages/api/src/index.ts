@@ -345,6 +345,8 @@ function mapRawUser(raw: any): import('@3sc/types').User {
     department: raw.department ?? undefined,
     timezone: raw.timezone ?? undefined,
     mfaEnabled: raw.mfaEnabled ?? raw.mfa_enabled ?? undefined,
+    jobTitle: raw.jobTitle ?? raw.job_title ?? undefined,
+    phone: raw.phone ?? undefined,
     skills: raw.skills ?? undefined,
     workload: raw.workload ?? undefined,
     permissionOverrides: raw.permissionOverrides ?? raw.permission_overrides ?? undefined,
@@ -832,6 +834,7 @@ export const api = createApi({
     searchKB: builder.query<KBSearchResult[], { query: string; limit?: number }>({
       query: (params) => ({ url: '/knowledge-base/search', params }),
       transformResponse: (response: ApiResponse<KBSearchResult[]>) => response.data,
+      providesTags: ['KBArticle'],
     }),
 
     getKBArticle: builder.query<KBArticle, string>({
@@ -988,11 +991,14 @@ export const api = createApi({
     }),
 
     updateOrganization: builder.mutation<Organization, { id: string; payload: Partial<Pick<Organization, 'name' | 'domain' | 'logoUrl' | 'isActive'>> }>({
-      query: ({ id, payload }) => ({
-        url: `/organizations/${id}`,
-        method: 'PATCH',
-        body: payload,
-      }),
+      query: ({ id, payload }) => {
+        const body: Record<string, unknown> = {};
+        if (payload.name !== undefined) body.name = payload.name;
+        if (payload.domain !== undefined) body.domain = payload.domain;
+        if (payload.logoUrl !== undefined) body.branding = { logoUrl: payload.logoUrl };
+        if (payload.isActive !== undefined) body.is_active = payload.isActive;
+        return { url: `/organizations/${id}`, method: 'PATCH', body };
+      },
       transformResponse: (response: ApiResponse<Organization>) => response.data,
       invalidatesTags: ['Organization'],
     }),
@@ -1140,7 +1146,30 @@ export const api = createApi({
       resourceType?: string;
       userId?: string;
     }>({
-      query: (params) => ({ url: '/audit-logs', params }),
+      query: ({ page, page_size, resourceType, userId }) => ({
+        url: '/audit-logs',
+        params: {
+          ...(page !== undefined && { page }),
+          ...(page_size !== undefined && { limit: page_size }),
+          ...(resourceType && { resource_type: resourceType }),
+          ...(userId && { user_id: userId }),
+        },
+      }),
+      transformResponse: (response: any) => ({
+        ...response,
+        data: (response.data ?? []).map((log: any) => ({
+          id: log.id,
+          action: log.action,
+          resourceType: log.resource_type,
+          resourceId: log.resource_id,
+          userId: log.user_id,
+          userName: log.actor?.display_name ?? log.user_id ?? '—',
+          organizationId: log.tenant_id,
+          changes: log.changes,
+          ipAddress: log.ip_address,
+          created_at: log.created_at,
+        } as AuditLogEntry)),
+      }),
       providesTags: ['AuditLog'],
     }),
 
@@ -1534,7 +1563,7 @@ export const api = createApi({
 
     // ── Escalations ─────────────────────────────────────────────
     getEscalations: builder.query<EscalatedTicket[], void>({
-      query: () => '/escalations',
+      query: () => ({ url: '/escalations', params: { status: 'open' } }),
       transformResponse: (response: ApiResponse<any[]>) => {
         const now = Date.now();
         return (response.data ?? []).map((e: any) => {

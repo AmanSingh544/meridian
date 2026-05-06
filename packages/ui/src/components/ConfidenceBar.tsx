@@ -10,10 +10,11 @@ export const ConfidenceBar: React.FC<ConfidenceBarProps> = ({
   confidence,
   showLabel = true,
 }) => {
-  const pct = Math.round(confidence * 100);
-  const color = confidence >= AI_CONFIG.highConfidenceThreshold
+  const safeConfidence = confidence ?? 0;
+  const pct = Math.round(safeConfidence * 100);
+  const color = safeConfidence >= AI_CONFIG.highConfidenceThreshold
     ? 'var(--color-success)'
-    : confidence >= AI_CONFIG.minConfidenceThreshold
+    : safeConfidence >= AI_CONFIG.minConfidenceThreshold
     ? 'var(--color-warning)'
     : 'var(--color-danger)';
 

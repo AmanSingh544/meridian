@@ -310,7 +310,7 @@ export const EscalationsPage: React.FC = () => {
 
       {/* Filters */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>Filter:</span>
+        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>Severity:</span>
         <div style={{ display: 'flex', gap: '0.375rem' }}>
           {['ALL', 'CRITICAL', 'HIGH', 'MEDIUM'].map(s => (
             <button key={s} onClick={() => setSeverityFilter(s)} style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: '1px solid', borderColor: severityFilter === s ? 'var(--color-brand-500)' : 'var(--color-border)', background: severityFilter === s ? 'var(--color-brand-500)' : 'var(--color-bg)', color: severityFilter === s ? '#fff' : 'var(--color-text-secondary)', transition: 'var(--transition-fast)' }}>
@@ -318,6 +318,7 @@ export const EscalationsPage: React.FC = () => {
             </button>
           ))}
         </div>
+        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', fontWeight: 500 }}>Assignment:</span>
         <div style={{ display: 'flex', gap: '0.375rem' }}>
           {[{ value: 'ALL', label: 'All' }, { value: 'UNASSIGNED', label: 'Unassigned' }].map(f => (
             <button key={f.value} onClick={() => setAssignedFilter(f.value)} style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-full)', fontSize: '0.75rem', fontWeight: 600, cursor: 'pointer', border: '1px solid', borderColor: assignedFilter === f.value ? 'var(--color-brand-500)' : 'var(--color-border)', background: assignedFilter === f.value ? 'var(--color-brand-500)' : 'var(--color-bg)', color: assignedFilter === f.value ? '#fff' : 'var(--color-text-secondary)', transition: 'var(--transition-fast)' }}>
