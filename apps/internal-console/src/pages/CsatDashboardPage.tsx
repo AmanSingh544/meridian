@@ -243,12 +243,17 @@ const DATE_RANGE_OPTIONS = [
 
 export const CsatDashboardPage: React.FC = () => {
   useDocumentTitle('CSAT & NPS');
+  const [pendingRange, setPendingRange] = useState('30d');
   const [rangeKey, setRangeKey] = useState('30d');
 
   const { data: kpiData, isLoading: kpiLoading } = useGetCsatKpisQuery({ period: rangeKey });
   const { data: trendData, isLoading: trendLoading } = useGetCsatTrendsQuery({ period: rangeKey });
   const { data: npsData, isLoading: npsLoading } = useGetNpsBreakdownQuery({ period: rangeKey });
   const { data: themeData, isLoading: themeLoading } = useGetFeedbackThemesQuery({ period: rangeKey });
+
+  const handleApplyFilters = () => {
+    setRangeKey(pendingRange);
+  };
 
   const npsSlices = npsData
     ? [
@@ -312,8 +317,8 @@ export const CsatDashboardPage: React.FC = () => {
         }}
       >
         <select
-          value={rangeKey}
-          onChange={(e) => setRangeKey(e.target.value)}
+          value={pendingRange}
+          onChange={(e) => setPendingRange(e.target.value)}
           style={{
             padding: '0.5rem 0.75rem',
             borderRadius: 'var(--radius-md)',
@@ -332,42 +337,42 @@ export const CsatDashboardPage: React.FC = () => {
         </select>
 
         <select
-          disabled
           style={{
             padding: '0.5rem 0.75rem',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--color-border)',
-            background: 'var(--color-bg-subtle)',
-            color: 'var(--color-text-muted)',
+            background: 'var(--color-bg)',
+            color: 'var(--color-text)',
             fontSize: '0.8125rem',
+            cursor: 'pointer',
           }}
         >
           <option>All Projects</option>
         </select>
 
         <select
-          disabled
           style={{
             padding: '0.5rem 0.75rem',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--color-border)',
-            background: 'var(--color-bg-subtle)',
-            color: 'var(--color-text-muted)',
+            background: 'var(--color-bg)',
+            color: 'var(--color-text)',
             fontSize: '0.8125rem',
+            cursor: 'pointer',
           }}
         >
           <option>All Modules</option>
         </select>
 
         <select
-          disabled
           style={{
             padding: '0.5rem 0.75rem',
             borderRadius: 'var(--radius-md)',
             border: '1px solid var(--color-border)',
-            background: 'var(--color-bg-subtle)',
-            color: 'var(--color-text-muted)',
+            background: 'var(--color-bg)',
+            color: 'var(--color-text)',
             fontSize: '0.8125rem',
+            cursor: 'pointer',
           }}
         >
           <option>All Segments</option>
@@ -375,7 +380,7 @@ export const CsatDashboardPage: React.FC = () => {
 
         <div style={{ flex: 1 }} />
 
-        <Button variant="primary" size="sm" onClick={() => {}}>
+        <Button variant="primary" size="sm" onClick={handleApplyFilters}>
           Apply Filters
         </Button>
         <Button variant="secondary" size="sm" onClick={handleExport} disabled={!trendData}>

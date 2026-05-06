@@ -5,6 +5,7 @@ import {
   useGetUserPreferencesQuery,
   useUpdateUserPreferencesMutation,
   useUpdateMeMutation,
+  useGetMeQuery,
   useChangePasswordMutation,
 } from '@3sc/api';
 
@@ -108,11 +109,16 @@ const Toggle: React.FC<{ value: boolean; onChange: (v: boolean) => void }> = ({ 
 const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ session }) => {
   const avatarRef = useRef<HTMLInputElement>(null);
   const [updateMe, { isLoading: isSaving }] = useUpdateMeMutation();
+  const { data: meData } = useGetMeQuery();
 
   const [displayName, setDisplayName] = useState(session?.displayName ?? '');
   const [jobTitle, setJobTitle]       = useState('');
   const [saved, setSaved]             = useState(false);
   const [saveError, setSaveError]     = useState('');
+
+  useEffect(() => {
+    if (meData?.jobTitle !== undefined) setJobTitle(meData.jobTitle ?? '');
+  }, [meData]);
 
   const handleSave = async () => {
     setSaveError('');
@@ -347,15 +353,15 @@ const AppearanceTab: React.FC = () => {
 
 const NotificationsTab: React.FC = () => {
   const { data: prefs } = useGetUserPreferencesQuery();
-  const [updatePrefs] = useUpdateUserPreferencesMutation();
+  const [updatePrefs, { isLoading: isSavingPrefs }] = useUpdateUserPreferencesMutation();
 
-  console.log('Loaded user preferences:', prefs);
   const [ticketAssigned, setTicketAssigned]   = useState(prefs?.emailOnTicketAssigned ?? true);
   const [ticketReplied, setTicketReplied]     = useState(prefs?.emailOnNewReply ?? true);
   const [slaWarning, setSlaWarning]           = useState(prefs?.emailOnSLAWarning ?? true);
   const [escalationAlert, setEscalationAlert] = useState(prefs?.emailOnEscalation ?? true);
   const [dailyDigest, setDailyDigest]         = useState(prefs?.emailDailyDigest ?? false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (!prefs) return;
@@ -367,15 +373,20 @@ const NotificationsTab: React.FC = () => {
   }, [prefs]);
 
   const handleSave = async () => {
-    await updatePrefs({
-      emailOnTicketAssigned: ticketAssigned,
-      emailOnNewReply: ticketReplied,
-      emailOnSLAWarning: slaWarning,
-      emailOnEscalation: escalationAlert,
-      emailDailyDigest: dailyDigest,
-    });
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2500);
+    setSaveError('');
+    try {
+      await updatePrefs({
+        emailOnTicketAssigned: ticketAssigned,
+        emailOnNewReply: ticketReplied,
+        emailOnSLAWarning: slaWarning,
+        emailOnEscalation: escalationAlert,
+        emailDailyDigest: dailyDigest,
+      }).unwrap();
+      setSaved(true);
+      setTimeout(() => setSaved(false), 2500);
+    } catch {
+      setSaveError('Failed to save notification preferences. Please try again.');
+    }
   };
 
   const NotifRow: React.FC<{ label: string; hint: string; value: boolean; onChange: (v: boolean) => void }> = ({ label, hint, value, onChange }) => (
@@ -396,8 +407,13 @@ const NotificationsTab: React.FC = () => {
       <NotifRow label="SLA at risk" hint="When a ticket is approaching its SLA deadline" value={slaWarning} onChange={setSlaWarning} />
       <NotifRow label="Escalation alert" hint="When a ticket is escalated and unassigned" value={escalationAlert} onChange={setEscalationAlert} />
       <NotifRow label="Daily digest email" hint="A summary of your queue activity each morning" value={dailyDigest} onChange={setDailyDigest} />
+      {saveError && (
+        <div style={{ marginTop: '0.75rem', padding: '0.625rem 0.875rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: '#b91c1c' }}>
+          {saveError}
+        </div>
+      )}
       <div style={{ marginTop: '1.25rem', display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
-        <Button onClick={handleSave}>Save preferences</Button>
+        <Button onClick={handleSave} disabled={isSavingPrefs}>{isSavingPrefs ? 'Saving…' : 'Save preferences'}</Button>
         {saved && <span style={{ fontSize: '0.875rem', color: 'var(--color-success)' }}>✓ Saved</span>}
       </div>
     </div>

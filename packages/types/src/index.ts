@@ -531,6 +531,10 @@ export interface User {
   timezone?: string;
   /** Whether MFA is currently enrolled for this user. */
   mfaEnabled?: boolean;
+  /** Job title or role description for the user's profile. */
+  jobTitle?: string;
+  /** Contact phone number. */
+  phone?: string;
 }
 
 export interface InviteUserPayload {

@@ -68,7 +68,7 @@ export const SearchPage: React.FC = () => {
                 hover
                 onClick={() => {
                   if (result.type === 'ticket') navigate(`/tickets/${result.id}`);
-                  else if (result.type === 'article') navigate(`/knowledge/${result.id}`);
+                  else if (result.type === 'article') navigate(`/knowledge/${result.id}/edit`);
                 }}
               >
                 <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
