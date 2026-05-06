@@ -226,7 +226,7 @@ export const ConsoleLayout: React.FC = () => {
       )}
 
       {/* Main */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, maxHeight: '100vh' }}>
         <header style={{
           height: '3.25rem', background: 'var(--color-bg)',
           borderBottom: '1px solid var(--color-border)',
@@ -271,7 +271,13 @@ export const ConsoleLayout: React.FC = () => {
           </NavLink>
         </header>
 
-        <main style={{ flex: 1, padding: '1.25rem', maxWidth: '90rem', width: '100%', margin: '0 auto' }}>
+        <main style= {{ 
+          flex: 1, padding: '1.5rem', 
+          maxWidth: '95rem', width: '100%', margin: '0 auto', 
+          overflowY: 'scroll',
+          maxHeight: '95vh',
+          scrollbarWidth: 'auto',
+        }}>
           <Outlet />
         </main>
       </div>

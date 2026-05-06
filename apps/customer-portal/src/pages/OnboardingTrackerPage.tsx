@@ -212,7 +212,7 @@ export const OnboardingTrackerPage: React.FC = () => {
   const totalPhases = onboarding.phases.length;
 
   return (
-    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '56rem', margin: '0 auto' }}>
+    <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '100%', margin: '0 auto' }}>
 
       {/* Hero summary card */}
       <Card style={{ padding: '1.5rem' }}>

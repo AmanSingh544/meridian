@@ -558,7 +558,7 @@ export const UserSettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
 
   return (
-    <div style={{ maxWidth: '56rem', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       {/* Page header */}
       <div style={{ marginBottom: '1.75rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>

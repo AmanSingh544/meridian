@@ -51,7 +51,7 @@ export const ProjectDetailPage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div style={{ maxWidth: '52rem' }}>
+      <div style={{ maxWidth: '100%' }}>
         <Skeleton height="1rem" style={{ width: '8rem', marginBottom: '1.5rem' }} />
         <Skeleton height="2rem" style={{ marginBottom: '0.75rem' }} />
         <Skeleton height="6rem" />
@@ -81,7 +81,7 @@ export const ProjectDetailPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ maxWidth: '56rem' }}>
+    <div style={{ maxWidth: '100%' }}>
       {/* Breadcrumb */}
       <nav style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '1.25rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
         <Link to="/projects" style={{ color: 'var(--color-brand-600)', textDecoration: 'none' }}>Projects</Link>

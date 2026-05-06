@@ -69,7 +69,7 @@ const AIPanel: React.FC<{ onboardingId: string }> = ({ onboardingId }) => {
   const [showDraft, setShowDraft] = useState(false);
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
+    <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '100%' }}>
       {health && (
         <Card style={{ padding: '0.875rem' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>

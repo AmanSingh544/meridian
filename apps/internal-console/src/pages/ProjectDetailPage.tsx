@@ -127,7 +127,7 @@ export const ProjectDetailPage: React.FC = () => {
   ];
 
   return (
-    <div style={{ maxWidth: '72rem' }}>
+    <div style={{ maxWidth: '100%' }}>
       {/* Breadcrumb */}
       <nav style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '1.25rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
         <Link to="/projects" style={{ color: 'var(--color-brand-600)', textDecoration: 'none' }}>Projects</Link>
