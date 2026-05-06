@@ -21,7 +21,7 @@ import type {
   Comment,
   CommentCreatePayload,
   Attachment,
-  AttachmentCreatePayload,
+
   AttachmentRecord,
   PresignedUpload,
   Project,
@@ -125,12 +125,17 @@ import { SLAState } from '@3sc/types';
 
 // ── Raw API shapes (snake_case from backend) ────────────────────
 interface RawApiAttachment {
-  id: number;
-  file_name: string;
-  file_type: string;
-  file_path: string;
-  tenant_id: string;
-  metadata: Record<string, unknown>;
+  id: string;
+  file_name?: string;
+  file_type?: string;
+  file_path?: string;
+  filename?: string;
+  mime_type?: string;
+  storage_key?: string;
+  size_bytes?: number;
+  uploaded_by?: string;
+  tenant_id?: string;
+  metadata?: Record<string, unknown>;
   created_at: string;
 }
 
@@ -158,11 +163,11 @@ function mapRawComment(raw: RawApiComment): import('@3sc/types').Comment {
     parentId: raw.parent_id != null ? String(raw.parent_id) : undefined,
     attachments: raw.attachments.map((a) => ({
       id: String(a.id),
-      fileName: a.file_name,
-      fileSize: 0,
-      mimeType: a.file_type,
-      url: a.file_path,
-      uploadedBy: raw.tenant_id,
+      fileName: a.filename ?? a.file_name ?? '',
+      fileSize: a.size_bytes ?? 0,
+      mimeType: a.mime_type ?? a.file_type ?? 'application/octet-stream',
+      url: '',
+      uploadedBy: a.uploaded_by ?? raw.tenant_id ?? '',
       created_at: a.created_at,
     })),
     mentions: raw.mentions.map(String),
@@ -298,11 +303,11 @@ function mapRawTicket(raw: RawApiTicket): import('@3sc/types').Ticket {
     sla: computeSla(raw),
     attachments: (raw.attachments ?? []).map((a) => ({
       id: String(a.id),
-      fileName: a.file_name,
-      fileSize: 0,
-      mimeType: a.file_type,
-      url: a.file_path,
-      uploadedBy: raw.tenant_id,
+      fileName: a.filename ?? a.file_name ?? '',
+      fileSize: a.size_bytes ?? 0,
+      mimeType: a.mime_type ?? a.file_type ?? 'application/octet-stream',
+      url: '',
+      uploadedBy: a.uploaded_by ?? raw.tenant_id ?? '',
       created_at: a.created_at,
     })),
     commentCount: raw.comment_count ?? raw._count?.comments ?? 0,
@@ -674,13 +679,29 @@ export const api = createApi({
     }),
 
     // ── Attachments ─────────────────────────────────────────
-    createAttachment: builder.mutation<AttachmentRecord, AttachmentCreatePayload>({
-      query: (body) => ({
-        url: '/attachments',
-        method: 'POST',
-        body,
-      }),
+    createAttachment: builder.mutation<AttachmentRecord, { file: File; projectId?: string }>({
+      query: ({ file, projectId }) => {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('file_name', file.name);
+        formData.append('file_type', file.type);
+        return {
+          url: '/attachments',
+          method: 'POST',
+          body: formData,
+          params: projectId ? { project_id: projectId } : undefined,
+        };
+      },
+      transformResponse: (response: ApiResponse<AttachmentRecord>) => response.data,
       invalidatesTags: ['Attachment'],
+    }),
+
+    deleteAttachment: builder.mutation<void, string>({
+      query: (id) => ({
+        url: `/attachments/${id}`,
+        method: 'DELETE',
+      }),
+      invalidatesTags: ['Attachment', 'Ticket', 'Comment'],
     }),
 
     getPresignedUpload: builder.mutation<PresignedUpload, { fileName: string; mimeType: string }>({
@@ -1904,6 +1925,7 @@ export const {
   useCreateCommentMutation,
   // Attachments
   useCreateAttachmentMutation,
+  useDeleteAttachmentMutation,
   useGetPresignedUploadMutation,
   useConfirmUploadMutation,
   // Projects

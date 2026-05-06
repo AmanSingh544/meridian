@@ -10,9 +10,9 @@ import {
   useGetSLAPolicyQuery,
   useGetSimilarTicketsQuery,
 } from '@3sc/api';
-import { useDocumentTitle, useDebouncedValue, useIsMobile } from '@3sc/hooks';
+import { useDocumentTitle, useDebouncedValue, useIsMobile, usePermissions } from '@3sc/hooks';
 import { Button, Input, TextArea, Select, FileUpload, Card, useToast, ConfidenceBar } from '@3sc/ui';
-import { TicketPriority, TicketCategory } from '@3sc/types';
+import { TicketPriority, TicketCategory, Permission } from '@3sc/types';
 
 // ── Priority / Category options ───────────────────────────────────────────────
 
@@ -316,26 +316,22 @@ export const CreateTicketPage: React.FC = () => {
     .filter(Boolean);
 
   // ── Submit ───────────────────────────────────────────────────────────────────
+  const permissions = usePermissions();
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!title.trim() || !description.trim()) return;
 
     try {
-      let attachment_ids: number[] = [];
+      let attachment_ids: string[] = [];
 
       if (files.length > 0) {
         setUploading(true);
-        const results = await Promise.all(
-          files.map((file) =>
-            createAttachment({
-              file_name: file.name,
-              file_type: file.type,
-              file_path: `/uploads/${file.name}`,
-              metadata: {},
-            }).unwrap()
-          )
+        const results = await uploadWithLimit(
+          files,
+          (file) => createAttachment({ file, projectId: projectId || undefined }).unwrap()
         );
-        attachment_ids = results.map((r) => r?.data?.id).filter(Boolean);
+        attachment_ids = results.map((r) => String(r?.id)).filter(Boolean);
         setUploading(false);
       }
 
