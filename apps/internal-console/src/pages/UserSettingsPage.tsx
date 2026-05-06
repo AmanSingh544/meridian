@@ -131,6 +131,7 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
 
   return (
     <div>
+      
       <SectionHeader title="Profile" description="How you appear to customers and teammates." />
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
         <Avatar name={session?.displayName ?? 'Agent'} size={60} />
@@ -513,7 +514,7 @@ export const UserSettingsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState<SettingsTab>('appearance');
 
   return (
-    <div style={{ maxWidth: '54rem', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
           Account Settings
