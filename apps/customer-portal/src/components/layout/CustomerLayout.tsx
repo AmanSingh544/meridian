@@ -197,7 +197,7 @@ export const CustomerLayout: React.FC = () => {
       )}
 
       {/* Main content */}
-      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0, maxHeight: '100vh' }}>
         {/* Topbar */}
         <header style={{
           height: '3.5rem',
@@ -247,7 +247,14 @@ export const CustomerLayout: React.FC = () => {
         </header>
 
         {/* Page content */}
-        <main style={{ flex: 1, padding: '1.5rem', maxWidth: '80rem', width: '100%', margin: '0 auto' }}>
+        <main 
+        style= {{ 
+          flex: 1, padding: '1.5rem', 
+          maxWidth: '95rem', width: '100%', margin: '0 auto', 
+          overflowY: 'scroll',
+          maxHeight: '95vh',
+          scrollbarWidth: 'auto',
+        }}>
           <Outlet />
         </main>
       </div>

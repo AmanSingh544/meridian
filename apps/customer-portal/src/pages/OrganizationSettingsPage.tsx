@@ -278,7 +278,7 @@ export const OrganizationSettingsPage: React.FC = () => {
   );
 
   return (
-    <div style={{ maxWidth: '42rem' }}>
+    <div style={{ maxWidth: '100%' }}>
       <div style={{ marginBottom: '1.5rem' }}>
         <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
           Organization Settings

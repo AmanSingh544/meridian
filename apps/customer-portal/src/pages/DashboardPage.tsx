@@ -169,7 +169,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   ];
 
   return (
-    <div style={{ maxWidth: '52rem', margin: '0 auto' }}>
+    <div style={{ maxWidth: '100%', margin: '0 auto' }}>
 
       {/* ── Greeting ── */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>

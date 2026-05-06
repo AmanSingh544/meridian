@@ -61,7 +61,7 @@ export const KnowledgeBaseArticlePage: React.FC = () => {
 
   if (isLoading) {
     return (
-      <div style={{ maxWidth: '52rem' }}>
+      <div style={{ maxWidth: '100%' }}>
         <Skeleton height="1rem" style={{ width: '12rem', marginBottom: '1.5rem' }} />
         <Skeleton height="2rem" style={{ marginBottom: '0.75rem' }} />
         <Skeleton height="1rem" style={{ width: '16rem', marginBottom: '2rem' }} />
@@ -87,7 +87,7 @@ export const KnowledgeBaseArticlePage: React.FC = () => {
   return (
     <div style={{ display: 'grid', gridTemplateColumns: '1fr minmax(0, 16rem)', gap: '2rem', alignItems: 'start' }}>
       {/* ── Main article ── */}
-      <div style={{ minWidth: 0 }}>
+      <div style={{ minWidth: 0, maxHeight: '80vh', overflowY: 'auto', paddingRight: '1rem', scrollbarWidth: 'auto' }}>
         {/* Breadcrumb */}
         <nav style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '1.5rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
           <Link to="/knowledge" style={{ color: 'var(--color-brand-600)', textDecoration: 'none' }}>

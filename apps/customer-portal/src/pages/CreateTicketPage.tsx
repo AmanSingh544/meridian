@@ -17,33 +17,33 @@ import { TicketPriority, TicketCategory } from '@3sc/types';
 // ── Priority / Category options ───────────────────────────────────────────────
 
 const PRIORITY_OPTIONS = [
-  { value: TicketPriority.LOW,      label: 'Low' },
-  { value: TicketPriority.MEDIUM,   label: 'Medium' },
-  { value: TicketPriority.HIGH,     label: 'High' },
+  { value: TicketPriority.LOW, label: 'Low' },
+  { value: TicketPriority.MEDIUM, label: 'Medium' },
+  { value: TicketPriority.HIGH, label: 'High' },
   { value: TicketPriority.CRITICAL, label: 'Critical' },
 ];
 
 const CATEGORY_OPTIONS = [
-  { value: TicketCategory.SUPPORT,         label: 'Support' },
-  { value: TicketCategory.BUG,             label: 'Bug Report' },
+  { value: TicketCategory.SUPPORT, label: 'Support' },
+  { value: TicketCategory.BUG, label: 'Bug Report' },
   { value: TicketCategory.FEATURE_REQUEST, label: 'Feature Request' },
-  { value: TicketCategory.QUESTION,        label: 'Question' },
-  { value: TicketCategory.INCIDENT,        label: 'Incident' },
-  { value: TicketCategory.TASK,            label: 'Task' },
+  { value: TicketCategory.QUESTION, label: 'Question' },
+  { value: TicketCategory.INCIDENT, label: 'Incident' },
+  { value: TicketCategory.TASK, label: 'Task' },
 ];
 
 const ENVIRONMENT_OPTIONS = [
-  { value: '',          label: 'Select environment' },
-  { value: 'PROD',      label: 'Production' },
-  { value: 'UAT',       label: 'UAT / Staging' },
-  { value: 'DEV',       label: 'Development' },
-  { value: 'LOCAL',     label: 'Local' },
+  { value: '', label: 'Select environment' },
+  { value: 'PROD', label: 'Production' },
+  { value: 'UAT', label: 'UAT / Staging' },
+  { value: 'DEV', label: 'Development' },
+  { value: 'LOCAL', label: 'Local' },
 ];
 
 const PRIORITY_EMOJI: Record<TicketPriority, string> = {
-  [TicketPriority.LOW]:      '🟢',
-  [TicketPriority.MEDIUM]:   '🟡',
-  [TicketPriority.HIGH]:     '🟠',
+  [TicketPriority.LOW]: '🟢',
+  [TicketPriority.MEDIUM]: '🟡',
+  [TicketPriority.HIGH]: '🟠',
   [TicketPriority.CRITICAL]: '🔴',
 };
 
@@ -230,9 +230,9 @@ export const CreateTicketPage: React.FC = () => {
   // Feature flags + SLA data
   const { data: systemSettings } = useGetSystemSettingsQuery();
   const { data: slaPolicy } = useGetSLAPolicyQuery();
-  const triageEnabled   = systemSettings?.aiFeatures?.triageAgentEnabled ?? true;
-  const kbEnabled       = systemSettings?.aiFeatures?.kbDeflectionEnabled ?? true;
-  const similarEnabled  = systemSettings?.aiFeatures?.similarTicketSuggestionsEnabled ?? false;
+  const triageEnabled = systemSettings?.aiFeatures?.triageAgentEnabled ?? true;
+  const kbEnabled = systemSettings?.aiFeatures?.kbDeflectionEnabled ?? true;
+  const similarEnabled = systemSettings?.aiFeatures?.similarTicketSuggestionsEnabled ?? false;
 
   // Fetch projects for the dropdown
   const { data: projectsData } = useGetProjectsQuery({ page: 1, page_size: 100 });
@@ -365,7 +365,7 @@ export const CreateTicketPage: React.FC = () => {
 
   // ── Layout ───────────────────────────────────────────────────────────────────
   return (
-    <div style={{ maxWidth: '70rem' }}>
+    <div style={{ maxWidth: '100%' }}>
       <style>{spinStyle}</style>
 
       <button
@@ -392,120 +392,125 @@ export const CreateTicketPage: React.FC = () => {
       }}>
 
         {/* ── Left: Form card ── */}
-        <Card>
-          <form onSubmit={handleSubmit}>
-            <Input
-              label="Subject"
-              value={title}
-              onChange={(e) => setTitle(e.target.value)}
-              placeholder="Briefly describe your issue"
-              required
-              autoFocus
-            />
-
-            <TextArea
-              label="Description"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-              placeholder="Provide detailed information — steps to reproduce, error messages, who is affected..."
-              required
-              hint={descriptionHint}
-              rows={6}
-            />
-
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              <Select
-                label="Priority"
-                options={PRIORITY_OPTIONS}
-                value={priority}
-                onChange={(e) => setPriority(e.target.value as TicketPriority)}
+        <div style={{
+          display: 'flex', flexDirection: 'column', gap: '1.5rem',
+          maxHeight: '95vh', overflowY: 'auto', scrollbarWidth: 'auto', padding: '1rem', background: 'var(--color-bg)'
+        }}>
+          <Card style={{ padding: '1.5rem' }}>
+            <form onSubmit={handleSubmit}>
+              <Input
+                label="Subject"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                placeholder="Briefly describe your issue"
+                required
+                autoFocus
               />
-              <Select
-                label="Category"
-                options={CATEGORY_OPTIONS}
-                value={category}
-                onChange={(e) => setCategory(e.target.value as TicketCategory)}
-              />
-            </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
-              <div>
-                <label style={{
-                  display: 'block', fontSize: '0.8125rem', fontWeight: 500,
-                  marginBottom: '0.375rem', color: 'var(--color-text)',
-                }}>
-                  Project <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optional)</span>
-                </label>
+              <TextArea
+                label="Description"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+                placeholder="Provide detailed information — steps to reproduce, error messages, who is affected..."
+                required
+                hint={descriptionHint}
+                rows={6}
+              />
+
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
                 <Select
-                  value={projectId}
-                  onChange={e => setProjectId(e.target.value)}
-                  style={{
-                    width: '100%', padding: '0.5rem 0.625rem',
-                    border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
-                    background: 'var(--color-bg)', color: 'var(--color-text)',
-                    fontSize: '0.875rem', outline: 'none',
-                  }}
-                  options={projectOptions.map(o => (
-                    { value: o.value, label: o.label }
-                  ))}
+                  label="Priority"
+                  options={PRIORITY_OPTIONS}
+                  value={priority}
+                  onChange={(e) => setPriority(e.target.value as TicketPriority)}
                 />
-                <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Link this ticket to a project so your team can track it together.
-                </p>
+                <Select
+                  label="Category"
+                  options={CATEGORY_OPTIONS}
+                  value={category}
+                  onChange={(e) => setCategory(e.target.value as TicketCategory)}
+                />
               </div>
 
-              <div>
-                <label style={{
-                  display: 'block', fontSize: '0.8125rem', fontWeight: 500,
-                  marginBottom: '0.375rem', color: 'var(--color-text)',
-                }}>
-                  Environment <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optional)</span>
-                </label>
-                <Select
-                  value={environment}
-                  onChange={e => setEnvironment(e.target.value)}
-                  style={{
-                    width: '100%', padding: '0.5rem 0.625rem',
-                    border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
-                    background: 'var(--color-bg)', color: 'var(--color-text)',
-                    fontSize: '0.875rem', outline: 'none',
-                  }}
-                  options={ENVIRONMENT_OPTIONS.map(o => (
-                    { value: o.value, label: o.label }
-                  ))}
-                />
-                  
-                <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  Helps us reproduce and fix issues faster.
-                </p>
+              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1rem', marginBottom: '1rem' }}>
+                <div>
+                  <label style={{
+                    display: 'block', fontSize: '0.8125rem', fontWeight: 500,
+                    marginBottom: '0.375rem', color: 'var(--color-text)',
+                  }}>
+                    Project <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <Select
+                    value={projectId}
+                    onChange={e => setProjectId(e.target.value)}
+                    style={{
+                      width: '100%', padding: '0.5rem 0.625rem',
+                      border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
+                      background: 'var(--color-bg)', color: 'var(--color-text)',
+                      fontSize: '0.875rem', outline: 'none',
+                    }}
+                    options={projectOptions.map(o => (
+                      { value: o.value, label: o.label }
+                    ))}
+                  />
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    Link this ticket to a project so your team can track it together.
+                  </p>
+                </div>
+
+                <div>
+                  <label style={{
+                    display: 'block', fontSize: '0.8125rem', fontWeight: 500,
+                    marginBottom: '0.375rem', color: 'var(--color-text)',
+                  }}>
+                    Environment <span style={{ color: 'var(--color-text-muted)', fontWeight: 400 }}>(optional)</span>
+                  </label>
+                  <Select
+                    value={environment}
+                    onChange={e => setEnvironment(e.target.value)}
+                    style={{
+                      width: '100%', padding: '0.5rem 0.625rem',
+                      border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)',
+                      background: 'var(--color-bg)', color: 'var(--color-text)',
+                      fontSize: '0.875rem', outline: 'none',
+                    }}
+                    options={ENVIRONMENT_OPTIONS.map(o => (
+                      { value: o.value, label: o.label }
+                    ))}
+                  />
+
+                  <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+                    Helps us reproduce and fix issues faster.
+                  </p>
+                </div>
               </div>
-            </div>
 
-            <Input
-              label="Tags (optional)"
-              value={tags}
-              onChange={(e) => setTags(e.target.value)}
-              placeholder="e.g. sso, login, urgent — comma separated"
-              hint={parsedTags.length > 0 ? `Tags: ${parsedTags.join(', ')}` : undefined}
-            />
+              <Input
+                label="Tags (optional)"
+                value={tags}
+                onChange={(e) => setTags(e.target.value)}
+                placeholder="e.g. sso, login, urgent — comma separated"
+                hint={parsedTags.length > 0 ? `Tags: ${parsedTags.join(', ')}` : undefined}
+              />
 
-            <div style={{ marginBottom: '1.25rem' }}>
-              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem' }}>
-                Attachments
-              </label>
-              <FileUpload onFilesSelected={setFiles} uploading={uploading} />
-            </div>
+              <div style={{ marginBottom: '1.25rem' }}>
+                <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem' }}>
+                  Attachments
+                </label>
+                <FileUpload onFilesSelected={setFiles} uploading={uploading} />
+              </div>
 
-            <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
-              <Button variant="secondary" type="button" onClick={() => navigate('/tickets')}>
-                Cancel
-              </Button>
-              <Button type="submit" loading={isLoading || uploading}>
-                Create Ticket
-              </Button>
-            </div>
-          </form>
-        </Card>
+              <div style={{ display: 'flex', gap: '0.75rem', justifyContent: 'flex-end' }}>
+                <Button variant="secondary" type="button" onClick={() => navigate('/tickets')}>
+                  Cancel
+                </Button>
+                <Button type="submit" loading={isLoading || uploading}>
+                  Create Ticket
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
 
         {/* ── Right: AI sidebar ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>

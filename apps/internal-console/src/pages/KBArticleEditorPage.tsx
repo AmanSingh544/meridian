@@ -139,7 +139,7 @@ export const KBArticleEditorPage: React.FC = () => {
 
   if (isEditing && loadingArticle) {
     return (
-      <div style={{ maxWidth: '52rem' }}>
+      <div style={{ maxWidth: '100%' }}>
         <Skeleton height="2rem" style={{ marginBottom: '1rem' }} />
         {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} height="3rem" style={{ marginBottom: '0.75rem' }} />)}
       </div>
@@ -154,7 +154,7 @@ export const KBArticleEditorPage: React.FC = () => {
   const suggestedArticles = relatedResults?.map((r) => r.article).filter((a) => a.id !== id) ?? [];
 
   return (
-    <div style={{ maxWidth: '52rem' }}>
+    <div style={{ maxWidth: '100%' }}>
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
         <button

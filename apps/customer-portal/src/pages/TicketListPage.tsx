@@ -126,7 +126,7 @@ export const TicketListPage: React.FC = () => {
         <div style={{ width: '10rem' }}>
           <Select
             options={[
-              { value: '', label: 'All Statuses' },
+              { value: '', label: 'All Status' },
               { value: TicketStatus.OPEN, label: 'Open' },
               { value: TicketStatus.ACKNOWLEDGED, label: 'Acknowledged' },
               { value: TicketStatus.IN_PROGRESS, label: 'In Progress' },
