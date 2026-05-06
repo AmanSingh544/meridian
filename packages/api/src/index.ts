@@ -417,18 +417,22 @@ const baseQueryWithReauth: BaseQueryFn<
   let result = await rawBaseQuery(adjustedArgs, api, extraOptions);
 
   if (result.error && result.error.status === 401) {
-    // Attempt token refresh
+    // FormData bodies (file uploads) cannot be re-sent after the stream is consumed.
+    // Skip the retry for multipart requests — just refresh the token and let the
+    // user re-submit. Retrying would send an empty body and cause a 499 on the proxy.
+    const isMultipart =
+      typeof adjustedArgs !== 'string' &&
+      (adjustedArgs as FetchArgs).body instanceof FormData;
+
     const refreshResult = await rawBaseQuery(
       { url: AUTH_CONFIG.refreshPath, method: 'POST' },
       api,
       extraOptions,
     );
 
-    if (refreshResult.data) {
-      // Retry original request
+    if (refreshResult.data && !isMultipart) {
       result = await rawBaseQuery(adjustedArgs, api, extraOptions);
-    } else {
-      // Dispatch session expired event
+    } else if (!refreshResult.data) {
       api.dispatch({ type: 'auth/sessionExpired' });
     }
   }
