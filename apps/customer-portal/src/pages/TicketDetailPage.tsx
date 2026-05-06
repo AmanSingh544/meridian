@@ -4,6 +4,7 @@ import {
   useGetTicketQuery, useGetCommentsQuery,
   useTransitionTicketMutation, useCreateCommentMutation,
   useCreateAttachmentMutation,
+  useDeleteAttachmentMutation,
   useGetAISummaryQuery, useUpdateTicketMutation,
   useGetUsersQuery, useGetProjectsQuery,
 } from '@3sc/api';
@@ -13,9 +14,10 @@ import {
   ThreadedComments, Timeline, TimelineItem,
   AIBanner, ErrorState, Skeleton, Badge, Drawer,
   ConfirmDialog, Select, Input, TextArea, PermissionGate,
+  AttachmentChip, AttachmentPreviewModal,
 } from '@3sc/ui';
 import { TicketStatus, TicketPriority, TicketCategory, Permission, UserRole } from '@3sc/types';
-import { getStatusLabel, formatDateTime, getStatusColor } from '@3sc/utils';
+import { getStatusLabel, formatDateTime, getStatusColor, uploadWithLimit } from '@3sc/utils';
 import type { TicketUpdatePayload } from '@3sc/types';
 
 // ── Transition helper text ────────────────────────────────────────────────────
@@ -126,11 +128,13 @@ export const TicketDetailPage: React.FC = () => {
   const [transitionTicket, { isLoading: transitioning }] = useTransitionTicketMutation();
   const [createComment] = useCreateCommentMutation();
   const [createAttachment] = useCreateAttachmentMutation();
+  const [deleteAttachment] = useDeleteAttachmentMutation();
   const [updateTicket, { isLoading: updating }] = useUpdateTicketMutation();
 
   // ── UI state ──────────────────────────────────────────────────────────────
   const [showSummary, setShowSummary] = useState(false);
   const [confirmTransition, setConfirmTransition] = useState<TicketStatus | null>(null);
+  const [previewAttachment, setPreviewAttachment] = useState<{ id: string; fileName: string; mimeType: string } | null>(null);
   const [reopenReason, setReopenReason] = useState('');
   const [showEditDrawer, setShowEditDrawer] = useState(false);
   const [showInternalNotes, setShowInternalNotes] = useState(false);
@@ -172,26 +176,26 @@ export const TicketDetailPage: React.FC = () => {
     let attachment_ids: string[] = [];
 
     if (attachmentFiles && attachmentFiles.length > 0) {
-      const results = await Promise.all(
-        attachmentFiles.map((file) =>
-          createAttachment({
-            file_name: file.name,
-            file_type: file.type,
-            file_path: `/uploads/${file.name}`,
-            metadata: {},
-          }).unwrap()
-        )
+      const results = await uploadWithLimit(
+        attachmentFiles,
+        (file) => createAttachment({ file, projectId: ticket?.projectId }).unwrap()
       );
-      attachment_ids = results.map((r) => String(r?.data?.id)).filter(Boolean);
+      attachment_ids = results.map((r) => String(r?.id)).filter(Boolean);
     }
 
-    await createComment({
-      ticket_id: id,
-      message: content,
-      isInternal,
-      mentioned_user_ids: mentionIds ?? [],
-      attachment_ids,
-    });
+    try {
+      await createComment({
+        ticket_id: id,
+        message: content,
+        isInternal,
+        mentioned_user_ids: mentionIds ?? [],
+        attachment_ids,
+      });
+    } catch (err) {
+      // Clean up orphaned attachments on failure
+      await Promise.all(attachment_ids.map((aid) => deleteAttachment(aid).unwrap().catch(() => {})));
+      throw err;
+    }
   };
 
   const openEditDrawer = () => {
@@ -328,18 +332,26 @@ export const TicketDetailPage: React.FC = () => {
               {ticket.description}
             </div>
             {ticket.attachments.length > 0 && (
-              <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+              <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                 {ticket.attachments.map((a) => (
-                  <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer" style={{
-                    fontSize: '0.75rem', padding: '0.25rem 0.625rem',
-                    background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)',
-                    border: '1px solid var(--color-border)',
-                    color: 'var(--color-brand-600)', textDecoration: 'none',
-                  }}>
-                    📎 {a.fileName}
-                  </a>
+                  <AttachmentChip
+                    key={a.id}
+                    id={a.id}
+                    fileName={a.fileName}
+                    mimeType={a.mimeType}
+                    fileSize={a.fileSize}
+                    onPreview={() => setPreviewAttachment({ id: a.id, fileName: a.fileName, mimeType: a.mimeType })}
+                  />
                 ))}
               </div>
+            )}
+            {previewAttachment && (
+              <AttachmentPreviewModal
+                attachmentId={previewAttachment.id}
+                mimeType={previewAttachment.mimeType}
+                fileName={previewAttachment.fileName}
+                onClose={() => setPreviewAttachment(null)}
+              />
             )}
           </Card>
 

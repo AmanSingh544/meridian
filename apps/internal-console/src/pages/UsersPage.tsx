@@ -854,7 +854,7 @@ const InviteModal: React.FC<InviteModalProps> = ({ tab, onClose, onInvited }) =>
   const valid = email.trim() && firstName.trim() && lastName.trim();
 
   return (
-    <Modal isOpen onClose={onClose} title={`Invite ${tab === 'internal' ? 'Staff' : 'Client User'}`} width="28rem">
+    <Modal isOpen onClose={onClose} title={`Add ${tab === 'internal' ? 'Staff' : 'Client User'}`} width="28rem">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <Input label="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" autoFocus />
@@ -881,7 +881,8 @@ const InviteModal: React.FC<InviteModalProps> = ({ tab, onClose, onInvited }) =>
 
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
-          <Button onClick={handleInvite} loading={inviting} disabled={!valid}>Send Invite</Button>
+          {/* <Button onClick={handleInvite} loading={inviting} disabled={!valid}>Send Invite</Button> */}
+          <Button onClick={handleInvite} loading={inviting} disabled={!valid}>Add {tab === 'internal' ? ' Staff' : ' Client User'}</Button>
         </div>
       </div>
     </Modal>
@@ -1067,7 +1068,7 @@ export const UsersPage: React.FC = () => {
         </div>
         <PermissionGate permission={Permission.MEMBER_INVITE}>
           <Button icon={<span>+</span>} onClick={() => setShowInvite(true)}>
-            Invite {activeTab === 'internal' ? 'Staff' : 'Client User'}
+            Add {activeTab === 'internal' ? 'Staff' : 'Client User'}
           </Button>
         </PermissionGate>
       </div>

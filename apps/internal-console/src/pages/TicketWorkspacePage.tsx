@@ -4,6 +4,8 @@ import {
   useGetTicketQuery, useGetCommentsQuery,
   useTransitionTicketMutation, useUpdateTicketMutation,
   useCreateCommentMutation,
+  useCreateAttachmentMutation,
+  useDeleteAttachmentMutation,
   useGetAIClassificationQuery, useGetAIPriorityQuery,
   useGetAIRoutingQuery, useGetAISuggestedReplyQuery,
   useGetAISummaryQuery, useGetAIETAQuery,
@@ -19,9 +21,10 @@ import {
   ThreadedComments, MentionTextarea, AISuggestionCard, AIBanner,
   Drawer, ConfirmDialog, Badge, Avatar, Select,
   ErrorState, Skeleton, Tabs, TabPanel, ConfidenceBar,
+  AttachmentChip, AttachmentPreviewModal,
 } from '@3sc/ui';
 import { TicketStatus, Permission } from '@3sc/types';
-import { getStatusLabel, getStatusColor, formatDateTime, getPriorityLabel } from '@3sc/utils';
+import { getStatusLabel, getStatusColor, formatDateTime, getPriorityLabel, uploadWithLimit } from '@3sc/utils';
 
 export const TicketWorkspacePage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -34,6 +37,8 @@ export const TicketWorkspacePage: React.FC = () => {
   const [transitionTicket, { isLoading: transitioning }] = useTransitionTicketMutation();
   const [updateTicket] = useUpdateTicketMutation();
   const [createComment] = useCreateCommentMutation();
+  const [createAttachment] = useCreateAttachmentMutation();
+  const [deleteAttachment] = useDeleteAttachmentMutation();
   const [acceptSuggestion, { isLoading: accepting }] = useAcceptAISuggestionMutation();
   const [rejectSuggestion, { isLoading: rejecting }] = useRejectAISuggestionMutation();
   const suggestionActing = accepting || rejecting;
@@ -52,6 +57,7 @@ export const TicketWorkspacePage: React.FC = () => {
   const [confirmTransition, setConfirmTransition] = useState<TicketStatus | null>(null);
   const [activeTab, setActiveTab] = useState('conversation');
   const [showAIPanel, setShowAIPanel] = useState(false);
+  const [previewAttachment, setPreviewAttachment] = useState<{ id: string; fileName: string; mimeType: string } | null>(null);
   const [editingReply, setEditingReply] = useState(false);
   const [editedReplyText, setEditedReplyText] = useState('');
   const [editedReplyMentions, setEditedReplyMentions] = useState<string[]>([]);
@@ -69,9 +75,22 @@ export const TicketWorkspacePage: React.FC = () => {
   // Internal staff can mention anyone on the tenant (including client users)
   const mentionableUsers = usersPage?.data ?? [];
 
-  const handleAddComment = async (content: string, isInternal?: boolean, mentionIds?: string[]) => {
+  const handleAddComment = async (content: string, isInternal?: boolean, mentionIds?: string[], files?: File[]) => {
     if (!id) return;
-    await createComment({ ticket_id: id, message: content, isInternal, mentioned_user_ids: mentionIds ?? [] });
+    let attachment_ids: string[] = [];
+    if (files && files.length > 0) {
+      const results = await uploadWithLimit(
+        files,
+        (file) => createAttachment({ file, projectId: ticket?.projectId }).unwrap()
+      );
+      attachment_ids = results.map((r) => String(r?.id)).filter(Boolean);
+    }
+    try {
+      await createComment({ ticket_id: id, message: content, isInternal, mentioned_user_ids: mentionIds ?? [], attachment_ids });
+    } catch (err) {
+      await Promise.all(attachment_ids.map((aid) => deleteAttachment(aid).unwrap().catch(() => {})));
+      throw err;
+    }
   };
 
   if (error) return <ErrorState onRetry={refetch} />;
@@ -214,7 +233,7 @@ export const TicketWorkspacePage: React.FC = () => {
             <ThreadedComments
               comments={comments.filter((c) => !c.isInternal)}
               mentionableUsers={mentionableUsers}
-              onAddComment={(content, _isInternal, mentionIds) => handleAddComment(content, false, mentionIds)}
+              onAddComment={(content, _isInternal, mentionIds, files) => handleAddComment(content, false, mentionIds, files)}
               onReply={(parentId, content, mentionIds) => createComment({ ticket_id: id!, message: content, parent_id: parentId, mentioned_user_ids: mentionIds ?? [] })}
               showInternalToggle={false}
             />
@@ -225,7 +244,7 @@ export const TicketWorkspacePage: React.FC = () => {
               <ThreadedComments
                 comments={comments.filter((c) => c.isInternal)}
                 mentionableUsers={mentionableUsers}
-                onAddComment={(content, _isInternal, mentionIds) => handleAddComment(content, true, mentionIds)}
+                onAddComment={(content, _isInternal, mentionIds, files) => handleAddComment(content, true, mentionIds, files)}
                 showInternalToggle={false}
               />
             ) : (
@@ -241,16 +260,26 @@ export const TicketWorkspacePage: React.FC = () => {
                 {ticket.description}
               </div>
               {ticket.attachments.length > 0 && (
-                <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.375rem' }}>
+                <div style={{ marginTop: '1rem', display: 'flex', flexWrap: 'wrap', gap: '0.5rem' }}>
                   {ticket.attachments.map((a) => (
-                    <a key={a.id} href={a.url} target="_blank" rel="noopener noreferrer" style={{
-                      fontSize: '0.75rem', padding: '0.25rem 0.625rem',
-                      background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)',
-                      border: '1px solid var(--color-border)',
-                      color: 'var(--color-brand-600)', textDecoration: 'none',
-                    }}>📎 {a.fileName}</a>
+                    <AttachmentChip
+                      key={a.id}
+                      id={a.id}
+                      fileName={a.fileName}
+                      mimeType={a.mimeType}
+                      fileSize={a.fileSize}
+                      onPreview={() => setPreviewAttachment({ id: a.id, fileName: a.fileName, mimeType: a.mimeType })}
+                    />
                   ))}
                 </div>
+              )}
+              {previewAttachment && (
+                <AttachmentPreviewModal
+                  attachmentId={previewAttachment.id}
+                  mimeType={previewAttachment.mimeType}
+                  fileName={previewAttachment.fileName}
+                  onClose={() => setPreviewAttachment(null)}
+                />
               )}
             </Card>
           </TabPanel>

@@ -24,7 +24,7 @@ export { ErrorBoundary } from './components/ErrorBoundary';
 export { PermissionGate } from './components/PermissionGate';
 export { ConnectionIndicator } from './components/ConnectionIndicator';
 export { FileUpload } from './components/FileUpload';
-export { ThreadedComments, MentionTextarea } from './components/ThreadedComments';
+export { ThreadedComments, MentionTextarea, AttachmentChip, AttachmentPreviewModal } from './components/ThreadedComments';
 export type { MentionTextareaProps } from './components/ThreadedComments';
 export { AIBanner } from './components/AIBanner';
 export { AISuggestionCard } from './components/AISuggestionCard';

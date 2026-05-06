@@ -363,7 +363,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvite
 
   if (sent) {
     return (
-      <Modal isOpen onClose={onClose} title="Invite Member" width="24rem">
+      <Modal isOpen onClose={onClose} title="Add Member" width="24rem">
         <div style={{ textAlign: 'center', padding: '2rem 0' }}>
           <div style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>✅</div>
           <div style={{ fontWeight: 600, fontSize: '0.9375rem' }}>Invitation sent!</div>
@@ -374,7 +374,7 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvite
   }
 
   return (
-    <Modal isOpen onClose={onClose} title="Invite Team Member" width="26rem">
+    <Modal isOpen onClose={onClose} title="Add Team Member" width="26rem">
       <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
         <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem' }}>
           <Input label="First Name" value={firstName} onChange={e => setFirstName(e.target.value)} placeholder="Jane" autoFocus />
@@ -405,7 +405,8 @@ const InviteMemberModal: React.FC<InviteMemberModalProps> = ({ onClose, onInvite
         <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
           <Button variant="ghost" onClick={onClose}>Cancel</Button>
           <Button onClick={handleSend} loading={inviting} disabled={!email.trim()}>
-            Send Invite
+            {/* Send Invite */}
+            Add Team Member
           </Button>
         </div>
       </div>
@@ -462,7 +463,7 @@ export const TeamManagementPage: React.FC = () => {
         </div>
         <PermissionGate permission={Permission.MEMBER_INVITE}>
           <Button onClick={() => setShowInvite(true)} icon={<span>+</span>}>
-            Invite Member
+            Add Member
           </Button>
         </PermissionGate>
       </div>

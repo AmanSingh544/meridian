@@ -1,3 +1,5 @@
+/// <reference types="vite/client" />
+
 // ═══════════════════════════════════════════════════════════════
 // @3sc/utils — Shared Utilities
 // ═══════════════════════════════════════════════════════════════
@@ -207,6 +209,55 @@ export function debounce<T extends (...args: unknown[]) => unknown>(
     clearTimeout(timer);
     timer = setTimeout(() => fn(...args), ms);
   };
+}
+
+// ── Concurrency Utilities ───────────────────────────────────────
+export async function uploadWithLimit<T>(
+  items: File[],
+  uploadFn: (file: File) => Promise<T>,
+  limit = 3
+): Promise<T[]> {
+  const results: T[] = [];
+  for (let i = 0; i < items.length; i += limit) {
+    const batch = items.slice(i, i + limit);
+    const batchResults = await Promise.all(batch.map(uploadFn));
+    results.push(...batchResults);
+  }
+  return results;
+}
+
+// ── Attachment Utilities ────────────────────────────────────────
+export async function downloadAttachment(id: string, fileName: string) {
+  const baseUrl = (typeof import.meta.env !== 'undefined' && import.meta.env.VITE_API_BASE_URL) || '/api/v1';
+  const portalType = (typeof import.meta.env !== 'undefined' && import.meta.env.VITE_PORTAL_TYPE) || 'customer';
+  const res = await fetch(`${baseUrl}/attachments/${id}/download`, {
+    credentials: 'include',
+    headers: { 'X-Portal-Type': portalType },
+  });
+  if (!res.ok) throw new Error('Download failed');
+  const blob = await res.blob();
+  const objectUrl = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = objectUrl;
+  a.download = fileName;
+  a.click();
+  URL.revokeObjectURL(objectUrl);
+}
+
+export async function fetchAttachmentPreviewUrl(id: string): Promise<string> {
+  const baseUrl = (typeof import.meta.env !== 'undefined' && import.meta.env.VITE_API_BASE_URL) || '/api/v1';
+  const portalType = (typeof import.meta.env !== 'undefined' && import.meta.env.VITE_PORTAL_TYPE) || 'customer';
+  const res = await fetch(`${baseUrl}/attachments/${id}/preview`, {
+    credentials: 'include',
+    headers: { 'X-Portal-Type': portalType },
+  });
+  if (!res.ok) throw new Error('Preview failed');
+  const blob = await res.blob();
+  return URL.createObjectURL(blob);
+}
+
+export function isPreviewableAttachment(mimeType: string): boolean {
+  return mimeType.startsWith('image/') || mimeType === 'application/pdf';
 }
 
 // ── Class Names ─────────────────────────────────────────────────

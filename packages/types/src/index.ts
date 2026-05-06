@@ -820,7 +820,7 @@ export interface TicketCreatePayload {
   category: TicketCategory;
   tags?: string[];
   projectId?: UUID;
-  attachment_ids?: number[];
+  attachment_ids?: UUID[];
 }
 
 export interface TicketUpdatePayload {
@@ -919,7 +919,7 @@ export interface AttachmentCreatePayload {
 }
 
 export interface AttachmentRecord {
-  id: number;
+  id: string;
   file_name: string;
   file_type: string;
   file_path: string;

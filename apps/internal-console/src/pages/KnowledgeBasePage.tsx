@@ -8,6 +8,7 @@ import { Permission } from '@3sc/types';
 import type { AIKBGap } from '@3sc/types';
 
 export const KnowledgeBasePage: React.FC = () => {
+  
   useDocumentTitle('Knowledge Base');
   const navigate = useNavigate();
   const permissions = usePermissions();
