@@ -445,7 +445,7 @@ export const SystemSettingsPage: React.FC = () => {
       }}>
 
         {/* NOTIFICATIONS */}
-        <Card>
+        <Card hover>
           <SectionHeader text="Notifications" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <ToggleRow
@@ -538,7 +538,7 @@ export const SystemSettingsPage: React.FC = () => {
         </Card>
 
         {/* AI FEATURES */}
-        <Card>
+        <Card hover>
           <SectionHeader text="AI Features" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <ToggleRow
@@ -597,7 +597,7 @@ export const SystemSettingsPage: React.FC = () => {
         </Card>
 
         {/* ACCESS & SECURITY */}
-        <Card>
+        <Card hover>
           <SectionHeader text="Access & Security" />
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
             <ToggleRow
@@ -655,7 +655,7 @@ export const SystemSettingsPage: React.FC = () => {
 
         {/* DANGER ZONE */}
         <PermissionGate permission={Permission.SYSTEM_CONFIGURE}>
-          <Card style={{ border: '1px solid #fca5a5' }}>
+          <Card className="_cards" style={{ border: '1px solid #fca5a5' }}>
             <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.08em', color: '#dc2626', marginBottom: '1rem', paddingBottom: '0.5rem', borderBottom: '1px solid #fecaca' }}>
               Danger Zone
             </div>

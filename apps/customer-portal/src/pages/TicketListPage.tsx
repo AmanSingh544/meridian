@@ -4,8 +4,9 @@ import { useGetTicketsQuery } from '@3sc/api';
 import { useDocumentTitle, useDebouncedValue, usePagination } from '@3sc/hooks';
 import {
   Button, DataTable, SearchInput, StatusBadge, PriorityBadge,
-  SLABadge, Pagination, Select, EmptyState, ErrorState,
+  SLABadge, Pagination, Select, EmptyState, ErrorState, Icon,
 } from '@3sc/ui';
+import { Plus } from 'lucide-react';
 import { Ticket, TicketFilters, TicketStatus, TicketPriority } from '@3sc/types';
 import { formatRelativeTime, truncate } from '@3sc/utils';
 
@@ -29,7 +30,7 @@ export const TicketListPage: React.FC = () => {
     sortBy,
     sortOrder,
     page,
-    page_size: 20,
+    page_size: 10,
   }), [debouncedSearch, statusFilter, priorityFilter, sortBy, sortOrder, page]);
 
   const { data, isLoading, error, refetch } = useGetTicketsQuery(filters);
@@ -106,7 +107,7 @@ export const TicketListPage: React.FC = () => {
         <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
           Tickets
         </h1>
-        <Button onClick={() => navigate('/tickets/new')} icon={<span>+</span>}>
+        <Button onClick={() => navigate('/tickets/new')} icon={<Icon icon={Plus} size="sm" />}>
           New Ticket
         </Button>
       </div>

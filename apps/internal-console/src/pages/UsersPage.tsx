@@ -22,8 +22,11 @@ import {
 import { useDocumentTitle, useDebouncedValue, usePermissions } from '@3sc/hooks';
 import {
   SearchInput, Select, Avatar, Badge, Pagination,
-  Button, EmptyState, Modal, Input, PermissionGate,
+  Button, EmptyState, Modal, Input, PermissionGate, Icon,
+  MetricCard, MetricGrid, Card,
+  DataTable,
 } from '@3sc/ui';
+import { Plus, Users, UserCheck, UserX, BarChart3, Ticket, Percent } from 'lucide-react';
 import {
   Permission, UserRole, InternalSubRole, AvailabilityStatus, ProjectRole,
 } from '@3sc/types';
@@ -32,34 +35,35 @@ import type {
   AssignmentScoringWeightsPayload, PermissionOverridePayload, PermissionOverride,
 } from '@3sc/types';
 import { getDefaultPermissions, SUB_ROLE_LABELS } from '@3sc/permissions';
+import { Column } from 'packages/ui/src/components/DataTable';
 
 // ── Constants ───────────────────────────────────────────────────────────────
 
 const ROLE_COLORS: Record<string, string> = {
-  ADMIN:        '#ef4444',
-  LEAD:         '#8b5cf6',
-  AGENT:        '#3b82f6',
+  ADMIN: '#ef4444',
+  LEAD: '#8b5cf6',
+  AGENT: '#3b82f6',
   CLIENT_ADMIN: '#f59e0b',
-  CLIENT_USER:  '#6b7280',
+  CLIENT_USER: '#6b7280',
 };
 
 const ROLE_LABELS: Record<string, string> = {
-  ADMIN:        'Admin',
-  LEAD:         'Lead',
-  AGENT:        'Agent',
+  ADMIN: 'Admin',
+  LEAD: 'Lead',
+  AGENT: 'Agent',
   CLIENT_ADMIN: 'Client Admin',
-  CLIENT_USER:  'Client User',
+  CLIENT_USER: 'Client User',
 };
 
 const INTERNAL_ROLE_OPTIONS = [
   { value: UserRole.ADMIN, label: 'Admin' },
-  { value: UserRole.LEAD,  label: 'Lead' },
+  { value: UserRole.LEAD, label: 'Lead' },
   { value: UserRole.AGENT, label: 'Agent' },
 ];
 
 const CLIENT_ROLE_OPTIONS = [
   { value: UserRole.CLIENT_ADMIN, label: 'Client Admin' },
-  { value: UserRole.CLIENT_USER,  label: 'Client User' },
+  { value: UserRole.CLIENT_USER, label: 'Client User' },
 ];
 
 const ALL_ROLE_OPTIONS = [...INTERNAL_ROLE_OPTIONS, ...CLIENT_ROLE_OPTIONS];
@@ -67,11 +71,11 @@ const ALL_ROLE_OPTIONS = [...INTERNAL_ROLE_OPTIONS, ...CLIENT_ROLE_OPTIONS];
 const SUB_ROLE_OPTIONS = Object.entries(SUB_ROLE_LABELS).map(([value, label]) => ({ value, label }));
 
 const AVAIL_STATUS_OPTIONS = [
-  { value: AvailabilityStatus.AVAILABLE,        label: 'Available' },
-  { value: AvailabilityStatus.BUSY,             label: 'Busy' },
-  { value: AvailabilityStatus.AWAY,             label: 'Away' },
-  { value: AvailabilityStatus.DO_NOT_DISTURB,   label: 'Do Not Disturb' },
-  { value: AvailabilityStatus.OFFLINE,          label: 'Offline' },
+  { value: AvailabilityStatus.AVAILABLE, label: 'Available' },
+  { value: AvailabilityStatus.BUSY, label: 'Busy' },
+  { value: AvailabilityStatus.AWAY, label: 'Away' },
+  { value: AvailabilityStatus.DO_NOT_DISTURB, label: 'Do Not Disturb' },
+  { value: AvailabilityStatus.OFFLINE, label: 'Offline' },
 ];
 
 const SKILL_LEVEL_OPTIONS = [
@@ -81,11 +85,11 @@ const SKILL_LEVEL_OPTIONS = [
 ];
 
 const AVAIL_COLORS: Record<string, string> = {
-  [AvailabilityStatus.AVAILABLE]:      '#22c55e',
-  [AvailabilityStatus.BUSY]:           '#f59e0b',
-  [AvailabilityStatus.AWAY]:           '#94a3b8',
+  [AvailabilityStatus.AVAILABLE]: '#22c55e',
+  [AvailabilityStatus.BUSY]: '#f59e0b',
+  [AvailabilityStatus.AWAY]: '#94a3b8',
   [AvailabilityStatus.DO_NOT_DISTURB]: '#ef4444',
-  [AvailabilityStatus.OFFLINE]:        '#6b7280',
+  [AvailabilityStatus.OFFLINE]: '#6b7280',
 };
 
 // Group permissions for the permission matrix
@@ -160,60 +164,60 @@ const PERMISSION_GROUPS: { label: string; perms: Permission[] }[] = [
 ];
 
 const PERM_LABELS: Partial<Record<Permission, string>> = {
-  [Permission.TICKET_VIEW_ALL]:          'View All Tickets',
-  [Permission.TICKET_VIEW_OWN]:          'View Own Tickets',
-  [Permission.TICKET_VIEW_ORG]:          'View Org Tickets',
-  [Permission.TICKET_EDIT]:             'Edit Tickets',
-  [Permission.TICKET_STATUS_CHANGE]:    'Change Status',
-  [Permission.TICKET_ASSIGN]:           'Assign Tickets',
-  [Permission.TICKET_DELETE]:           'Delete Tickets',
-  [Permission.TICKET_REOPEN]:           'Reopen Tickets',
-  [Permission.TICKET_CREATE]:           'Create Tickets',
-  [Permission.COMMENT_CREATE]:          'Create Comments',
-  [Permission.COMMENT_INTERNAL]:        'Internal Notes',
-  [Permission.COMMENT_DELETE]:          'Delete Comments',
-  [Permission.MEMBER_VIEW]:             'View Members',
-  [Permission.MEMBER_INVITE]:           'Invite Members',
-  [Permission.MEMBER_MANAGE]:           'Manage Members',
-  [Permission.KB_VIEW]:                 'View KB',
-  [Permission.KB_MANAGE]:               'Manage KB',
-  [Permission.REPORT_VIEW]:             'View Reports',
-  [Permission.REPORT_EXPORT]:           'Export Reports',
-  [Permission.SLA_VIEW]:                'View SLAs',
-  [Permission.SLA_CONFIGURE]:           'Configure SLAs',
-  [Permission.ESCALATION_VIEW]:         'View Escalations',
-  [Permission.ESCALATION_CONFIGURE]:    'Configure Escalations',
-  [Permission.ROUTING_VIEW]:            'View Routing',
-  [Permission.AI_SUGGEST]:              'AI Suggestions',
-  [Permission.AI_FEEDBACK]:             'AI Feedback',
-  [Permission.AI_DIGEST]:               'AI Digest',
-  [Permission.AI_KB_SUGGEST]:           'AI KB Suggest',
-  [Permission.AI_PROJECT_INSIGHTS]:     'AI Project Insights',
-  [Permission.AI_PROJECT_REPORTS]:      'AI Project Reports',
-  [Permission.AI_PROJECT_QA]:           'AI Project QA',
-  [Permission.PROJECT_VIEW]:            'View Projects',
-  [Permission.PROJECT_CREATE]:          'Create Projects',
-  [Permission.PROJECT_EDIT]:            'Edit Projects',
-  [Permission.PROJECT_DELETE]:          'Delete Projects',
-  [Permission.DELIVERY_VIEW]:           'View Delivery Board',
-  [Permission.DELIVERY_MANAGE]:         'Manage Delivery',
-  [Permission.ONBOARDING_VIEW]:         'View Onboarding',
-  [Permission.ONBOARDING_MANAGE]:       'Manage Onboarding',
-  [Permission.ROADMAP_VOTE]:            'Vote on Roadmap',
-  [Permission.ROADMAP_REQUEST]:         'Request Features',
-  [Permission.AUDIT_VIEW]:              'View Audit Log',
-  [Permission.WORKSPACE_CONFIGURE]:     'Configure Workspace',
-  [Permission.BRANDING_CONFIGURE]:      'Configure Branding',
-  [Permission.SYSTEM_CONFIGURE]:        'System Config',
-  [Permission.COMPLIANCE_VIEW]:         'View Compliance',
-  [Permission.USER_PERMISSION_MANAGE]:  'Manage User Perms',
-  [Permission.SKILL_ASSIGN]:            'Assign Skills',
-  [Permission.WORKLOAD_VIEW]:           'View Workload',
-  [Permission.SCORING_CONFIGURE]:       'Configure Scoring',
-  [Permission.USER_IMPORT]:             'Import Users',
-  [Permission.PASSWORD_RESET]:          'Reset Passwords',
-  [Permission.AI_COPILOT_CHAT]:         'AI Copilot Chat',
-  [Permission.AI_COPILOT_WRITE]:        'AI Copilot Write',
+  [Permission.TICKET_VIEW_ALL]: 'View All Tickets',
+  [Permission.TICKET_VIEW_OWN]: 'View Own Tickets',
+  [Permission.TICKET_VIEW_ORG]: 'View Org Tickets',
+  [Permission.TICKET_EDIT]: 'Edit Tickets',
+  [Permission.TICKET_STATUS_CHANGE]: 'Change Status',
+  [Permission.TICKET_ASSIGN]: 'Assign Tickets',
+  [Permission.TICKET_DELETE]: 'Delete Tickets',
+  [Permission.TICKET_REOPEN]: 'Reopen Tickets',
+  [Permission.TICKET_CREATE]: 'Create Tickets',
+  [Permission.COMMENT_CREATE]: 'Create Comments',
+  [Permission.COMMENT_INTERNAL]: 'Internal Notes',
+  [Permission.COMMENT_DELETE]: 'Delete Comments',
+  [Permission.MEMBER_VIEW]: 'View Members',
+  [Permission.MEMBER_INVITE]: 'Invite Members',
+  [Permission.MEMBER_MANAGE]: 'Manage Members',
+  [Permission.KB_VIEW]: 'View KB',
+  [Permission.KB_MANAGE]: 'Manage KB',
+  [Permission.REPORT_VIEW]: 'View Reports',
+  [Permission.REPORT_EXPORT]: 'Export Reports',
+  [Permission.SLA_VIEW]: 'View SLAs',
+  [Permission.SLA_CONFIGURE]: 'Configure SLAs',
+  [Permission.ESCALATION_VIEW]: 'View Escalations',
+  [Permission.ESCALATION_CONFIGURE]: 'Configure Escalations',
+  [Permission.ROUTING_VIEW]: 'View Routing',
+  [Permission.AI_SUGGEST]: 'AI Suggestions',
+  [Permission.AI_FEEDBACK]: 'AI Feedback',
+  [Permission.AI_DIGEST]: 'AI Digest',
+  [Permission.AI_KB_SUGGEST]: 'AI KB Suggest',
+  [Permission.AI_PROJECT_INSIGHTS]: 'AI Project Insights',
+  [Permission.AI_PROJECT_REPORTS]: 'AI Project Reports',
+  [Permission.AI_PROJECT_QA]: 'AI Project QA',
+  [Permission.PROJECT_VIEW]: 'View Projects',
+  [Permission.PROJECT_CREATE]: 'Create Projects',
+  [Permission.PROJECT_EDIT]: 'Edit Projects',
+  [Permission.PROJECT_DELETE]: 'Delete Projects',
+  [Permission.DELIVERY_VIEW]: 'View Delivery Board',
+  [Permission.DELIVERY_MANAGE]: 'Manage Delivery',
+  [Permission.ONBOARDING_VIEW]: 'View Onboarding',
+  [Permission.ONBOARDING_MANAGE]: 'Manage Onboarding',
+  [Permission.ROADMAP_VOTE]: 'Vote on Roadmap',
+  [Permission.ROADMAP_REQUEST]: 'Request Features',
+  [Permission.AUDIT_VIEW]: 'View Audit Log',
+  [Permission.WORKSPACE_CONFIGURE]: 'Configure Workspace',
+  [Permission.BRANDING_CONFIGURE]: 'Configure Branding',
+  [Permission.SYSTEM_CONFIGURE]: 'System Config',
+  [Permission.COMPLIANCE_VIEW]: 'View Compliance',
+  [Permission.USER_PERMISSION_MANAGE]: 'Manage User Perms',
+  [Permission.SKILL_ASSIGN]: 'Assign Skills',
+  [Permission.WORKLOAD_VIEW]: 'View Workload',
+  [Permission.SCORING_CONFIGURE]: 'Configure Scoring',
+  [Permission.USER_IMPORT]: 'Import Users',
+  [Permission.PASSWORD_RESET]: 'Reset Passwords',
+  [Permission.AI_COPILOT_CHAT]: 'AI Copilot Chat',
+  [Permission.AI_COPILOT_WRITE]: 'AI Copilot Write',
 };
 
 // ── Sub-components ───────────────────────────────────────────────────────────
@@ -577,19 +581,22 @@ const WorkloadModal: React.FC<WorkloadModalProps> = ({ user, onClose }) => {
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {workload && (
-            <div style={{
-              display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.75rem',
-              padding: '0.75rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)',
-            }}>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Assigned</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{workload.assignedTickets}</div>
-              </div>
-              <div>
-                <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Utilization</div>
-                <div style={{ fontSize: '1.25rem', fontWeight: 700 }}>{workload.utilizationPct}%</div>
-              </div>
-            </div>
+            <MetricGrid density="compact">
+              <MetricCard
+                title="Assigned tickets"
+                value={workload.assignedTickets}
+                variant="brand"
+                icon={<Icon icon={Ticket} />}
+                state="ready"
+              />
+              <MetricCard
+                title="Utilization"
+                value={`${workload.utilizationPct}%`}
+                variant="info"
+                icon={<Icon icon={Percent} />}
+                state="ready"
+              />
+            </MetricGrid>
           )}
 
           <Input
@@ -624,9 +631,9 @@ const ScoringWeightsPanel: React.FC = () => {
   const [updateWeights, { isLoading: saving }] = useUpdateScoringWeightsMutation();
   const { data: skillGaps } = useGetSkillGapsQuery();
 
-  const [wSkill,    setWSkill]    = useState(50);
+  const [wSkill, setWSkill] = useState(50);
   const [wWorkload, setWWorkload] = useState(35);
-  const [wAvail,    setWAvail]    = useState(15);
+  const [wAvail, setWAvail] = useState(15);
   const [dirty, setDirty] = useState(false);
 
   // Initialize sliders from API data — useEffect avoids the render-body anti-pattern
@@ -649,18 +656,17 @@ const ScoringWeightsPanel: React.FC = () => {
   const handleSave = async () => {
     if (!valid) return;
     const payload: AssignmentScoringWeightsPayload = {
-      wSkill:    wSkill / 100,
+      wSkill: wSkill / 100,
       wWorkload: wWorkload / 100,
-      wAvail:    wAvail / 100,
+      wAvail: wAvail / 100,
     };
     await updateWeights(payload).unwrap();
     setDirty(false);
   };
 
   return (
-    <div style={{
-      background: 'var(--color-bg-surface)', border: '1px solid var(--color-border)',
-      borderRadius: 'var(--radius-lg)', padding: '1.25rem', marginBottom: '1.5rem',
+    <Card hover style={{
+      background: 'var(--color-bg-surface)', marginBottom: '1.5rem',
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem' }}>
         <div>
@@ -736,7 +742,7 @@ const ScoringWeightsPanel: React.FC = () => {
           </div>
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
@@ -747,12 +753,12 @@ const EditUserModal: React.FC<EditUserModalProps> = ({ user, onClose, onSaved })
   const [updateUser, { isLoading: saving }] = useUpdateUserMutation();
   const [resetPassword, { isLoading: resetting }] = useAdminResetPasswordMutation();
 
-  const [role,       setRole]       = useState<UserRole>(user.role);
-  const [subRole,    setSubRole]    = useState<InternalSubRole | ''>(user.internalSubRole ?? '');
+  const [role, setRole] = useState<UserRole>(user.role);
+  const [subRole, setSubRole] = useState<InternalSubRole | ''>(user.internal_sub_role ?? '');
   const [department, setDepartment] = useState(user.department ?? '');
-  const [timezone,   setTimezone]   = useState(user.timezone ?? '');
-  const [isActive,   setIsActive]   = useState(user.isActive);
-  const [resetSent,  setResetSent]  = useState(false);
+  const [timezone, setTimezone] = useState(user.timezone ?? '');
+  const [isActive, setIsActive] = useState(user.isActive);
+  const [resetSent, setResetSent] = useState(false);
 
   const isInternal = [UserRole.ADMIN, UserRole.LEAD, UserRole.AGENT].includes(role);
 
@@ -828,12 +834,12 @@ interface InviteModalProps { tab: 'internal' | 'clients'; onClose: () => void; o
 const InviteModal: React.FC<InviteModalProps> = ({ tab, onClose, onInvited }) => {
   return tab === 'internal'
     ? <InternalInviteForm onClose={onClose} onInvited={onInvited} />
-    : <ClientInviteForm  onClose={onClose} onInvited={onInvited} />;
+    : <ClientInviteForm onClose={onClose} onInvited={onInvited} />;
 };
 
 // ── InternalInviteForm ───────────────────────────────────────────────────────
 
-const INTERNAL_TENANT_ID  = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'; // 3SC Internal (ORG-001)
+const INTERNAL_TENANT_ID = 'a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11'; // 3SC Internal (ORG-001)
 const INTERNAL_TENANT_NAME = '3SC Internal';
 
 const InternalInviteForm: React.FC<{ onClose: () => void; onInvited: () => void }> = ({ onClose, onInvited }) => {
@@ -841,32 +847,32 @@ const InternalInviteForm: React.FC<{ onClose: () => void; onInvited: () => void 
   const { data: allSkills = [] } = useGetSkillsQuery();
   const { data: projectsData } = useGetProjectsQuery({});
 
-  const [firstName,    setFirstName]    = useState('');
-  const [lastName,     setLastName]     = useState('');
-  const [email,        setEmail]        = useState('');
-  const [role,         setRole]         = useState<UserRole>(UserRole.AGENT);
-  const [subRole,      setSubRole]      = useState<string>(InternalSubRole.SUPPORT);
-  const [department,   setDepartment]   = useState('');
-  const [projectIds,   setProjectIds]   = useState<string[]>([]);
-  const [skillIds,     setSkillIds]     = useState<string[]>([]);
-  const [error,        setError]        = useState<string | null>(null);
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<UserRole>(UserRole.AGENT);
+  const [subRole, setSubRole] = useState<string>(InternalSubRole.SUPPORT);
+  const [department, setDepartment] = useState('');
+  const [projectIds, setProjectIds] = useState<string[]>([]);
+  const [skillIds, setSkillIds] = useState<string[]>([]);
+  const [error, setError] = useState<string | null>(null);
 
   const projectOptions = (projectsData?.data ?? []).map(p => ({ value: p.id, label: p.name }));
-  const skillOptions   = allSkills.map(s => ({ value: s.id, label: s.name }));
+  const skillOptions = allSkills.map(s => ({ value: s.id, label: s.name }));
 
   const handleInvite = async () => {
     setError(null);
     try {
       await inviteUser({
-        email:             email.trim(),
-        first_name:        firstName.trim() || undefined,
-        last_name:         lastName.trim() || undefined,
+        email: email.trim(),
+        first_name: firstName.trim() || undefined,
+        last_name: lastName.trim() || undefined,
         role,
-        tenant_id:         INTERNAL_TENANT_ID,
+        tenant_id: INTERNAL_TENANT_ID,
         internal_sub_role: subRole || undefined,
-        department:        department.trim() || undefined,
-        project_ids:       projectIds.length ? projectIds : undefined,
-        skill_ids:         skillIds.length ? skillIds : undefined,
+        department: department.trim() || undefined,
+        project_ids: projectIds.length ? projectIds : undefined,
+        skill_ids: skillIds.length ? skillIds : undefined,
       }).unwrap();
       onInvited();
       onClose();
@@ -980,13 +986,13 @@ const ClientInviteForm: React.FC<{ onClose: () => void; onInvited: () => void }>
   const [inviteUser, { isLoading: inviting }] = useInviteUserMutation();
   const { data: orgsData } = useGetOrganizationsQuery({});
 
-  const [firstName,  setFirstName]  = useState('');
-  const [lastName,   setLastName]   = useState('');
-  const [email,      setEmail]      = useState('');
-  const [role,       setRole]       = useState<UserRole>(UserRole.CLIENT_USER);
-  const [tenantId,   setTenantId]   = useState('');
+  const [firstName, setFirstName] = useState('');
+  const [lastName, setLastName] = useState('');
+  const [email, setEmail] = useState('');
+  const [role, setRole] = useState<UserRole>(UserRole.CLIENT_USER);
+  const [tenantId, setTenantId] = useState('');
   const [projectIds, setProjectIds] = useState<string[]>([]);
-  const [error,      setError]      = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const { data: projectsData } = useGetProjectsQuery(
     { tenant_id: tenantId },
@@ -1008,11 +1014,11 @@ const ClientInviteForm: React.FC<{ onClose: () => void; onInvited: () => void }>
     setError(null);
     try {
       await inviteUser({
-        email:       email.trim(),
-        first_name:  firstName.trim() || undefined,
-        last_name:   lastName.trim() || undefined,
+        email: email.trim(),
+        first_name: firstName.trim() || undefined,
+        last_name: lastName.trim() || undefined,
         role,
-        tenant_id:   tenantId,
+        tenant_id: tenantId,
         project_ids: projectIds.length ? projectIds : undefined,
       }).unwrap();
       onInvited();
@@ -1117,9 +1123,9 @@ const InternalUserRow: React.FC<InternalUserRowProps> = ({
           <Badge color={ROLE_COLORS[user.role]} bgColor={`${ROLE_COLORS[user.role]}22`}>
             {ROLE_LABELS[user.role]}
           </Badge>
-          {user.internalSubRole && (
+          {user.internal_sub_role && (
             <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-              {SUB_ROLE_LABELS[user.internalSubRole]}
+              {SUB_ROLE_LABELS[user.internal_sub_role]}
             </span>
           )}
         </div>
@@ -1184,26 +1190,26 @@ export const UsersPage: React.FC = () => {
   const perms = usePermissions();
 
   const [activeTab, setActiveTab] = useState<'internal' | 'clients'>('internal');
-  const [search, setSearch]         = useState('');
+  const [search, setSearch] = useState('');
   const [roleFilter, setRoleFilter] = useState('');
   const [subRoleFilter, setSubRoleFilter] = useState('');
   const [page, setPage] = useState(1);
   const debouncedSearch = useDebouncedValue(search, 300);
 
   // Modals
-  const [editTarget,   setEditTarget]   = useState<User | null>(null);
-  const [permTarget,   setPermTarget]   = useState<User | null>(null);
-  const [skillTarget,  setSkillTarget]  = useState<User | null>(null);
-  const [wloadTarget,  setWloadTarget]  = useState<User | null>(null);
-  const [showInvite,   setShowInvite]   = useState(false);
+  const [editTarget, setEditTarget] = useState<User | null>(null);
+  const [permTarget, setPermTarget] = useState<User | null>(null);
+  const [skillTarget, setSkillTarget] = useState<User | null>(null);
+  const [wloadTarget, setWloadTarget] = useState<User | null>(null);
+  const [showInvite, setShowInvite] = useState(false);
 
   // ── Data queries ──────────────────────────────────────────────────────────
   const internalRoles = [UserRole.ADMIN, UserRole.LEAD, UserRole.AGENT];
-  const clientRoles   = [UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER];
+  const clientRoles = [UserRole.CLIENT_ADMIN, UserRole.CLIENT_USER];
 
   const { data, isLoading, refetch } = useGetUsersQuery({
     page,
-    role:   roleFilter || (activeTab === 'internal' ? 'ADMIN,LEAD,AGENT' : 'CLIENT_ADMIN,CLIENT_USER'),
+    role: roleFilter || (activeTab === 'internal' ? 'ADMIN,LEAD,AGENT' : 'CLIENT_ADMIN,CLIENT_USER'),
     search: debouncedSearch || undefined,
     tenant_id: activeTab === 'clients' ? '' : undefined,
   });
@@ -1251,6 +1257,261 @@ export const UsersPage: React.FC = () => {
     return map;
   }, [data?.data]);
 
+  const columns: Column<User>[] = [
+    {
+      key: 'user',
+      header: 'User',
+      sortable: true,
+      width: '10rem',
+      render: (user: User) => (
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '0.75rem',
+            minWidth: 0,
+          }}
+        >
+          <Avatar
+            name={user.displayName ?? 'Unknown'}
+            src={user.avatarUrl}
+            size={30}
+          />
+
+          <div style={{ minWidth: 0 }}>
+            <div
+              style={{
+                fontWeight: 500,
+                fontSize: '0.8125rem',
+                color: 'var(--color-text)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {user.displayName ?? 'Unknown'}
+            </div>
+
+            <div
+              style={{
+                fontSize: '0.6875rem',
+                color: 'var(--color-text-muted)',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
+              {user.email}
+            </div>
+          </div>
+        </div>
+      ),
+    },
+
+    {
+      key: 'role',
+      header: 'Role / Sub-Role',
+      width: '10rem',
+      render: (user: User) => (
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            gap: '0.25rem',
+          }}
+        >
+          <Badge
+            color={ROLE_COLORS[user.role]}
+            bgColor={`${ROLE_COLORS[user.role]}22`}
+          >
+            {ROLE_LABELS[user.role]}
+          </Badge>
+
+          {user.internal_sub_role && (
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              {SUB_ROLE_LABELS[user.internal_sub_role]}
+            </span>
+          )}
+        </div>
+      ),
+    },
+
+    {
+      key: 'workload',
+      header: 'Workload',
+      width: '10rem',
+      render: (user: User) => {
+        const workload = user.workload;
+
+        return workload ? (
+          <WorkloadBar
+            pct={workload.utilizationPct}
+            status={workload.availabilityStatus}
+          />
+        ) : (
+          <span
+            style={{
+              fontSize: '0.75rem',
+              color: 'var(--color-text-muted)',
+            }}
+          >
+            —
+          </span>
+        );
+      },
+    },
+
+    {
+      key: 'skills',
+      header: 'Skills',
+      width: '16rem',
+      render: (user: User) => (
+        <div
+          style={{
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: '0.25rem',
+            maxWidth: '14rem',
+          }}
+        >
+          {(user.skills ?? []).slice(0, 3).map((s) => (
+            <SkillChip
+              key={s.skillId}
+              skill={s}
+              skillMap={skillMap}
+            />
+          ))}
+
+          {(user.skills ?? []).length > 3 && (
+            <span
+              style={{
+                fontSize: '0.6875rem',
+                color: 'var(--color-text-muted)',
+              }}
+            >
+              +{(user.skills ?? []).length - 3}
+            </span>
+          )}
+        </div>
+      ),
+    },
+
+    {
+      key: 'status',
+      header: 'Status',
+      width: '5rem',
+      render: (user: User) => (
+        <Badge
+          color={
+            user.isActive
+              ? 'var(--color-success)'
+              : 'var(--color-text-muted)'
+          }
+          bgColor={
+            user.isActive
+              ? '#dcfce7'
+              : '#f3f4f6'
+          }
+        >
+          {user.isActive ? 'Active' : 'Inactive'}
+        </Badge>
+      ),
+    },
+
+    {
+      key: 'actions',
+      header: 'Actions',
+      width: '20rem',
+      render: (user: User) => (
+        <div
+          style={{
+            display: 'flex',
+            gap: '0.25rem',
+            justifyContent: 'flex-end',
+            flexWrap: 'nowrap',
+            whiteSpace: 'nowrap',
+            overflow: 'hidden',
+          }}
+        >
+          <PermissionGate permission={Permission.MEMBER_MANAGE}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setEditTarget(user);
+              }}
+            >
+              Edit
+            </Button>
+
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setPermTarget(user);
+              }}
+            >
+              Perms
+            </Button>
+          </PermissionGate>
+
+          <PermissionGate permission={Permission.SKILL_ASSIGN}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setSkillTarget(user);
+              }}
+            >
+              Skills
+            </Button>
+          </PermissionGate>
+
+          <PermissionGate permission={Permission.WORKLOAD_VIEW}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                setWloadTarget(user);
+              }}
+            >
+              Workload
+            </Button>
+          </PermissionGate>
+
+          <PermissionGate permission={Permission.MEMBER_MANAGE}>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(e) => {
+                e.stopPropagation();
+                handleToggleActive(user);
+              }}
+              style={{
+                color: user.isActive
+                  ? 'var(--color-danger)'
+                  : 'var(--color-success)',
+              }}
+            >
+              {user.isActive
+                ? 'Deactivate'
+                : 'Activate'}
+            </Button>
+          </PermissionGate>
+        </div>
+      ),
+    },
+  ];
+
   return (
     <div>
       {/* Header */}
@@ -1264,7 +1525,7 @@ export const UsersPage: React.FC = () => {
           </p>
         </div>
         <PermissionGate permission={Permission.MEMBER_INVITE}>
-          <Button icon={<span>+</span>} onClick={() => setShowInvite(true)}>
+          <Button icon={<Icon icon={Plus} size="sm" />} onClick={() => setShowInvite(true)}>
             Add {activeTab === 'internal' ? 'Staff' : 'Client User'}
           </Button>
         </PermissionGate>
@@ -1297,15 +1558,37 @@ export const UsersPage: React.FC = () => {
 
       {/* Workload Summary Bar */}
       {activeTab === 'internal' && workloadStats && (
-        <div style={{
-          display: 'flex', gap: '1.5rem', marginBottom: '1rem',
-          padding: '0.75rem 1rem', background: 'var(--color-bg-subtle)',
-          borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
-        }}>
-          <span>Total agents: <strong>{workloadStats.totalAgents}</strong></span>
-          <span>Available: <strong style={{ color: '#22c55e' }}>{workloadStats.availableAgents}</strong></span>
-          <span>Busy: <strong style={{ color: '#f59e0b' }}>{workloadStats.busyAgents}</strong></span>
-          <span>Avg utilization: <strong>{Math.round(workloadStats.avgUtilization)}%</strong></span>
+        <div style={{ marginBottom: '1rem' }}>
+          <MetricGrid density="compact">
+            <MetricCard
+              title="Total agents"
+              value={workloadStats.totalAgents}
+              variant="brand"
+              icon={<Icon icon={Users} />}
+              state="ready"
+            />
+            <MetricCard
+              title="Available"
+              value={workloadStats.availableAgents}
+              variant="success"
+              icon={<Icon icon={UserCheck} />}
+              state="ready"
+            />
+            <MetricCard
+              title="Busy"
+              value={workloadStats.busyAgents}
+              variant="warning"
+              icon={<Icon icon={UserX} />}
+              state="ready"
+            />
+            <MetricCard
+              title="Avg utilization"
+              value={`${Math.round(workloadStats.avgUtilization)}%`}
+              variant="info"
+              icon={<Icon icon={BarChart3} />}
+              state="ready"
+            />
+          </MetricGrid>
         </div>
       )}
 
@@ -1338,43 +1621,22 @@ export const UsersPage: React.FC = () => {
           {isLoading ? (
             <div style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>Loading users…</div>
           ) : (
-            <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse' }}>
-                <thead>
-                  <tr style={{ background: 'var(--color-bg-subtle)', borderBottom: '2px solid var(--color-border)' }}>
-                    {['User', 'Role / Sub-Role', 'Workload', 'Skills', 'Status', ''].map(h => (
-                      <th key={h} style={{ padding: '0.625rem 0.75rem', textAlign: 'left', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', whiteSpace: 'nowrap' }}>
-                        {h}
-                      </th>
-                    ))}
-                  </tr>
-                </thead>
-                <tbody>
-                  {(data?.data ?? [])
-                    .filter(u => internalRoles.includes(u.role))
-                    .filter(u => !subRoleFilter || u.internalSubRole === subRoleFilter)
-                    .map(user => (
-                      <InternalUserRow
-                        key={user.id}
-                        user={user}
-                        skillMap={skillMap}
-                        onEdit={() => setEditTarget(user)}
-                        onPermissions={() => setPermTarget(user)}
-                        onSkills={() => setSkillTarget(user)}
-                        onWorkload={() => setWloadTarget(user)}
-                        onToggleActive={() => handleToggleActive(user)}
-                      />
-                    ))}
-                  {(data?.data ?? []).filter(u => internalRoles.includes(u.role)).length === 0 && (
-                    <tr>
-                      <td colSpan={6} style={{ padding: '3rem', textAlign: 'center', color: 'var(--color-text-muted)' }}>
-                        No internal staff found
-                      </td>
-                    </tr>
-                  )}
-                </tbody>
-              </table>
-            </div>
+            // <div style={{ overflowX: 'auto', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+            <DataTable
+              columns={columns}
+              data={(data?.data ?? [])
+                .filter((u) => internalRoles.includes(u.role))
+                .filter(
+                  (u) =>
+                    !subRoleFilter ||
+                    u.internal_sub_role === subRoleFilter
+                )}
+              keyExtractor={(u) => u.id}
+              loading={isLoading}
+              emptyMessage="No internal staff found"
+              onRowClick={(user) => { }}
+            />
+            // </div>
           )}
         </>
       )}
@@ -1389,8 +1651,7 @@ export const UsersPage: React.FC = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               {Object.entries(clientsByOrg).map(([org, users]) => (
-                <div key={org} style={{
-                  border: '1px solid var(--color-border)', borderRadius: 'var(--radius-lg)',
+                <Card hover key={org} style={{
                   background: 'var(--color-bg-surface)', overflow: 'hidden',
                 }}>
                   <div style={{
@@ -1403,10 +1664,9 @@ export const UsersPage: React.FC = () => {
                   </div>
                   <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '0.75rem', padding: '0.75rem' }}>
                     {users.map(user => (
-                      <div key={user.id} style={{
+                      <Card hover key={user.id} style={{
                         display: 'flex', alignItems: 'center', gap: '0.625rem',
-                        padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)',
-                        border: '1px solid var(--color-border)',
+                        borderRadius: 'var(--radius-md)',
                       }}>
                         <Avatar name={user.displayName ?? 'Unknown'} src={user.avatarUrl} size={32} />
                         <div style={{ flex: 1, minWidth: 0 }}>
@@ -1428,10 +1688,10 @@ export const UsersPage: React.FC = () => {
                             <Button variant="ghost" size="sm" onClick={() => setPermTarget(user)}>Perms</Button>
                           </div>
                         </PermissionGate>
-                      </div>
+                      </Card>
                     ))}
                   </div>
-                </div>
+                </Card>
               ))}
             </div>
           )}
@@ -1439,7 +1699,7 @@ export const UsersPage: React.FC = () => {
       )}
 
       {/* Pagination */}
-      {data && data.total_pages > 1 && (
+      {data  && (
         <div style={{ marginTop: '1rem' }}>
           <Pagination page={data.page} total_pages={data.total_pages} onPageChange={setPage} />
         </div>

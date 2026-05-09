@@ -1,7 +1,9 @@
 import React from 'react';
+import { Bot } from 'lucide-react';
 import type { AISuggestionStatus } from '@3sc/types';
 import { ConfidenceBar } from './ConfidenceBar';
 import { Button } from './Button';
+import { Icon } from './Icon';
 
 export interface AISuggestionCardProps {
   type: string;
@@ -50,7 +52,7 @@ export const AISuggestionCard: React.FC<AISuggestionCardProps> = ({
         borderBottom: '1px solid #c7d2fe',
       }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span style={{ fontSize: '0.875rem' }}>🤖</span>
+          <span style={{ display: 'inline-flex' }}><Icon icon={Bot} size="sm" /></span>
           <span style={{
             fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase',
             letterSpacing: '0.04em', color: '#4338ca',

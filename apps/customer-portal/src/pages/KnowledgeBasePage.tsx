@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useSearchKBQuery, useGetKBCategoriesQuery } from '@3sc/api';
 import { useDocumentTitle, useDebouncedValue } from '@3sc/hooks';
-import { Card, SearchInput, EmptyState, Skeleton, Badge, Button } from '@3sc/ui';
+import { Card, SearchInput, EmptyState, Skeleton, Badge, Button, Icon } from '@3sc/ui';
+import { Search } from 'lucide-react';
 import { truncate } from '@3sc/utils';
 
 export const KnowledgeBasePage: React.FC = () => {
@@ -136,7 +137,7 @@ export const KnowledgeBasePage: React.FC = () => {
             </div>
           ) : (
             <EmptyState
-              icon="🔍"
+              icon={<Icon icon={Search} size="xl" />}
               title="No articles found"
               description="We couldn't find any matching articles. Try different keywords or create a support ticket."
               action={

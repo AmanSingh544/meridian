@@ -1,5 +1,32 @@
 import React, { useEffect, useRef } from 'react';
+import { X } from 'lucide-react';
 import { Button } from './Button';
+import { IconButton } from './IconButton';
+
+let _modalStylesInjected = false;
+function injectModalStyles() {
+  if (_modalStylesInjected || typeof document === 'undefined') return;
+  _modalStylesInjected = true;
+  const el = document.createElement('style');
+  el.id = '__modal-styles';
+  el.textContent = `
+    @keyframes modalFadeIn {
+      from { opacity: 0; }
+      to { opacity: 1; }
+    }
+    @keyframes modalSlideUp {
+      from { transform: translateY(12px) scale(0.98); opacity: 0; }
+      to { transform: translateY(0) scale(1); opacity: 1; }
+    }
+    .__modal-overlay {
+      animation: modalFadeIn 0.2s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+    .__modal-dialog {
+      animation: modalSlideUp 0.25s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+    }
+  `;
+  document.head.appendChild(el);
+}
 
 // ── Modal ───────────────────────────────────────────────────────
 export interface ModalProps {
@@ -20,6 +47,7 @@ export const Modal: React.FC<ModalProps> = ({
   footer,
 }) => {
   const overlayRef = useRef<HTMLDivElement>(null);
+  const dialogRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -34,11 +62,38 @@ export const Modal: React.FC<ModalProps> = ({
     };
   }, [isOpen, onClose]);
 
+  // Simple focus trap
+  useEffect(() => {
+    if (!isOpen || !dialogRef.current) return;
+    const dialog = dialogRef.current;
+    const focusable = dialog.querySelectorAll<HTMLElement>(
+      'button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    first?.focus();
+
+    const handleTab = (e: KeyboardEvent) => {
+      if (e.key !== 'Tab') return;
+      if (e.shiftKey && document.activeElement === first) {
+        e.preventDefault();
+        last?.focus();
+      } else if (!e.shiftKey && document.activeElement === last) {
+        e.preventDefault();
+        first?.focus();
+      }
+    };
+    dialog.addEventListener('keydown', handleTab);
+    return () => dialog.removeEventListener('keydown', handleTab);
+  }, [isOpen]);
+
   if (!isOpen) return null;
+  if (typeof document !== 'undefined') injectModalStyles();
 
   return (
     <div
       ref={overlayRef}
+      className="__modal-overlay"
       role="dialog"
       aria-modal="true"
       aria-label={title}
@@ -52,20 +107,22 @@ export const Modal: React.FC<ModalProps> = ({
         justifyContent: 'center',
         background: 'rgba(0, 0, 0, 0.5)',
         backdropFilter: 'blur(4px)',
-        animation: 'fadeIn 0.15s ease',
       }}
     >
-      <div style={{
-        background: 'var(--color-bg)',
-        borderRadius: 'var(--radius-xl)',
-        boxShadow: 'var(--shadow-xl)',
-        width: '90%',
-        maxWidth: width,
-        maxHeight: '85vh',
-        display: 'flex',
-        flexDirection: 'column',
-        animation: 'slideUp 0.2s ease',
-      }}>
+      <div
+        ref={dialogRef}
+        className="__modal-dialog"
+        style={{
+          background: 'var(--color-bg)',
+          borderRadius: 'var(--radius-xl)',
+          boxShadow: 'var(--shadow-xl)',
+          width: '90%',
+          maxWidth: width,
+          maxHeight: '85vh',
+          display: 'flex',
+          flexDirection: 'column',
+        }}
+      >
         {title && (
           <div style={{
             display: 'flex',
@@ -73,6 +130,7 @@ export const Modal: React.FC<ModalProps> = ({
             justifyContent: 'space-between',
             padding: '1.25rem 1.5rem',
             borderBottom: '1px solid var(--color-border)',
+            flexShrink: 0,
           }}>
             <h2 style={{
               margin: 0,
@@ -83,21 +141,7 @@ export const Modal: React.FC<ModalProps> = ({
             }}>
               {title}
             </h2>
-            <button
-              onClick={onClose}
-              aria-label="Close"
-              style={{
-                background: 'none',
-                border: 'none',
-                cursor: 'pointer',
-                fontSize: '1.25rem',
-                color: 'var(--color-text-muted)',
-                padding: '0.25rem',
-                lineHeight: 1,
-              }}
-            >
-              ✕
-            </button>
+            <IconButton icon={X} size="sm" label="Close" onClick={onClose} />
           </div>
         )}
         <div style={{
@@ -114,15 +158,12 @@ export const Modal: React.FC<ModalProps> = ({
             gap: '0.75rem',
             padding: '1rem 1.5rem',
             borderTop: '1px solid var(--color-border)',
+            flexShrink: 0,
           }}>
             {footer}
           </div>
         )}
       </div>
-      <style>{`
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
-        @keyframes slideUp { from { transform: translateY(16px); opacity: 0; } to { transform: translateY(0); opacity: 1; } }
-      `}</style>
     </div>
   );
 };

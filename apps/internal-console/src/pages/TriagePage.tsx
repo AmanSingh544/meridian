@@ -232,6 +232,7 @@ const TriageCard: React.FC<TriageCardProps> = ({ ticket, agents, selected, onSel
 
   return (
     <Card
+      hover
       style={{
         position: 'relative',
         opacity: selected ? 1 : undefined,

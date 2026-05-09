@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetProjectsQuery, useCreateProjectMutation, useGetProjectHealthQuery } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, EmptyState, useToast } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, EmptyState, useToast, Icon } from '@3sc/ui';
+import { FolderOpen } from 'lucide-react';
 import { formatDate } from '@3sc/utils';
 import { Permission, ProjectStatus } from '@3sc/types';
 import type { Project, ProjectHealthColor } from '@3sc/types';
@@ -180,7 +181,7 @@ export const ProjectsPage: React.FC = () => {
           {Array.from({ length: 4 }).map((_, i) => <Card key={i}><Skeleton height="8rem" /></Card>)}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState icon="📁" title="No projects" description={statusFilter === 'all' ? 'Create your first project to get started.' : `No ${statusFilter.replace('_', ' ')} projects.`}
+        <EmptyState icon={<Icon icon={FolderOpen} size="xl" />} title="No projects" description={statusFilter === 'all' ? 'Create your first project to get started.' : `No ${statusFilter.replace('_', ' ')} projects.`}
           action={canCreate ? <Button variant="primary" size="sm" onClick={() => setShowCreate(true)}>New Project</Button> : undefined}
         />
       ) : (

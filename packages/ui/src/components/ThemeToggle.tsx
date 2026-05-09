@@ -1,5 +1,7 @@
 import React from 'react';
 import { useTheme } from '@3sc/hooks';
+import { Sun, Moon } from 'lucide-react';
+import { Icon } from './Icon';
 
 /**
  * ThemeToggle — pill-style sun/moon toggle.
@@ -7,7 +9,6 @@ import { useTheme } from '@3sc/hooks';
  * Design intent:
  *   • Pill track shifts from warm-amber (light) to deep-indigo (dark)
  *   • Thumb translates with a spring-feel cubic-bezier
- *   • Sun rays fan out / moon crescent appears via CSS clip — pure CSS, no images
  *   • Accessible: role="switch", aria-checked, aria-label, keyboard operable
  *   • 44×24px hit area meets WCAG 2.5.5 target size
  */
@@ -24,8 +25,8 @@ export const ThemeToggle: React.FC = () => {
         position: 'relative',
         display: 'inline-flex',
         alignItems: 'center',
-        width: 44,
-        height: 24,
+        width: 40,
+        height: 20,
         borderRadius: 12,
         border: 'none',
         cursor: 'pointer',
@@ -41,21 +42,26 @@ export const ThemeToggle: React.FC = () => {
         transition: 'background 300ms cubic-bezier(0.4, 0, 0.2, 1), box-shadow 300ms cubic-bezier(0.4, 0, 0.2, 1)',
       }}
     >
-      {/* Track icon — sun rays (light) or stars (dark) */}
+      {/* Track icon — sun (light) or moon (dark) */}
       <span
         aria-hidden
         style={{
           position: 'absolute',
           left: isDark ? 'auto' : 5,
           right: isDark ? 5 : 'auto',
-          fontSize: '0.625rem',
-          lineHeight: 1,
           opacity: 0.9,
           transition: 'left 300ms cubic-bezier(0.4, 0, 0.2, 1), right 300ms cubic-bezier(0.4, 0, 0.2, 1)',
           userSelect: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
         }}
       >
-        {isDark ? '✦' : '☀'}
+        {isDark ? (
+          <Icon icon={Moon} size="xs" color="rgba(255,255,255,0.7)" />
+        ) : (
+          <Icon icon={Sun} size="xs" color="rgba(255,255,255,0.9)" />
+        )}
       </span>
 
       {/* Thumb */}
@@ -65,8 +71,8 @@ export const ThemeToggle: React.FC = () => {
           position: 'absolute',
           top: 3,
           left: isDark ? 23 : 3,
-          width: 18,
-          height: 18,
+          width: 15,
+          height: 15,
           borderRadius: '50%',
           background: '#ffffff',
           boxShadow: isDark
@@ -76,14 +82,14 @@ export const ThemeToggle: React.FC = () => {
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          fontSize: '0.5625rem',
-          lineHeight: 1,
         }}
       >
         {/* Face icon inside thumb */}
-        <span aria-hidden style={{ userSelect: 'none', opacity: 0.7 }}>
-          {isDark ? '🌙' : ''}
-        </span>
+        {isDark && (
+          <span aria-hidden style={{ opacity: 0.6, display: 'flex' }}>
+            <Icon icon={Moon} size="xs" color="#1e1b4b" />
+          </span>
+        )}
       </span>
     </button>
   );

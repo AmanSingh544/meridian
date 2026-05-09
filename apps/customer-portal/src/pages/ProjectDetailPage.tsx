@@ -7,8 +7,9 @@ import {
   useAskProjectMutation,
 } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, ErrorState, AIAnswerCard } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, ErrorState, AIAnswerCard, MetricCard, MetricGrid, Icon } from '@3sc/ui';
 import { formatDate } from '@3sc/utils';
+import { Ticket, AlertTriangle, CheckCircle2, TrendingUp, Calendar, Bot } from 'lucide-react';
 import type { ProjectQAAnswer } from '@3sc/types';
 
 
@@ -99,25 +100,25 @@ export const ProjectDetailPage: React.FC = () => {
       </div>
 
       {/* KPI strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(9rem, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
-        {[
-          { label: 'Total Tickets', value: String(project.ticketCount) },
-          { label: 'Open Issues', value: String(project.openTicketCount ?? 0), warn: (project.openTicketCount ?? 0) > 0 },
-          { label: 'Resolved This Week', value: String(project.resolvedThisWeek ?? 0), good: (project.resolvedThisWeek ?? 0) > 0 },
-          { label: 'Progress', value: `${progress}%` },
-          ...(project.targetDate ? [{ label: 'Target Date', value: formatDate(project.targetDate) }] : []),
-        ].map((kpi, i) => (
-          <Card key={i} style={{ padding: '0.875rem 1rem' }}>
-            <div style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>{kpi.label}</div>
-            <div style={{
-              fontSize: '1.25rem', fontWeight: 700,
-              color: 'warn' in kpi && kpi.warn ? 'var(--color-warning)' : 'good' in kpi && kpi.good ? 'var(--color-success)' : 'var(--color-text)',
-            }}>
-              {kpi.value}
-            </div>
-          </Card>
-        ))}
-      </div>
+      <MetricGrid>
+        <MetricCard title="Total tickets" value={String(project.ticketCount)} icon={<Icon icon={Ticket} />} variant="brand" />
+        <MetricCard
+          title="Open issues"
+          value={String(project.openTicketCount ?? 0)}
+          icon={<Icon icon={AlertTriangle} />}
+          variant={(project.openTicketCount ?? 0) > 0 ? 'warning' : 'neutral'}
+        />
+        <MetricCard
+          title="Resolved this week"
+          value={String(project.resolvedThisWeek ?? 0)}
+          icon={<Icon icon={CheckCircle2} />}
+          variant={(project.resolvedThisWeek ?? 0) > 0 ? 'success' : 'neutral'}
+        />
+        <MetricCard title="Progress" value={`${progress}%`} icon={<Icon icon={TrendingUp} />} variant="info" />
+        {project.targetDate && (
+          <MetricCard title="Target date" value={formatDate(project.targetDate)} icon={<Icon icon={Calendar} />} variant="neutral" />
+        )}
+      </MetricGrid>
 
       {/* Tabs */}
       <div style={{ display: 'flex', gap: 0, borderBottom: '1px solid var(--color-border)', marginBottom: '1.5rem' }}>
@@ -145,7 +146,7 @@ export const ProjectDetailPage: React.FC = () => {
 
           {/* AI Status Report */}
           {statusReport ? (
-            <Card>
+            <Card hover>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
                 <span style={{ fontSize: '1rem' }}>📋</span>
                 <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700 }}>Weekly Update — {statusReport.period}</h3>
@@ -161,14 +162,14 @@ export const ProjectDetailPage: React.FC = () => {
               <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', lineHeight: 1.7, color: 'var(--color-text)' }}>{statusReport.summary}</p>
 
               <div style={{ display: 'flex', gap: '1rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                <div style={{ padding: '0.625rem 0.875rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+                <Card hover padding="0.625rem" style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--color-success)' }}>{statusReport.resolvedThisWeek}</div>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>Resolved this week</div>
-                </div>
-                <div style={{ padding: '0.625rem 0.875rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', textAlign: 'center' }}>
+                </Card>
+                <Card hover padding="0.625rem" style={{ textAlign: 'center' }}>
                   <div style={{ fontSize: '1.25rem', fontWeight: 700, color: statusReport.openCount > 5 ? 'var(--color-warning)' : 'var(--color-text)' }}>{statusReport.openCount}</div>
                   <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>Open items</div>
-                </div>
+                </Card>
               </div>
 
               {(statusReport.blockers ?? []).length > 0 && (
@@ -192,17 +193,17 @@ export const ProjectDetailPage: React.FC = () => {
               )}
 
               <div style={{ marginTop: '0.875rem', padding: '0.625rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                🤖 {statusReport.milestoneConfidence}
+                <span style={{ display: 'inline-flex', marginRight: '0.375rem' }}><Icon icon={Bot} size="sm" /></span> {statusReport.milestoneConfidence}
               </div>
             </Card>
           ) : (
-            <Card>
+            <Card hover>
               <p style={{ margin: 0, color: 'var(--color-text-secondary)', fontSize: '0.875rem' }}>No status report available yet. Reports are generated weekly.</p>
             </Card>
           )}
 
           {/* Project details */}
-          <Card>
+          <Card hover>
             <h3 style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', fontWeight: 700 }}>Project Details</h3>
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem 1.5rem', fontSize: '0.8125rem' }}>
               {project.lead && (
@@ -258,7 +259,7 @@ export const ProjectDetailPage: React.FC = () => {
           ) : project.milestones.map((ms) => {
             const prediction = predictions?.find((p) => p.milestoneId === ms.id);
             return (
-              <Card key={ms.id} style={{ borderLeft: `3px solid ${ms.isCompleted ? 'var(--color-success)' : prediction && !prediction.onTrack ? 'var(--color-warning)' : 'var(--color-border)'}` }}>
+              <Card hover key={ms.id} style={{ borderLeft: `3px solid ${ms.isCompleted ? 'var(--color-success)' : prediction && !prediction.onTrack ? 'var(--color-warning)' : 'var(--color-border)'}` }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
@@ -299,9 +300,9 @@ export const ProjectDetailPage: React.FC = () => {
       {/* ── Ask AI Tab ── */}
       {activeTab === 'history' && (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
-          <Card>
+          <Card hover>
             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-              <span style={{ fontSize: '1.125rem' }}>🤖</span>
+              <span style={{ fontSize: '1.125rem', display: 'inline-flex' }}><Icon icon={Bot} size="md" /></span>
               <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--color-brand-600)' }}>Ask About Your Project</h3>
             </div>
             <p style={{ margin: '0 0 1rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>

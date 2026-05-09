@@ -45,7 +45,7 @@ export const AIChatPanel: React.FC<AIChatPanelProps> = ({
   onCancelDraft,
   isLoading = false,
   quickActions = [],
-  title = '🤖 3SC Copilot',
+  title = '3SC Copilot',
   indicator,
   conversations = [],
   activeConversationId,

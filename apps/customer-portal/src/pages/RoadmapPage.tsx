@@ -49,22 +49,13 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, isHighlighted, canVo
      Gray border + flat shadow → all other cards
    */
   return (
-    <div
-      style={{
-        background: 'var(--color-bg)',
-        border: `1.5px solid ${isHighlighted ? 'var(--color-brand-600)' : 'rgba(148,163,184,0.3)'}`,
-        borderRadius: '0.625rem',
-        padding: '1rem',
-        display: 'flex',
-        flexDirection: 'column',
-        gap: '0.5rem',
-        cursor: 'pointer',
-        transition: 'border-color 0.15s, box-shadow 0.15s',
-        boxShadow: isHighlighted ? '0 0 0 2px var(--color-brand-600)' : '0 1px 4px rgba(0,0,0,0.25)',
-      }}
-      onMouseEnter={e => { if (!isHighlighted) { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(148,163,184,0.6)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 2px 10px rgba(0,0,0,0.35)'; } }}
-      onMouseLeave={e => { if (!isHighlighted) { (e.currentTarget as HTMLDivElement).style.borderColor = 'rgba(148,163,184,0.3)'; (e.currentTarget as HTMLDivElement).style.boxShadow = '0 1px 4px rgba(0,0,0,0.25)'; } }}
+    <Card
+      hover
       onClick={() => onSelect(feature)}
+      style={{
+        borderColor: isHighlighted ? 'var(--color-brand-600)' : undefined,
+        boxShadow: isHighlighted ? '0 0 0 2px var(--color-brand-600)' : undefined,
+      }}
     >
       {/* header row */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '0.5rem' }}>
@@ -119,7 +110,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, isHighlighted, canVo
           <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>▲ {feature.upvotes}</span>
         )}
       </div>
-    </div>
+    </Card>
   );
 };
 

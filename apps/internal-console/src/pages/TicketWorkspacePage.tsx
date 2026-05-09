@@ -21,9 +21,10 @@ import {
   ThreadedComments, MentionTextarea, AISuggestionCard, AIBanner,
   Drawer, ConfirmDialog, Badge, Avatar, Select,
   ErrorState, Skeleton, Tabs, TabPanel, ConfidenceBar,
-  AttachmentChip, AttachmentPreviewModal,
+  AttachmentChip, AttachmentPreviewModal, Icon,
 } from '@3sc/ui';
 import { TicketStatus, Permission } from '@3sc/types';
+import { Bot } from 'lucide-react';
 import { getStatusLabel, getStatusColor, formatDateTime, getPriorityLabel, uploadWithLimit } from '@3sc/utils';
 
 export const TicketWorkspacePage: React.FC = () => {
@@ -134,7 +135,7 @@ export const TicketWorkspacePage: React.FC = () => {
           <div style={{ display: 'flex', gap: '0.375rem', flexWrap: 'wrap' }}>
             {canAI && (
               <Button variant="ghost" size="sm" onClick={() => setShowAIPanel(true)}>
-                🤖 AI Panel
+                <span style={{ display: 'inline-flex', marginRight: '0.375rem' }}><Icon icon={Bot} size="sm" /></span> AI Panel
               </Button>
             )}
             {permissions.canChangeStatus() && availableTransitions.map((status) => (
@@ -255,7 +256,7 @@ export const TicketWorkspacePage: React.FC = () => {
           </TabPanel>
 
           <TabPanel active={activeTab === 'details'}>
-            <Card>
+            <Card hover>
               <div style={{ fontSize: '0.875rem', lineHeight: 1.7, whiteSpace: 'pre-wrap', color: 'var(--color-text-secondary)' }}>
                 {ticket.description}
               </div>
@@ -289,7 +290,7 @@ export const TicketWorkspacePage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem' }}>
           {/* SLA */}
           {ticket.sla && (
-            <Card padding="0.875rem">
+            <Card hover padding="0.875rem">
               <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>
                 SLA
               </h4>
@@ -299,9 +300,9 @@ export const TicketWorkspacePage: React.FC = () => {
 
           {/* ETA */}
           {canAI && aiETA && (
-            <Card padding="0.875rem">
+            <Card hover padding="0.875rem">
               <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>
-                🤖 Est. Resolution
+                <span style={{ display: 'inline-flex', marginRight: '0.375rem' }}><Icon icon={Bot} size="sm" /></span> Est. Resolution
               </h4>
               <div style={{ fontSize: '1.25rem', fontWeight: 700, fontFamily: 'var(--font-display)', color: 'var(--color-brand-700)' }}>
                 ~{aiETA.suggestion?.estimatedHours}h
@@ -316,7 +317,7 @@ export const TicketWorkspacePage: React.FC = () => {
           )}
 
           {/* Details */}
-          <Card padding="0.875rem">
+          <Card hover padding="0.875rem">
             <h4 style={{ margin: '0 0 0.5rem', fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>
               Details
             </h4>

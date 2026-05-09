@@ -9,8 +9,9 @@ import {
   useGenerateKBDraftMutation,
 } from '@3sc/api';
 import { useDocumentTitle, useDebouncedValue } from '@3sc/hooks';
-import { Card, Button, Input, TextArea, Select, Badge, Skeleton, useToast } from '@3sc/ui';
+import { Card, Button, Input, TextArea, Select, Badge, Skeleton, useToast, Icon } from '@3sc/ui';
 import { slugify } from '@3sc/utils';
+import { Bot } from 'lucide-react';
 
 export const KBArticleEditorPage: React.FC = () => {
   const { id } = useParams<{ id: string }>();
@@ -165,7 +166,7 @@ export const KBArticleEditorPage: React.FC = () => {
           {isEditing ? 'Edit Article' : 'New Article'}
         </h1>
         <Button variant="ghost" size="sm" onClick={() => setShowDraftPanel((v) => !v)}>
-          🤖 AI Draft
+          <span style={{ display: 'inline-flex', marginRight: '0.375rem' }}><Icon icon={Bot} size="sm" /></span> AI Draft
         </Button>
       </div>
 
@@ -177,7 +178,7 @@ export const KBArticleEditorPage: React.FC = () => {
           borderRadius: 'var(--radius-lg)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '1rem' }}>🤖</span>
+            <span style={{ fontSize: '1rem', display: 'inline-flex' }}><Icon icon={Bot} size="md" /></span>
             <span style={{ fontWeight: 700, fontSize: '0.875rem', color: 'var(--color-brand-600)' }}>Generate Article Draft with AI</span>
           </div>
           <p style={{ margin: '0 0 0.75rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>

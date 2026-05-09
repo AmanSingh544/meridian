@@ -12,7 +12,7 @@ export const AuditLogPage: React.FC = () => {
 
   const { data, isLoading } = useGetAuditLogsQuery({
     page,
-    page_size: 25,
+    page_size: 20,
     resourceType: resourceType || undefined,
   });
 

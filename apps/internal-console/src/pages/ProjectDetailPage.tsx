@@ -17,8 +17,9 @@ import {
   useGetUsersQuery,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, Avatar, Button, Skeleton, ErrorState, StatusBadge, PriorityBadge, Select, useToast } from '@3sc/ui';
+import { Card, Avatar, Button, Skeleton, ErrorState, StatusBadge, PriorityBadge, Select, useToast, MetricCard, MetricGrid, Icon } from '@3sc/ui';
 import { formatDate } from '@3sc/utils';
+import { Ticket, AlertTriangle, CheckCircle2, TrendingUp, Calendar, Flag, Bot } from 'lucide-react';
 import { Permission, UserRole } from '@3sc/types';
 import type { ProjectHealthColor, ProjectQAAnswer } from '@3sc/types';
 
@@ -219,26 +220,26 @@ export const ProjectDetailPage: React.FC = () => {
       </div>
 
       {/* KPI strip */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: '0.75rem', marginBottom: '1.5rem' }}>
-        {[
-          { label: 'Total Tickets', value: String(project.ticketCount) },
-          { label: 'Open', value: String(project.openTicketCount ?? '—'), highlight: (project.openTicketCount ?? 0) > 0 },
-          { label: 'Resolved This Week', value: String(project.resolvedThisWeek ?? '—'), positive: true },
-          { label: 'Milestone Progress', value: `${progress}%` },
-          { label: 'Target Date', value: project.targetDate ? formatDate(project.targetDate) : '—' },
-          ...(canInsights && churnRisk ? [{ label: 'Churn Risk', value: churnRisk.level.toUpperCase(), churn: churnRisk.level }] : []),
-        ].map((kpi, i) => (
-          <Card key={i} style={{ padding: '0.875rem 1rem' }}>
-            <div style={{ fontSize: '0.6875rem', fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>{kpi.label}</div>
-            <div style={{
-              fontSize: '1.25rem', fontWeight: 700,
-              color: 'churn' in kpi ? CHURN_COLORS[kpi.churn as string] : kpi.highlight ? 'var(--color-danger)' : kpi.positive ? 'var(--color-success)' : 'var(--color-text)',
-            }}>
-              {kpi.value}
-            </div>
-          </Card>
-        ))}
-      </div>
+      <MetricGrid density="compact">
+        <MetricCard title="Total tickets" value={String(project.ticketCount)} icon={<Icon icon={Ticket} />} variant="brand" />
+        <MetricCard
+          title="Open"
+          value={String(project.openTicketCount ?? '—')}
+          icon={<Icon icon={AlertTriangle} />}
+          variant={(project.openTicketCount ?? 0) > 0 ? 'danger' : 'neutral'}
+        />
+        <MetricCard title="Resolved this week" value={String(project.resolvedThisWeek ?? '—')} icon={<Icon icon={CheckCircle2} />} variant="success" />
+        <MetricCard title="Milestone progress" value={`${progress}%`} icon={<Icon icon={TrendingUp} />} variant="info" />
+        <MetricCard title="Target date" value={project.targetDate ? formatDate(project.targetDate) : '—'} icon={<Icon icon={Calendar} />} variant="neutral" />
+        {canInsights && churnRisk && (
+          <MetricCard
+            title="Churn risk"
+            value={churnRisk.level.toUpperCase()}
+            icon={<Icon icon={Flag} />}
+            variant={churnRisk.level === 'high' ? 'danger' : churnRisk.level === 'medium' ? 'warning' : 'success'}
+          />
+        )}
+      </MetricGrid>
 
       {/* Next Best Action banner */}
       {canInsights && nextAction && nextAction.urgency === 'high' && (
@@ -304,7 +305,7 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* Scope */}
             {project.scope && (
-              <Card>
+              <Card hover>
                 <SectionLabel>Project Scope</SectionLabel>
                 <p style={{ margin: 0, fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--color-text-secondary)' }}>{project.scope}</p>
               </Card>
@@ -312,7 +313,7 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* Status report */}
             {canReports && statusReport && (
-              <Card>
+              <Card hover>
                 <SectionLabel>AI Status Report — {statusReport.period}</SectionLabel>
                 <p style={{ margin: '0 0 1rem', fontSize: '0.875rem', lineHeight: 1.6, color: 'var(--color-text)' }}>{statusReport.summary}</p>
                 {statusReport.blockers.length > 0 && (
@@ -334,14 +335,14 @@ export const ProjectDetailPage: React.FC = () => {
                   </div>
                 )}
                 <div style={{ marginTop: '0.875rem', padding: '0.625rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
-                  🤖 {statusReport.milestoneConfidence}
+                  <span style={{ display: 'inline-flex', marginRight: '0.375rem' }}><Icon icon={Bot} size="sm" /></span> {statusReport.milestoneConfidence}
                 </div>
               </Card>
             )}
 
             {/* AI Q&A */}
             {canQA && (
-              <Card>
+              <Card hover>
                 <SectionLabel>Ask AI About This Project</SectionLabel>
                 <p style={{ margin: '0 0 0.875rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
                   Ask natural-language questions grounded in this project's ticket history.
@@ -396,7 +397,7 @@ export const ProjectDetailPage: React.FC = () => {
           {/* Sidebar */}
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {/* Project meta */}
-            <Card>
+            <Card hover>
               <SectionLabel>Details</SectionLabel>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', fontSize: '0.8125rem' }}>
                 {project.lead && (
@@ -434,7 +435,7 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* Health score */}
             {canInsights && health && (
-              <Card style={{ borderLeft: `3px solid ${HEALTH_CONFIG[health.color].border}` }}>
+              <Card hover style={{ borderLeft: `3px solid ${HEALTH_CONFIG[health.color].border}` }}>
                 <SectionLabel>AI Health Score</SectionLabel>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.625rem' }}>
                   <div style={{
@@ -459,7 +460,7 @@ export const ProjectDetailPage: React.FC = () => {
 
             {/* Churn risk */}
             {canInsights && churnRisk && (
-              <Card style={{ borderLeft: `3px solid ${CHURN_COLORS[churnRisk.level]}` }}>
+              <Card hover style={{ borderLeft: `3px solid ${CHURN_COLORS[churnRisk.level]}` }}>
                 <SectionLabel>Churn Risk</SectionLabel>
                 <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.5rem' }}>
                   <span style={{ fontWeight: 700, color: CHURN_COLORS[churnRisk.level], fontSize: '0.875rem' }}>
@@ -490,7 +491,7 @@ export const ProjectDetailPage: React.FC = () => {
           ) : project.milestones.map((ms) => {
             const prediction = milestonePredictions?.find((p) => p.milestoneId === ms.id);
             return (
-              <Card key={ms.id} style={{ borderLeft: `3px solid ${ms.isCompleted ? 'var(--color-success)' : prediction && !prediction.onTrack ? 'var(--color-danger)' : 'var(--color-border)'}` }}>
+              <Card hover key={ms.id} style={{ borderLeft: `3px solid ${ms.isCompleted ? 'var(--color-success)' : prediction && !prediction.onTrack ? 'var(--color-danger)' : 'var(--color-border)'}` }}>
                 <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
                   <div style={{ flex: 1 }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
@@ -749,7 +750,7 @@ export const ProjectDetailPage: React.FC = () => {
 
           {/* Add member form (LEAD/ADMIN only) */}
           {canManageMembers && (
-            <Card>
+            <Card hover>
               <SectionLabel>Add Member</SectionLabel>
               <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', alignItems: 'flex-end' }}>
                 <div style={{ flex: 2, minWidth: '12rem' }}>
@@ -825,7 +826,7 @@ export const ProjectDetailPage: React.FC = () => {
               </p>
             </div>
           ) : (
-            <Card padding="0">
+            <Card hover padding="0">
               {members.map((member: any, idx: number) => {
                 const roleColors: Record<string, { color: string; bg: string }> = {
                   LEAD:   { color: '#6d28d9', bg: '#ede9fe' },
@@ -907,17 +908,15 @@ export const ProjectDetailPage: React.FC = () => {
 
           {/* Ticket clusters */}
           {canInsights && clusters && clusters.length > 0 && (
-            <Card>
+            <Card hover>
               <SectionLabel>Semantic Ticket Clusters</SectionLabel>
               <p style={{ margin: '0 0 1rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
                 AI-detected recurring themes across all tickets in this project.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                 {clusters.map((cluster) => (
-                  <div key={cluster.id} style={{
+                  <Card hover key={cluster.id} style={{
                     display: 'flex', alignItems: 'center', gap: '1rem', padding: '0.75rem',
-                    background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)',
-                    border: '1px solid var(--color-border)',
                   }}>
                     <div style={{
                       width: 36, height: 36, borderRadius: '50%', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0,
@@ -938,7 +937,7 @@ export const ProjectDetailPage: React.FC = () => {
                       <div style={{ fontWeight: 700, fontSize: '1rem' }}>{cluster.ticketCount}</div>
                       <div style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>tickets</div>
                     </div>
-                  </div>
+                  </Card>
                 ))}
               </div>
             </Card>
@@ -946,16 +945,16 @@ export const ProjectDetailPage: React.FC = () => {
 
           {/* Scope drift */}
           {canInsights && scopeDrift && scopeDrift.length > 0 && (
-            <Card>
+            <Card hover>
               <SectionLabel>Scope Drift Flags</SectionLabel>
               <p style={{ margin: '0 0 1rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
                 Tickets that appear semantically outside the declared project scope. Review whether they should be billed separately or descoped.
               </p>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                 {scopeDrift.map((drift) => (
-                  <div key={drift.ticketId} style={{
+                  <Card hover key={drift.ticketId} style={{
                     padding: '0.75rem', background: 'var(--color-warning-light, #fef3c7)',
-                    border: '1px solid var(--color-warning)', borderRadius: 'var(--radius-md)',
+                    borderColor: 'var(--color-warning)',
                   }}>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                       <span style={{ fontSize: '0.875rem' }}>⚠</span>
@@ -965,7 +964,7 @@ export const ProjectDetailPage: React.FC = () => {
                       </span>
                     </div>
                     <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>{drift.reasoning}</p>
-                  </div>
+                  </Card>
                 ))}
               </div>
             </Card>
@@ -973,11 +972,11 @@ export const ProjectDetailPage: React.FC = () => {
 
           {/* Milestone predictions */}
           {milestonePredictions && milestonePredictions.length > 0 && (
-            <Card>
+            <Card hover>
               <SectionLabel>Milestone Delivery Predictions</SectionLabel>
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
                 {milestonePredictions.map((pred) => (
-                  <div key={pred.milestoneId} style={{ padding: '0.75rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                  <Card hover key={pred.milestoneId} style={{ padding: '0.75rem' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: '1rem', marginBottom: '0.375rem' }}>
                       <span style={{ fontWeight: 600, fontSize: '0.875rem' }}>{pred.milestoneName}</span>
                       <span style={{
@@ -995,7 +994,7 @@ export const ProjectDetailPage: React.FC = () => {
                       </span>
                     </div>
                     <p style={{ margin: 0, fontSize: '0.75rem', color: 'var(--color-text-secondary)', lineHeight: 1.5 }}>{pred.reasoning}</p>
-                  </div>
+                  </Card>
                 ))}
               </div>
             </Card>

@@ -11,10 +11,11 @@ import {
 } from '@3sc/api';
 import { useDocumentTitle, useSession, usePermissions } from '@3sc/hooks';
 import {
-  Card, MetricCard, Button, Badge, StatusBadge, PriorityBadge, SLABadge,
-  Skeleton, SkeletonCard, ErrorState, EmptyState,
-  AIBanner, PermissionGate,
+  Card, MetricCard, MetricGrid, MetricPill, Button, Badge, StatusBadge, PriorityBadge, SLABadge,
+  Skeleton, ErrorState, EmptyState,
+  AIBanner, PermissionGate, Icon, IconButton,
 } from '@3sc/ui';
+import { Plus, BarChart3, FolderOpen, TrendingUp, Timer, Ticket as TicketImg, AlertTriangle, Bot, Search, X, RefreshCw, MessageSquare, User, CheckCircle2, Pin } from 'lucide-react';
 import { Permission, UserRole, TicketStatus, TicketPriority, TicketCategory, SLAState } from '@3sc/types';
 import type { Ticket, Project, DashboardSummary, AIDigest, ActivityItem, SLAComplianceData, ResolutionTrendData } from '@3sc/types';
 import { formatRelativeTime } from '@3sc/utils';
@@ -161,13 +162,6 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
     [TicketStatus.OPEN, TicketStatus.IN_PROGRESS, TicketStatus.ACKNOWLEDGED].includes(t.status)
   );
 
-  const pills = [
-    { label: 'Open',            count: openCount,          color: 'var(--color-warning)', filter: `?status=${TicketStatus.OPEN}` },
-    { label: 'Awaiting Reply',  count: awaitingReplyCount, color: 'var(--color-info)',    filter: `?status=${TicketStatus.OPEN}` },
-    { label: 'In Progress',     count: inProgressCount,    color: 'var(--color-brand-500)', filter: `?status=${TicketStatus.IN_PROGRESS}` },
-    { label: 'Resolved',        count: resolvedCount,      color: 'var(--color-success)', filter: `?status=${TicketStatus.RESOLVED}` },
-  ];
-
   return (
     <div style={{ maxWidth: '100%', margin: '0 auto' }}>
 
@@ -181,7 +175,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
             Here's what's happening with your support tickets
           </p>
         </div>
-        <Button onClick={() => navigate('/tickets/new')} icon={<span>+</span>}>
+        <Button onClick={() => navigate('/tickets/new')} icon={<Icon icon={Plus} size="sm" />}>
           New Ticket
         </Button>
       </div>
@@ -232,32 +226,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         </div>
       ) : (
         <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          {pills.map((pill) => (
-            <button
-              key={pill.label}
-              onClick={() => navigate(`/tickets${pill.filter}`)}
-              style={{
-                flex: '1 1 10rem',
-                padding: '0.875rem 1rem',
-                background: 'var(--color-bg)',
-                border: `1px solid var(--color-border)`,
-                borderRadius: 'var(--radius-lg)',
-                cursor: 'pointer',
-                textAlign: 'left',
-                transition: 'var(--transition-fast)',
-                boxShadow: 'var(--shadow-sm)',
-              }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.borderColor = pill.color; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.borderColor = 'var(--color-border)'; }}
-            >
-              <div style={{ fontSize: '1.5rem', fontWeight: 700, color: pill.color, fontFamily: 'var(--font-display)' }}>
-                {pill.count}
-              </div>
-              <div style={{ fontSize: '0.75rem', color: 'var(--color-text-secondary)', marginTop: '0.125rem' }}>
-                {pill.label}
-              </div>
-            </button>
-          ))}
+          <MetricPill label="Open" count={openCount} variant="warning" onClick={() => navigate(`/tickets?status=${TicketStatus.OPEN}`)} />
+          <MetricPill label="Awaiting reply" count={awaitingReplyCount} variant="info" onClick={() => navigate(`/tickets?status=${TicketStatus.OPEN}`)} />
+          <MetricPill label="In progress" count={inProgressCount} variant="brand" onClick={() => navigate(`/tickets?status=${TicketStatus.IN_PROGRESS}`)} />
+          <MetricPill label="Resolved" count={resolvedCount} variant="success" onClick={() => navigate(`/tickets?status=${TicketStatus.RESOLVED}`)} />
         </div>
       )}
 
@@ -266,7 +238,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
 
         {/* Active Tickets */}
         <div>
-          <Card padding="1.25rem">
+          <Card hover padding="1.25rem">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               {sectionTitle('My Active Tickets')}
               <Button variant="ghost" size="sm" onClick={() => navigate('/tickets')}>
@@ -346,9 +318,9 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
         {/* KB Suggestions Sidebar */}
         <PermissionGate permission={Permission.AI_KB_SUGGEST}>
           {kbSuggestions && kbSuggestions.length > 0 && (
-            <Card padding="1.25rem">
+            <Card hover padding="1.25rem">
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.875rem' }}>
-                <span style={{ fontSize: '1rem' }}>🤖</span>
+                <span style={{ display: 'inline-flex' }}><Icon icon={Bot} size="md" /></span>
                 <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600, color: 'var(--color-text)' }}>
                   Relevant Articles
                 </h3>
@@ -395,7 +367,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
       {/* ── Closed/Resolved history ── */}
       {!isTicketsLoading && (openCount + inProgressCount === 0) && resolvedCount + closedCount > 0 && (
         <div style={{ marginTop: '1.25rem' }}>
-          <Card padding="1.25rem">
+          <Card hover padding="1.25rem">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
               {sectionTitle('Recent History')}
               <Button variant="ghost" size="sm" onClick={() => navigate('/tickets')}>View all →</Button>
@@ -405,13 +377,13 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                 .filter((t) => t.status === TicketStatus.RESOLVED || t.status === TicketStatus.CLOSED)
                 .slice(0, 3)
                 .map((ticket) => (
-                  <div
+                  <Card
+                    hover
                     key={ticket.id}
                     onClick={() => navigate(`/tickets/${ticket.id}`)}
                     style={{
                       display: 'flex', alignItems: 'center', gap: '0.75rem',
-                      padding: '0.75rem', border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)', cursor: 'pointer',
+                      padding: '0.75rem', cursor: 'pointer',
                     }}
                   >
                     <div style={{ flex: 1, minWidth: 0 }}>
@@ -423,7 +395,7 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
                     <span style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', flexShrink: 0 }}>
                       {formatRelativeTime(ticket.updated_at)}
                     </span>
-                  </div>
+                  </Card>
                 ))}
             </div>
           </Card>
@@ -453,14 +425,15 @@ interface AdminDashboardProps {
 }
 
 // Compute a percentage-point delta between last two periods, capped at ±99
-function computeTrend(history: Array<{ value: number }>, higherIsBetter = true): { value: number; isPositive: boolean } | undefined {
+function computeTrend(history: Array<{ value: number }>, higherIsBetter = true): { value: number; direction: 'up' | 'down' | 'neutral' } | undefined {
   if (history.length < 2) return undefined;
   const prev = history[history.length - 2].value;
   const curr = history[history.length - 1].value;
   if (prev === 0) return undefined;
   const delta = Math.round(Math.abs(((curr - prev) / prev) * 100));
   const improved = curr > prev;
-  return { value: Math.min(delta, 99), isPositive: higherIsBetter ? improved : !improved };
+  const isPositive = higherIsBetter ? improved : !improved;
+  return { value: Math.min(delta, 99), direction: isPositive ? 'up' : 'down' };
 }
 
 const AdminDashboard: React.FC<AdminDashboardProps> = ({
@@ -521,69 +494,63 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </div>
         <div style={{ display: 'flex', gap: '0.75rem' }}>
           <PermissionGate permission={Permission.REPORT_EXPORT}>
-            <Button variant="secondary" onClick={() => navigate('/analytics')} icon={<span>📊</span>}>
+            <Button variant="secondary" onClick={() => navigate('/analytics')} icon={<Icon icon={BarChart3} size="sm" />}>
               Analytics
             </Button>
           </PermissionGate>
-          <Button onClick={() => navigate('/tickets/new')} icon={<span>+</span>}>
+          <Button onClick={() => navigate('/tickets/new')} icon={<Icon icon={Plus} size="sm" />}>
             New Ticket
           </Button>
         </div>
       </div>
 
       {/* ── Zone 1: KPI Metric Grid ── */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(13rem, 1fr))',
-        gap: '1rem',
-        marginBottom: '1.5rem',
-      }}>
-        {isDashboardLoading ? (
-          Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            <MetricCard
-              title="Open Tickets"
-              value={byStatus[TicketStatus.OPEN] ?? 0}
-              icon="📂"
-              color="var(--color-warning)"
-              subtitle="In your organisation"
-            />
-            <MetricCard
-              title="SLA Compliance"
-              value={dashboard?.slaComplianceRate != null
-                ? `${Math.round(dashboard.slaComplianceRate * 100)}%`
-                : '—'}
-              icon="📈"
-              color="var(--color-success)"
-              trend={slaTrend}
-              subtitle="This month"
-            />
-            <MetricCard
-              title="Avg Resolution"
-              value={dashboard?.avgResolutionTime ?? '—'}
-              icon="⏱"
-              color="var(--color-brand-500)"
-              trend={resTrend}
-              subtitle="This month"
-            />
-            <MetricCard
-              title="Tickets This Week"
-              value={ticketsThisWeek}
-              icon="🎫"
-              color="var(--color-info)"
-              subtitle="Created last 7 days"
-            />
-            <MetricCard
-              title="Stalled"
-              value={stalledTickets}
-              icon="⚠️"
-              color={stalledTickets > 0 ? 'var(--color-danger)' : 'var(--color-text-muted)'}
-              subtitle="Unresolved > 7 days"
-            />
-          </>
-        )}
-      </div>
+      <MetricGrid>
+        <MetricCard
+          title="Open tickets"
+          value={byStatus[TicketStatus.OPEN] ?? 0}
+          icon={<Icon icon={FolderOpen} />}
+          variant="warning"
+          subtitle="In your organisation"
+          state={isDashboardLoading ? 'loading' : 'ready'}
+        />
+        <MetricCard
+          title="SLA compliance"
+          value={dashboard?.slaComplianceRate != null
+            ? `${Math.round(dashboard.slaComplianceRate * 100)}%`
+            : '—'}
+          icon={<Icon icon={TrendingUp} />}
+          variant="success"
+          trend={slaTrend}
+          subtitle="This month"
+          state={isDashboardLoading ? 'loading' : 'ready'}
+        />
+        <MetricCard
+          title="Avg resolution"
+          value={dashboard?.avgResolutionTime ?? '—'}
+          icon={<Icon icon={Timer} />}
+          variant="brand"
+          trend={resTrend}
+          subtitle="This month"
+          state={isDashboardLoading ? 'loading' : 'ready'}
+        />
+        <MetricCard
+          title="Tickets this week"
+          value={ticketsThisWeek}
+          icon={<Icon icon={TicketImg} />}
+          variant="info"
+          subtitle="Created last 7 days"
+          state={isDashboardLoading ? 'loading' : 'ready'}
+        />
+        <MetricCard
+          title="Stalled"
+          value={stalledTickets}
+          icon={<Icon icon={AlertTriangle} />}
+          variant={stalledTickets > 0 ? 'danger' : 'neutral'}
+          subtitle="Unresolved > 7 days"
+          state={isDashboardLoading ? 'loading' : 'ready'}
+        />
+      </MetricGrid>
 
       {/* ── Zone 2: AI Digest ── */}
       <PermissionGate permission={Permission.AI_DIGEST}>
@@ -591,24 +558,19 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
           <div style={{ marginBottom: '1.5rem' }}>
             <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-                <span style={{ fontSize: '1rem' }}>🤖</span>
+                <span style={{ display: 'inline-flex' }}><Icon icon={Bot} size="md" /></span>
                 <h2 style={{ margin: 0, fontSize: '1rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
                   AI Digest
                 </h2>
                 <Badge color="var(--color-brand-600)" bgColor="var(--color-brand-50)">Live</Badge>
               </div>
-              <button
-                onClick={() => setDigestDismissed(true)}
-                style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '1rem' }}
-              >
-                ✕
-              </button>
+              <IconButton icon={X} size="sm" label="Dismiss" onClick={() => setDigestDismissed(true)} />
             </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
 
               {/* Needs Attention */}
-              <Card padding="1.25rem" style={{ borderLeft: '3px solid var(--color-warning)' }}>
+              <Card hover padding="1.25rem" style={{ borderLeft: '3px solid var(--color-warning)' }}>
                 {isDigestLoading ? (
                   <>
                     <Skeleton height="1rem" width="60%" style={{ marginBottom: '0.5rem' }} />
@@ -618,7 +580,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 ) : (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
-                      <span style={{ fontSize: '1.1rem' }}>🚨</span>
+                      <span style={{ display: 'inline-flex', color: 'var(--color-warning)' }}><Icon icon={AlertTriangle} size="md" /></span>
                       <span style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-warning)' }}>
                         Needs Attention
                       </span>
@@ -672,7 +634,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </Card>
 
               {/* Patterns */}
-              <Card padding="1.25rem" style={{ borderLeft: '3px solid var(--color-brand-400)' }}>
+              <Card hover padding="1.25rem" style={{ borderLeft: '3px solid var(--color-brand-400)' }}>
                 {isDigestLoading ? (
                   <>
                     <Skeleton height="1rem" width="60%" style={{ marginBottom: '0.5rem' }} />
@@ -682,7 +644,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                 ) : (
                   <>
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.625rem' }}>
-                      <span style={{ fontSize: '1.1rem' }}>🔍</span>
+                      <span style={{ display: 'inline-flex', color: 'var(--color-brand-600)' }}><Icon icon={Search} size="md" /></span>
                       <span style={{ fontSize: '0.8125rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-brand-600)' }}>
                         Patterns Detected
                       </span>
@@ -690,7 +652,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                     {digest && digest.patterns.length > 0 ? (
                       <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem' }}>
                         {digest.patterns.map((pattern, i) => (
-                          <div key={i} style={{ padding: '0.5rem 0.625rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--color-border)' }}>
+                          <Card hover key={i} style={{ padding: '0.5rem 0.625rem' }}>
                             <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
                               <Badge color="var(--color-brand-600)" bgColor="var(--color-brand-50)">
                                 {pattern.ticketCount} tickets
@@ -700,7 +662,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
                             <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-secondary)' }}>
                               {pattern.suggestion}
                             </p>
-                          </div>
+                          </Card>
                         ))}
                       </div>
                     ) : (
@@ -713,7 +675,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               </Card>
 
               {/* Response Gaps */}
-              <Card padding="1.25rem" style={{ borderLeft: '3px solid var(--color-info)' }}>
+              <Card hover padding="1.25rem" style={{ borderLeft: '3px solid var(--color-info)' }}>
                 {isDigestLoading ? (
                   <>
                     <Skeleton height="1rem" width="60%" style={{ marginBottom: '0.5rem' }} />
@@ -778,7 +740,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
         {/* Project Health Grid */}
         <PermissionGate permission={Permission.PROJECT_VIEW}>
-          <Card padding="1.25rem">
+          <Card hover padding="1.25rem">
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               {sectionTitle('Project Health')}
               <Button variant="ghost" size="sm" onClick={() => navigate('/projects')}>View all →</Button>
@@ -861,7 +823,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
         </PermissionGate>
 
         {/* Team Activity Feed */}
-        <Card padding="1.25rem">
+        <Card hover padding="1.25rem">
           <div style={{ marginBottom: '1rem' }}>
             {sectionTitle('Team Activity')}
             <p style={{ margin: '-0.75rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>Last 48 hours</p>
@@ -881,11 +843,11 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
       {/* ── Zone 4: Ticket Breakdown ── */}
       <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '1.25rem' }}>
-        <Card padding="1.25rem">
+        <Card hover padding="1.25rem">
           {sectionTitle('Tickets by Status')}
           <BarChart rows={statusRows} />
         </Card>
-        <Card padding="1.25rem">
+        <Card hover padding="1.25rem">
           {sectionTitle('Tickets by Priority')}
           <BarChart rows={priorityRows} />
         </Card>
@@ -897,13 +859,17 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
 // ── Activity Feed ─────────────────────────────────────────────────────────────
 
-const ACTIVITY_ICONS: Record<string, string> = {
-  ticket_created:    '🎫',
-  status_change:     '🔄',
-  comment:           '💬',
-  ticket_assigned:   '👤',
-  ticket_resolved:   '✅',
-  sla_at_risk:       '⚠️',
+const ActivityIcon: React.FC<{ type: string }> = ({ type }) => {
+  const map: Record<string, typeof TicketImg> = {
+    ticket_created: TicketImg,
+    status_change: RefreshCw,
+    comment: MessageSquare,
+    ticket_assigned: User,
+    ticket_resolved: CheckCircle2,
+    sla_at_risk: AlertTriangle,
+  };
+  const Comp = map[type] || Pin;
+  return <span style={{ display: 'inline-flex', verticalAlign: 'middle' }}><Icon icon={Comp} size="sm" /></span>;
 };
 
 interface ActivityFeedProps {
@@ -940,7 +906,7 @@ const ActivityFeed: React.FC<ActivityFeedProps> = ({ activities, onNavigate }) =
           onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = ''; }}
         >
           <span style={{ fontSize: '0.875rem', flexShrink: 0, marginTop: '0.1rem' }}>
-            {ACTIVITY_ICONS[activity.type] ?? '📌'}
+            <ActivityIcon type={activity.type} />
           </span>
           <div style={{ flex: 1, minWidth: 0 }}>
             <p style={{ margin: 0, fontSize: '0.8125rem', lineHeight: 1.4 }}>

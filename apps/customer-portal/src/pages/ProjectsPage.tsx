@@ -2,7 +2,8 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useGetProjectsQuery } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, EmptyState, ErrorState } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, EmptyState, ErrorState, Icon } from '@3sc/ui';
+import { FolderOpen } from 'lucide-react';
 import { formatDate } from '@3sc/utils';
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'neutral' | 'danger' | 'info'> = {
@@ -36,7 +37,7 @@ export const ProjectsPage: React.FC = () => {
           {Array.from({ length: 3 }).map((_, i) => <Card key={i}><Skeleton height="7rem" /></Card>)}
         </div>
       ) : projects.length === 0 ? (
-        <EmptyState icon="📁" title="No projects yet" description="Projects will appear here once your team creates them." />
+        <EmptyState icon={<Icon icon={FolderOpen} size="xl" />} title="No projects yet" description="Projects will appear here once your team creates them." />
       ) : (
         <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(20rem, 1fr))', gap: '1rem' }}>
           {projects.map((project) => {

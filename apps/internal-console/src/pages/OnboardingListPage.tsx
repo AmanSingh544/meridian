@@ -71,7 +71,7 @@ const AIPanel: React.FC<{ onboardingId: string }> = ({ onboardingId }) => {
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem', maxWidth: '100%' }}>
       {health && (
-        <Card style={{ padding: '0.875rem' }}>
+        <Card hover style={{ padding: '0.875rem' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
             AI HEALTH PREDICTION
           </div>
@@ -95,7 +95,7 @@ const AIPanel: React.FC<{ onboardingId: string }> = ({ onboardingId }) => {
       )}
 
       {nextAction && (
-        <Card style={{ padding: '0.875rem' }}>
+        <Card hover style={{ padding: '0.875rem' }}>
           <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
             SUGGESTED NEXT ACTION
           </div>
@@ -135,7 +135,7 @@ const AIPanel: React.FC<{ onboardingId: string }> = ({ onboardingId }) => {
         </Card>
       )}
 
-      <Card style={{ padding: '0.875rem' }}>
+      <Card hover style={{ padding: '0.875rem' }}>
         <div style={{ fontSize: '0.75rem', fontWeight: 700, letterSpacing: '0.05em', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
           BLOCKER ANALYSIS
         </div>
@@ -181,7 +181,7 @@ const PhaseRow: React.FC<{ phase: OnboardingPhase; canManage: boolean; onboardin
     'var(--color-text-muted)';
 
   return (
-    <div style={{ border: '1px solid var(--color-border)', borderRadius: '0.5rem', overflow: 'hidden' }}>
+    <Card hover style={{ borderRadius: '0.5rem' }}>
       <button
         onClick={() => setExpanded(o => !o)}
         style={{
@@ -243,7 +243,7 @@ const PhaseRow: React.FC<{ phase: OnboardingPhase; canManage: boolean; onboardin
           ))}
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
@@ -344,7 +344,7 @@ const newTaskDraft = (): TaskDraft => ({
 });
 
 const TaskDraftRow: React.FC<{ task: TaskDraft; onChange: (t: TaskDraft) => void; onRemove: () => void }> = ({ task, onChange, onRemove }) => (
-  <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', padding: '0.75rem', background: 'var(--color-bg-muted)', borderRadius: '0.375rem', border: '1px solid var(--color-border)' }}>
+  <Card hover style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem', background: 'var(--color-bg-muted)', borderRadius: '0.375rem' }}>
     <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'flex-start' }}>
       <div style={{ flex: 1 }}>
         <input
@@ -384,7 +384,7 @@ const TaskDraftRow: React.FC<{ task: TaskDraft; onChange: (t: TaskDraft) => void
         onChange={e => onChange({ ...task, due_date: e.target.value })}
       />
     </div>
-  </div>
+  </Card>
 );
 
 // ── Create / Edit Modal ───────────────────────────────────────────────────────
@@ -549,7 +549,7 @@ const OnboardingFormModal: React.FC<{
             </div>
 
             {useDefaultTasks ? (
-              <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-muted)', padding: '0.625rem', background: 'var(--color-bg-muted)', borderRadius: '0.375rem', border: '1px solid var(--color-border)' }}>
+              <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-text-muted)', padding: '0.625rem' }}>
                 A standard 15-task onboarding plan (Kickoff, Data Migration, UAT &amp; Training, Go-Live) will be created automatically.
               </p>
             ) : (
@@ -632,7 +632,7 @@ const OrgCard: React.FC<{ project: OnboardingProject; onSelect: () => void }> = 
   const ss = STATUS_STYLE[project.status];
 
   return (
-    <Card style={{ padding: '1rem', cursor: 'pointer', transition: 'box-shadow 0.15s' }} onClick={onSelect}>
+    <Card hover style={{ padding: '1rem', cursor: 'pointer' }} onClick={onSelect}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
         <div>
           <div style={{ fontSize: '0.9375rem', fontWeight: 700, color: 'var(--color-text)' }}>{project.organizationName}</div>
@@ -658,11 +658,17 @@ const OrgCard: React.FC<{ project: OnboardingProject; onSelect: () => void }> = 
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '0.75rem', flexWrap: 'wrap', fontSize: '0.8125rem', color: 'var(--color-text-muted)' }}>
-        <span>Go-live: <strong style={{ color: 'var(--color-text)' }}>{project.goLiveDate.slice(0, 10)}</strong></span>
-        <span>{project.phases.length} phase{project.phases.length !== 1 ? 's' : ''}</span>
+      <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap', alignItems: 'center' }}>
+        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', padding: '0.125rem 0.5rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+          Go-live: <strong style={{ color: 'var(--color-text)' }}>{project.goLiveDate.slice(0, 10)}</strong>
+        </span>
+        <span style={{ fontSize: '0.8125rem', color: 'var(--color-text-muted)', padding: '0.125rem 0.5rem', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-border)' }}>
+          {project.phases.length} phase{project.phases.length !== 1 ? 's' : ''}
+        </span>
         {project.blockerCount > 0 && (
-          <span style={{ color: 'var(--color-danger)', fontWeight: 600 }}>{project.blockerCount} blocker{project.blockerCount !== 1 ? 's' : ''}</span>
+          <span style={{ fontSize: '0.8125rem', color: 'var(--color-danger)', fontWeight: 600, padding: '0.125rem 0.5rem', background: 'var(--color-danger-light, #fee2e2)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--color-danger)' }}>
+            {project.blockerCount} blocker{project.blockerCount !== 1 ? 's' : ''}
+          </span>
         )}
       </div>
     </Card>

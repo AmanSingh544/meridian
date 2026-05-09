@@ -10,8 +10,10 @@ import {
 import { useDocumentTitle, useDebouncedValue, usePermissions, useSession } from '@3sc/hooks';
 import {
   Card, Button, Badge, Avatar, Skeleton, EmptyState, ErrorState,
-  SearchInput, Modal, Input, Select, PermissionGate,
+  SearchInput, Modal, Input, Select, PermissionGate, Icon,
+  MetricCard, MetricGrid,
 } from '@3sc/ui';
+import { Plus, Users, UserCheck, Shield } from 'lucide-react';
 import { Permission, UserRole } from '@3sc/types';
 import type { User } from '@3sc/types';
 import { getDefaultPermissions, getClientAdminToggleablePerm } from '@3sc/permissions';
@@ -509,7 +511,7 @@ export const TeamManagementPage: React.FC = () => {
           </p>
         </div>
         <PermissionGate permission={Permission.MEMBER_INVITE}>
-          <Button onClick={() => setShowInvite(true)} icon={<span>+</span>}>
+          <Button onClick={() => setShowInvite(true)} icon={<Icon icon={Plus} size="sm" />}>
             Add Member
           </Button>
         </PermissionGate>
@@ -517,15 +519,30 @@ export const TeamManagementPage: React.FC = () => {
 
       {/* Summary stats */}
       {!isLoading && (
-        <div style={{
-          display: 'flex', gap: '1.5rem', marginBottom: '1.25rem',
-          padding: '0.75rem 1rem', background: 'var(--color-bg-subtle)',
-          borderRadius: 'var(--radius-md)', fontSize: '0.8125rem',
-          flexWrap: 'wrap',
-        }}>
-          <span>Total members: <strong>{data?.total ?? 0}</strong></span>
-          <span>Active: <strong style={{ color: '#22c55e' }}>{activeCount}</strong></span>
-          <span>Admins: <strong>{adminCount}</strong></span>
+        <div style={{ marginBottom: '1.25rem' }}>
+          <MetricGrid density="comfortable">
+            <MetricCard
+              title="Total members"
+              value={data?.total ?? 0}
+              variant="brand"
+              icon={<Icon icon={Users} />}
+              state="ready"
+            />
+            <MetricCard
+              title="Active"
+              value={activeCount}
+              variant="success"
+              icon={<Icon icon={UserCheck} />}
+              state="ready"
+            />
+            <MetricCard
+              title="Admins"
+              value={adminCount}
+              variant="info"
+              icon={<Icon icon={Shield} />}
+              state="ready"
+            />
+          </MetricGrid>
         </div>
       )}
 
@@ -552,9 +569,9 @@ export const TeamManagementPage: React.FC = () => {
           {Array.from({ length: 4 }).map((_, i) => <Skeleton key={i} height="4.5rem" />)}
         </div>
       ) : members.length === 0 ? (
-        <EmptyState icon="👥" title="No team members found" description="Try adjusting your search or invite a new member." />
+        <EmptyState icon={<Icon icon={Users} size="xl" />} title="No team members found" description="Try adjusting your search or invite a new member." />
       ) : (
-        <Card padding="0">
+        <Card hover padding="0">
           {members.map((member, idx) => {
             const rb = ROLE_BADGE[member.role] ?? { color: '#374151', bg: '#f3f4f6' };
             return (

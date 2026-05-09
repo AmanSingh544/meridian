@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useGetMyOnboardingQuery, useUpdateOnboardingTaskMutation, useGetRoadmapSummaryQuery } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
-import { Card, Badge, Skeleton, EmptyState } from '@3sc/ui';
+import { Card, Skeleton, EmptyState, Icon } from '@3sc/ui';
+import { CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import type { OnboardingPhase, OnboardingTask, OnboardingTaskStatus } from '@3sc/types';
 
 // ── Constants ─────────────────────────────────────────────────────────────────
@@ -45,7 +46,7 @@ const PhasePanel: React.FC<{
     phase.status === 'IN_PROGRESS' ? 'In Progress' : 'Upcoming';
 
   return (
-    <div style={{ border: '1px solid var(--color-border)', borderRadius: '0.625rem', overflow: 'hidden' }}>
+    <Card hover style={{ borderRadius: '0.625rem' }}>
       <button
         onClick={() => setExpanded(o => !o)}
         style={{
@@ -180,7 +181,7 @@ const PhasePanel: React.FC<{
           })}
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
@@ -215,7 +216,7 @@ export const OnboardingTrackerPage: React.FC = () => {
     <div style={{ padding: '1.5rem', display: 'flex', flexDirection: 'column', gap: '1.25rem', maxWidth: '100%', margin: '0 auto' }}>
 
       {/* Hero summary card */}
-      <Card style={{ padding: '1.5rem' }}>
+      <Card hover style={{ padding: '1.5rem' }}>
         <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', flexWrap: 'wrap', gap: '1rem' }}>
           <div>
             <h1 style={{ fontSize: '1.25rem', fontWeight: 800, color: 'var(--color-text)', margin: '0 0 0.25rem' }}>
@@ -227,9 +228,14 @@ export const OnboardingTrackerPage: React.FC = () => {
           </div>
           <div style={{
             padding: '0.4rem 1rem', borderRadius: '999px', fontSize: '0.8125rem', fontWeight: 700,
-            background: hs?.bg, color: hs?.text,
+            background: hs?.bg, color: hs?.text, display: 'inline-flex', alignItems: 'center', gap: '0.375rem',
           }}>
-            {hs?.emoji} {hs?.label}
+            <Icon icon={
+              onboarding.health === 'ON_TRACK' ? CheckCircle :
+              onboarding.health === 'AT_RISK' ? AlertTriangle :
+              XCircle
+            } size="sm" />
+            {hs?.label}
           </div>
         </div>
 
@@ -268,16 +274,10 @@ export const OnboardingTrackerPage: React.FC = () => {
 
       {/* What to focus on next — roadmap summary repurposed as helpful hint */}
       {roadmapSummary && (
-        <div style={{
-          padding: '0.875rem 1.25rem',
-          background: 'var(--color-bg-muted)',
-          borderRadius: '0.625rem',
-          border: '1px solid var(--color-border)',
-          fontSize: '0.8125rem', color: 'var(--color-text)',
-        }}>
+        <Card hover style={{ background: 'var(--color-bg-muted)', fontSize: '0.8125rem', color: 'var(--color-text)' }}>
           <span style={{ fontWeight: 700, color: 'var(--color-brand-600)' }}>Tip: </span>
           While your onboarding is progressing, check out the Product Roadmap to see upcoming features and vote on what matters most to your team.
-        </div>
+        </Card>
       )}
 
       {/* Phase list */}
