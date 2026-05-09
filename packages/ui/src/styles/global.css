@@ -10,6 +10,7 @@
   --color-brand-900: #312e81;
 
   --color-primary: #4f46e5;
+  --accent-2: #c7d2fe;
 
   --color-success: #10b981;
   --color-success-light: #d1fae5;
@@ -40,6 +41,10 @@
   --radius-lg: 0.75rem;
   --radius-xl: 1rem;
   --radius-full: 9999px;
+  --shadow-smr:
+  rgba(17, 17, 26, 0.1) 0px 1px 0px,
+  rgba(17, 17, 26, 0.1) 0px 8px 24px,
+  rgba(17, 17, 26, 0.1) 0px 16px 48px;
 
   --shadow-sm: 0 1px 2px 0 rgb(0 0 0 / 0.05);
   --shadow-md: 0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1);
@@ -87,6 +92,7 @@
   --color-brand-900: #e0e7ff;
 
   --color-primary: #6366f1;
+  --accent-2: #4f46e5;
 
   /* Semantic — brightened for dark surface contrast */
   --color-success:       #34d399;
@@ -217,4 +223,53 @@ input, textarea, select, button {
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-text-muted);
+}
+
+/* ── Card Sheen / Panel Enhancement ────────────────────────────
+   Lightweight utility for card-like divs that don't use <Card>.
+   Mirrors the ::before sheen and accent-tinted shadow from .__card.
+────────────────────────────────────────────────────────────── */
+.__card-sheen {
+  position: relative;
+  overflow: hidden;
+  transition: transform var(--transition-normal), box-shadow var(--transition-normal);
+  box-shadow:
+    0 1px 2px 0 rgb(0 0 0 / 0.04),
+    0 1px 3px -1px rgb(0 0 0 / 0.03);
+}
+
+.__card-sheen::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(50deg, transparent, color-mix(in srgb, var(--color-brand-500) 12%, transparent), transparent);
+  opacity: 0;
+  transition: opacity var(--transition-slow);
+  pointer-events: none;
+  z-index: 0;
+}
+
+.__card-sheen:hover {
+  transform: translateY(-2px) scale(1.01);
+  box-shadow:
+    0 8px 24px -8px color-mix(in srgb, var(--color-brand-500) 20%, transparent),
+    0 4px 12px -4px color-mix(in srgb, var(--color-brand-500) 10%, transparent),
+    0 1px 3px 0 rgb(0 0 0 / 0.06);
+}
+
+.__card-sheen:hover::before {
+  opacity: 1;
+}
+
+.__card-sheen > * {
+  position: relative;
+  z-index: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .__card-sheen,
+  .__card-sheen::before {
+    transition: none !important;
+    transform: none !important;
+  }
 }

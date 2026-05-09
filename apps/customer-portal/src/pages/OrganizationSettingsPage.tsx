@@ -67,7 +67,7 @@ const BrandingSection: React.FC<{ disabled: boolean }> = ({ disabled }) => {
   };
 
   return (
-    <Card style={{ marginBottom: '1.25rem' }}>
+    <Card hover style={{ marginBottom: '1.25rem' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <div>
           <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600 }}>Portal Branding</h3>
@@ -300,7 +300,7 @@ export const OrganizationSettingsPage: React.FC = () => {
       )}
 
       {/* Organization Profile */}
-      <Card style={{ marginBottom: '1.25rem' }}>
+      <Card hover style={{ marginBottom: '1.25rem' }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
           <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600 }}>Organization Profile</h3>
           <PermissionGate permission={Permission.WORKSPACE_CONFIGURE}>
@@ -351,7 +351,7 @@ export const OrganizationSettingsPage: React.FC = () => {
       <BrandingSection disabled={!session || false} />
 
       {/* Tenant Info (read-only) */}
-      <Card style={{ marginBottom: '1.25rem' }}>
+      <Card hover style={{ marginBottom: '1.25rem' }}>
         <h3 style={{ margin: '0 0 1rem', fontSize: '0.9375rem', fontWeight: 600 }}>Portal Info</h3>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', fontSize: '0.875rem' }}>
           <Row label="Tenant ID" value={session?.tenantId ?? '—'} mono />

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, MetricCard, Button, Skeleton, PermissionGate, Badge } from '@3sc/ui';
+import { Card, MetricCard, MetricGrid, Button, Skeleton, PermissionGate, Badge, Icon } from '@3sc/ui';
+import { Ticket, CheckCircle2, BarChart3, Timer } from 'lucide-react';
 import { Permission } from '@3sc/types';
 import type { SLAComplianceData } from '@3sc/types';
 import {
@@ -160,7 +161,7 @@ const ChartCard: React.FC<{
   legend?: Array<{ label: string; color: string }>;
   children: React.ReactNode;
 }> = ({ title, subtitle, loading, legend, children }) => (
-  <Card>
+  <Card hover>
     <div style={{ marginBottom: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
@@ -308,12 +309,12 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(13rem, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <MetricCard title="Tickets Created"  value={loadingVolume ? '…' : totalCreated}   icon="🎫" color="var(--color-brand-500)" />
-        <MetricCard title="Tickets Resolved" value={loadingVolume ? '…' : totalResolved}  icon="✅" color="var(--color-success)" />
-        <MetricCard title="Avg Response SLA" value={loadingSLA ? '…' : `${avgSLA}%`}      icon="📊" color="var(--color-info)" />
-        <MetricCard title="Avg Resolution"   value={loadingResolution ? '…' : `${avgResH}h`} icon="⏱" color="var(--color-warning)" />
-      </div>
+      <MetricGrid>
+        <MetricCard title="Tickets created"  value={loadingVolume ? '…' : totalCreated}   icon={<Icon icon={Ticket} />} variant="brand" />
+        <MetricCard title="Tickets resolved" value={loadingVolume ? '…' : totalResolved}  icon={<Icon icon={CheckCircle2} />} variant="success" />
+        <MetricCard title="Avg response SLA" value={loadingSLA ? '…' : `${avgSLA}%`}      icon={<Icon icon={BarChart3} />} variant="info" />
+        <MetricCard title="Avg resolution"   value={loadingResolution ? '…' : `${avgResH}h`} icon={<Icon icon={Timer} />} variant="warning" />
+      </MetricGrid>
 
       {/* 4-chart grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem', marginBottom: '1.5rem' }}>

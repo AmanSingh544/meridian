@@ -3,9 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { useGetDashboardQuery, useGetTicketsQuery } from '@3sc/api';
 import { useDocumentTitle, useSession } from '@3sc/hooks';
 import {
-  MetricCard, Card, StatusBadge, PriorityBadge, SLABadge,
-  Button, Skeleton, SkeletonCard, ErrorState,
+  MetricCard, MetricGrid, Card, StatusBadge, PriorityBadge, SLABadge,
+  Button, Skeleton, ErrorState, Icon,
 } from '@3sc/ui';
+import { Inbox, Ticket, CheckCircle2, TrendingUp, Timer } from 'lucide-react';
 import { TicketStatus, SLAState } from '@3sc/types';
 import { formatRelativeTime } from '@3sc/utils';
 
@@ -44,33 +45,23 @@ export const AgentDashboardPage: React.FC = () => {
       </div>
 
       {/* Metrics */}
-      <div style={{
-        display: 'grid',
-        gridTemplateColumns: 'repeat(auto-fill, minmax(12rem, 1fr))',
-        gap: '0.875rem',
-        marginBottom: '1.5rem',
-      }}>
-        {isLoading ? (
-          Array.from({ length: 5 }).map((_, i) => <SkeletonCard key={i} />)
-        ) : (
-          <>
-            <MetricCard title="My Queue" value={myTickets?.total ?? 0} icon="📬" color="var(--color-brand-500)" />
-            <MetricCard title="Open" value={dashboard?.by_status?.OPEN ?? dashboard?.total ?? 0} icon="🎫" color="var(--color-info)" />
-            <MetricCard title="Resolved Today" value={dashboard?.resolvedToday ?? 0} icon="✅" color="var(--color-success)" />
-            <MetricCard
-              title="SLA Compliance"
-              value={dashboard?.slaComplianceRate ? `${Math.round(dashboard.slaComplianceRate * 100)}%` : '—'}
-              icon="📈"
-              color={dashboard?.slaComplianceRate && dashboard.slaComplianceRate < 0.9 ? 'var(--color-warning)' : 'var(--color-success)'}
-            />
-            <MetricCard title="Avg Resolution" value={dashboard?.avgResolutionTime ?? '—'} icon="⏱" color="var(--color-text-muted)" />
-          </>
-        )}
-      </div>
+      <MetricGrid density="compact">
+        <MetricCard title="My Queue" value={myTickets?.total ?? 0} icon={<Icon icon={Inbox} />} variant="brand" state={isLoading ? 'loading' : 'ready'} />
+        <MetricCard title="Open" value={dashboard?.by_status?.OPEN ?? dashboard?.total ?? 0} icon={<Icon icon={Ticket} />} variant="info" state={isLoading ? 'loading' : 'ready'} />
+        <MetricCard title="Resolved Today" value={dashboard?.resolvedToday ?? 0} icon={<Icon icon={CheckCircle2} />} variant="success" state={isLoading ? 'loading' : 'ready'} />
+        <MetricCard
+          title="SLA Compliance"
+          value={dashboard?.slaComplianceRate ? `${Math.round(dashboard.slaComplianceRate * 100)}%` : '—'}
+          icon={<Icon icon={TrendingUp} />}
+          variant={dashboard?.slaComplianceRate && dashboard.slaComplianceRate < 0.9 ? 'warning' : 'success'}
+          state={isLoading ? 'loading' : 'ready'}
+        />
+        <MetricCard title="Avg resolution" value={dashboard?.avgResolutionTime ?? '—'} icon={<Icon icon={Timer} />} variant="neutral" state={isLoading ? 'loading' : 'ready'} />
+      </MetricGrid>
 
       <div style={{ display: 'grid', gap: '1.25rem' }}>
         {/* My Queue */}
-        <Card>
+        <Card hover>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
             <h2 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
               My Assigned Tickets
@@ -86,25 +77,22 @@ export const AgentDashboardPage: React.FC = () => {
           ) : (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
               {myTickets?.data.slice(0, 6).map((ticket) => (
-                <div
+                <Card
+                  hover
                   key={ticket.id}
                   onClick={() => navigate(`/tickets/${ticket.id}`)}
                   style={{
                     display: 'flex', alignItems: 'center', gap: '0.75rem',
                     padding: '0.5rem 0.625rem',
-                    borderRadius: 'var(--radius-sm)',
                     cursor: 'pointer', fontSize: '0.8125rem',
-                    border: '1px solid var(--color-border)',
                   }}
-                  onMouseEnter={(e) => { e.currentTarget.style.background = 'var(--color-bg-subtle)'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.background = ''; }}
                 >
                   <PriorityBadge priority={ticket.priority} />
                   <span style={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 500 }}>
                     {ticket.title}
                   </span>
                   <StatusBadge status={ticket.status} />
-                </div>
+                </Card>
               ))}
               {myTickets?.data.length === 0 && (
                 <p style={{ textAlign: 'center', color: 'var(--color-text-muted)', padding: '1.5rem 0', fontSize: '0.8125rem' }}>
@@ -116,7 +104,7 @@ export const AgentDashboardPage: React.FC = () => {
         </Card>
 
         {/* SLA At Risk */}
-        <Card>
+        <Card hover>
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.875rem' }}>
             <h2 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
               ⚠️ SLA At Risk

@@ -1,6 +1,8 @@
 import React from 'react';
+import { Circle } from 'lucide-react';
 import type { TicketStatus, TicketPriority, SLAState } from '@3sc/types';
 import { getStatusLabel, getStatusColor, getPriorityLabel, getPriorityColor, getSLAStateLabel, getSLAStateColor } from '@3sc/utils';
+import { Icon } from './Icon';
 
 export interface BadgeProps {
   children: React.ReactNode;
@@ -38,13 +40,9 @@ export const StatusBadge: React.FC<{ status: TicketStatus }> = ({ status }) => {
   const color = getStatusColor(status);
   return (
     <Badge color={color} bgColor={`${color}18`}>
-      <span style={{
-        width: 6,
-        height: 6,
-        borderRadius: '50%',
-        background: color,
-        display: 'inline-block',
-      }} />
+      <span style={{ display: 'inline-flex', verticalAlign: 'middle', marginRight: 2 }}>
+        <Icon icon={Circle} size="xs" color={color} />
+      </span>
       {getStatusLabel(status)}
     </Badge>
   );

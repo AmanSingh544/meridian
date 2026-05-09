@@ -10,7 +10,8 @@ import {
 import { usePermissions, useSession, useDebouncedValue, useDocumentTitle } from '@3sc/hooks';
 import { Permission, DOCUMENT_DEPARTMENTS, type DocumentDepartment, type Document } from '@3sc/types';
 import { formatFileSize, formatDate } from '@3sc/utils';
-import { Card, MetricCard, SearchInput, Button, Modal, FileUpload, EmptyState, Skeleton, Tabs, ConfirmDialog, useToast, Select } from '@3sc/ui';
+import { Card, MetricCard, MetricGrid, SearchInput, Button, Modal, FileUpload, EmptyState, Skeleton, Tabs, ConfirmDialog, useToast, Select, Icon } from '@3sc/ui';
+import { FileText, Building2, Download, FolderOpen, Upload } from 'lucide-react';
 
 interface DocumentsLibraryProps {
   portalType: 'customer' | 'internal';
@@ -185,8 +186,8 @@ export const DocumentsLibrary: React.FC<DocumentsLibraryProps> = ({ portalType }
       {/* Header */}
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '1.5rem', gap: '1rem', flexWrap: 'wrap' }}>
         <div>
-          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
-            📁 Department Libraries
+          <h1 style={{ margin: 0, fontSize: '1.5rem', fontWeight: 700, fontFamily: 'var(--font-display)', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+            <Icon icon={FolderOpen} size="lg" /> Department Libraries
           </h1>
           <p style={{ margin: '0.25rem 0 0', fontSize: '0.875rem', color: 'var(--color-text-secondary)' }}>
             Centralized document repository for all teams
@@ -194,17 +195,17 @@ export const DocumentsLibrary: React.FC<DocumentsLibraryProps> = ({ portalType }
         </div>
         {canUpload && (
           <Button variant="primary" onClick={() => setUploadOpen(true)}>
-            ⬆️ Upload Files
+            <span style={{ display: 'inline-flex', marginRight: '0.375rem' }}><Icon icon={Upload} size="sm" /></span> Upload Files
           </Button>
         )}
       </div>
 
       {/* Stats */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '1rem', marginBottom: '1.5rem' }}>
-        <MetricCard title="Total Files" value={stats?.totalFiles ?? 0} />
-        <MetricCard title="Departments" value={stats?.totalDepartments ?? 0} />
-        <MetricCard title="Total Downloads" value={stats?.totalDownloads ?? 0} />
-      </div>
+      <MetricGrid>
+        <MetricCard title="Total files" value={stats?.totalFiles ?? 0} icon={<Icon icon={FileText} />} variant="brand" />
+        <MetricCard title="Departments" value={stats?.totalDepartments ?? 0} icon={<Icon icon={Building2} />} variant="info" />
+        <MetricCard title="Total downloads" value={stats?.totalDownloads ?? 0} icon={<Icon icon={Download} />} variant="success" />
+      </MetricGrid>
 
       {/* Tabs */}
       {tabs.length > 1 && (
@@ -223,7 +224,7 @@ export const DocumentsLibrary: React.FC<DocumentsLibraryProps> = ({ portalType }
       </div>
 
       {/* Table */}
-      <Card>
+      <Card hover>
         {docsLoading ? (
           <SkeletonRow count={5} />
         ) : filteredDocs.length === 0 ? (

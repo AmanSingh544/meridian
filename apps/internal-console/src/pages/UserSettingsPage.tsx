@@ -1,6 +1,9 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDocumentTitle, useSession, useTheme, applyAccentColor, applyDensity } from '@3sc/hooks';
-import { Card, Button, Avatar } from '@3sc/ui';
+import { Card, Button, Avatar, Icon } from '@3sc/ui';
+import { Laptop, User, Palette, Bell, Shield } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
+
 import {
   useGetUserPreferencesQuery,
   useUpdateUserPreferencesMutation,
@@ -24,18 +27,18 @@ interface AccentColor {
 // ── Accent color presets ─────────────────────────────────────────────────────
 
 const ACCENT_COLORS: AccentColor[] = [
-  { id: 'cobalt',   label: 'Cobalt',   value: '#4f46e5' },
-  { id: 'sky',      label: 'Sky',      value: '#0ea5e9' },
-  { id: 'emerald',  label: 'Emerald',  value: '#10b981' },
-  { id: 'violet',   label: 'Violet',   value: '#8b5cf6' },
-  { id: 'rose',     label: 'Rose',     value: '#f43f5e' },
-  { id: 'amber',    label: 'Amber',    value: '#f59e0b' },
-  { id: 'slate',    label: 'Slate',    value: '#64748b' },
+  { id: 'cobalt', label: 'Cobalt', value: '#4f46e5' },
+  { id: 'sky', label: 'Sky', value: '#0ea5e9' },
+  { id: 'emerald', label: 'Emerald', value: '#10b981' },
+  { id: 'violet', label: 'Violet', value: '#8b5cf6' },
+  { id: 'rose', label: 'Rose', value: '#f43f5e' },
+  { id: 'amber', label: 'Amber', value: '#f59e0b' },
+  { id: 'slate', label: 'Slate', value: '#64748b' },
 ];
 
 const MODE_OPTIONS: Array<{ value: ColorMode; label: string; icon: string; hint: string }> = [
-  { value: 'light',  label: 'Light',  icon: '☀️', hint: 'Always light theme' },
-  { value: 'dark',   label: 'Dark',   icon: '🌙', hint: 'Always dark theme' },
+  { value: 'light', label: 'Light', icon: '☀️', hint: 'Always light theme' },
+  { value: 'dark', label: 'Dark', icon: '🌙', hint: 'Always dark theme' },
   { value: 'system', label: 'System', icon: '💻', hint: 'Follow OS preference' },
 ];
 
@@ -52,6 +55,16 @@ const SectionHeader: React.FC<{ title: string; description?: string }> = ({ titl
 
 const Divider: React.FC = () => (
   <div style={{ borderTop: '1px solid var(--color-border)', margin: '1.5rem 0' }} />
+);
+
+const FieldRow: React.FC<{ label: string; hint?: string; children: React.ReactNode }> = ({ label, hint, children }) => (
+  <div style={{ display: 'grid', gridTemplateColumns: '10rem 1fr', gap: '1rem', alignItems: 'start', marginBottom: '1rem' }}>
+    <div>
+      <div style={{ fontSize: '0.875rem', fontWeight: 500, color: 'var(--color-text)', paddingTop: '0.5rem' }}>{label}</div>
+      {hint && <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.25rem', lineHeight: 1.4 }}>{hint}</div>}
+    </div>
+    <div>{children}</div>
+  </div>
 );
 
 const TextInput: React.FC<{
@@ -112,12 +125,12 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
   const { data: meData } = useGetMeQuery();
 
   const [displayName, setDisplayName] = useState(session?.displayName ?? '');
-  const [jobTitle, setJobTitle]       = useState('');
-  const [saved, setSaved]             = useState(false);
-  const [saveError, setSaveError]     = useState('');
+  const [jobTitle, setJobTitle] = useState('');
+  const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
-    if (meData?.jobTitle !== undefined) setJobTitle(meData.jobTitle ?? '');
+    if (meData?.job_title !== undefined) setJobTitle(meData.job_title ?? '');
   }, [meData]);
 
   const handleSave = async () => {
@@ -137,7 +150,7 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
 
   return (
     <div>
-      
+
       <SectionHeader title="Profile" description="How you appear to customers and teammates." />
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
         <Avatar name={session?.displayName ?? 'Agent'} size={60} />
@@ -154,24 +167,22 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
 
       <Divider />
 
-      <div style={{ display: 'flex', flexDirection: 'column', gap: '0.875rem', maxWidth: '22rem' }}>
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem' }}>Display name</label>
-          <TextInput value={displayName} onChange={setDisplayName} />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem' }}>Email</label>
-          <TextInput value={session?.email ?? ''} onChange={() => {}} disabled />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem' }}>Job title</label>
-          <TextInput value={jobTitle} onChange={setJobTitle} placeholder="e.g. Senior Support Agent" />
-        </div>
-        <div>
-          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 500, marginBottom: '0.375rem' }}>Role</label>
-          <TextInput value={session?.role?.replace(/_/g, ' ') ?? ''} onChange={() => {}} disabled />
-        </div>
-      </div>
+
+      <FieldRow label="Display name">
+        <TextInput value={displayName} onChange={setDisplayName} placeholder="Display name" />
+      </FieldRow>
+
+      <FieldRow label="Email">
+        <TextInput value={session?.email ?? ''} onChange={() => { }} disabled />
+      </FieldRow>
+
+      <FieldRow label="Job title">
+        <TextInput value={jobTitle} onChange={setJobTitle} placeholder="e.g. Senior Support Agent" />
+      </FieldRow>
+
+      <FieldRow label="Role">
+        <TextInput value={session?.role?.replace(/_/g, ' ') ?? ''} onChange={() => { }} disabled />
+      </FieldRow>
 
       {saveError && (
         <div style={{ marginTop: '0.75rem', padding: '0.625rem 0.875rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: '#b91c1c', maxWidth: '22rem' }}>
@@ -195,10 +206,10 @@ const AppearanceTab: React.FC = () => {
   const [updatePrefs] = useUpdateUserPreferencesMutation();
   const { setColorMode: applyColorMode } = useTheme();
 
-  const [accentId, setAccentId]   = useState(() => prefs?.accentColor ?? localStorage.getItem('3sc_pref_accent') ?? 'cobalt');
+  const [accentId, setAccentId] = useState(() => prefs?.accentColor ?? localStorage.getItem('3sc_pref_accent') ?? 'cobalt');
   const [colorMode, setColorMode] = useState<ColorMode>(() => prefs?.colorMode ?? (localStorage.getItem('3sc_pref_color_mode') as ColorMode) ?? 'system');
-  const [density, setDensity]     = useState<'comfortable' | 'compact'>(() => prefs?.density ?? (localStorage.getItem('3sc_pref_density') as 'comfortable' | 'compact') ?? 'comfortable');
-  const [saved, setSaved]         = useState(false);
+  const [density, setDensity] = useState<'comfortable' | 'compact'>(() => prefs?.density ?? (localStorage.getItem('3sc_pref_density') as 'comfortable' | 'compact') ?? 'comfortable');
+  const [saved, setSaved] = useState(false);
 
   // Sync local form state from server prefs (do NOT apply to DOM here —
   // that would race with user edits and overwrite localStorage on every
@@ -223,6 +234,7 @@ const AppearanceTab: React.FC = () => {
 
   return (
     <div>
+      {/* Accent Colour */}
       <SectionHeader title="Accent Colour" description="Choose your personal highlight colour for the console." />
 
       <div style={{ display: 'flex', gap: '0.625rem', flexWrap: 'wrap', marginBottom: '0.75rem' }}>
@@ -242,6 +254,7 @@ const AppearanceTab: React.FC = () => {
               minWidth: '4.25rem',
             }}
           >
+            {/* Colour swatch */}
             <span style={{
               width: 26, height: 26, borderRadius: '50%',
               background: ac.value,
@@ -260,27 +273,31 @@ const AppearanceTab: React.FC = () => {
         ))}
       </div>
 
-      {/* Preview strip */}
-      <div style={{
-        padding: '0.625rem 1rem',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--color-border)',
+      {/* Live preview strip */}
+      <Card hover style={{
+        marginTop: '1rem', marginBottom: '1.5rem',
         background: 'var(--color-bg-subtle)',
         display: 'flex', alignItems: 'center', gap: '0.75rem',
-        fontSize: '0.8125rem', marginBottom: '1.5rem',
+        fontSize: '0.8125rem',
       }}>
-        <span style={{ color: selectedAccent.value, fontWeight: 700 }}>Preview:</span>
-        <div style={{ padding: '0.25rem 0.625rem', borderRadius: 'var(--radius-sm)', background: selectedAccent.value, color: '#fff', fontSize: '0.75rem', fontWeight: 600 }}>
-          Button
+        <div style={{ width: 32, height: 32, borderRadius: '50%', background: selectedAccent.value, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.875rem', fontWeight: 700 }}>
+          M
         </div>
-        <span style={{ color: selectedAccent.value, textDecoration: 'underline', fontSize: '0.8125rem' }}>Link text</span>
-        <div style={{ width: 14, height: 14, borderRadius: 3, background: selectedAccent.value, display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.625rem' }}>
-          ✓
+        <div style={{ flex: 1 }}>
+          <span style={{ fontWeight: 600, color: 'var(--color-text)' }}>Preview: </span>
+          <span style={{ color: selectedAccent.value, fontWeight: 600 }}>buttons</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}>, links, and </span>
+          <span style={{ color: selectedAccent.value, fontWeight: 600 }}>active states</span>
+          <span style={{ color: 'var(--color-text-secondary)' }}> will use this colour.</span>
         </div>
-      </div>
+        <div style={{ padding: '0.375rem 0.75rem', borderRadius: 'var(--radius-md)', background: selectedAccent.value, color: '#fff', fontSize: '0.75rem', fontWeight: 600 }}>
+          {selectedAccent.label}
+        </div>
+      </Card>
 
       <Divider />
 
+      {/* Color Mode */}
       <SectionHeader title="Colour Mode" />
       <div style={{ display: 'flex', gap: '0.875rem', flexWrap: 'wrap', marginBottom: '1.5rem' }}>
         {MODE_OPTIONS.map((opt) => (
@@ -306,12 +323,18 @@ const AppearanceTab: React.FC = () => {
                 {opt.hint}
               </div>
             </div>
+            {colorMode === opt.value && (
+              <span style={{ width: 20, height: 20, borderRadius: '50%', background: 'var(--color-brand-500)', display: 'flex', alignItems: 'center', justifyContent: 'center', color: '#fff', fontSize: '0.625rem', fontWeight: 700 }}>
+                ✓
+              </span>
+            )}
           </button>
         ))}
       </div>
 
       <Divider />
 
+      {/* UI Density */}
       <SectionHeader title="Interface Density" description="Control row spacing in lists and tables." />
       <div style={{ display: 'flex', gap: '0.875rem', marginBottom: '1.5rem' }}>
         {(['comfortable', 'compact'] as const).map((d) => (
@@ -329,6 +352,7 @@ const AppearanceTab: React.FC = () => {
               textAlign: 'left',
             }}
           >
+            {/* Mini density preview */}
             <div style={{ display: 'flex', flexDirection: 'column', gap: d === 'comfortable' ? '4px' : '2px' }}>
               {[65, 50, 80].map((w, i) => (
                 <div key={i} style={{ height: d === 'comfortable' ? 5 : 3, width: `${w}%`, background: density === d ? 'var(--color-brand-300)' : 'var(--color-border)', borderRadius: 2 }} />
@@ -343,7 +367,11 @@ const AppearanceTab: React.FC = () => {
 
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
         <Button onClick={handleSave}>Save preferences</Button>
-        {saved && <span style={{ fontSize: '0.875rem', color: 'var(--color-success)' }}>✓ Preferences saved</span>}
+        {saved && (
+          <span style={{ fontSize: '0.875rem', color: 'var(--color-success)', display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
+            ✓ Preferences saved
+          </span>
+        )}
       </div>
     </div>
   );
@@ -355,11 +383,11 @@ const NotificationsTab: React.FC = () => {
   const { data: prefs } = useGetUserPreferencesQuery();
   const [updatePrefs, { isLoading: isSavingPrefs }] = useUpdateUserPreferencesMutation();
 
-  const [ticketAssigned, setTicketAssigned]   = useState(prefs?.emailOnTicketAssigned ?? true);
-  const [ticketReplied, setTicketReplied]     = useState(prefs?.emailOnNewReply ?? true);
-  const [slaWarning, setSlaWarning]           = useState(prefs?.emailOnSLAWarning ?? true);
+  const [ticketAssigned, setTicketAssigned] = useState(prefs?.emailOnTicketAssigned ?? true);
+  const [ticketReplied, setTicketReplied] = useState(prefs?.emailOnNewReply ?? true);
+  const [slaWarning, setSlaWarning] = useState(prefs?.emailOnSLAWarning ?? true);
   const [escalationAlert, setEscalationAlert] = useState(prefs?.emailOnEscalation ?? true);
-  const [dailyDigest, setDailyDigest]         = useState(prefs?.emailDailyDigest ?? false);
+  const [dailyDigest, setDailyDigest] = useState(prefs?.emailDailyDigest ?? false);
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
 
@@ -406,6 +434,9 @@ const NotificationsTab: React.FC = () => {
       <NotifRow label="Customer replied" hint="When a customer posts a new message" value={ticketReplied} onChange={setTicketReplied} />
       <NotifRow label="SLA at risk" hint="When a ticket is approaching its SLA deadline" value={slaWarning} onChange={setSlaWarning} />
       <NotifRow label="Escalation alert" hint="When a ticket is escalated and unassigned" value={escalationAlert} onChange={setEscalationAlert} />
+
+      <Divider />
+
       <NotifRow label="Daily digest email" hint="A summary of your queue activity each morning" value={dailyDigest} onChange={setDailyDigest} />
       {saveError && (
         <div style={{ marginTop: '0.75rem', padding: '0.625rem 0.875rem', background: '#fee2e2', border: '1px solid #fca5a5', borderRadius: 'var(--radius-md)', fontSize: '0.8125rem', color: '#b91c1c' }}>
@@ -424,16 +455,16 @@ const NotificationsTab: React.FC = () => {
 
 const SecurityTab: React.FC = () => {
   const [changePassword, { isLoading: isChanging }] = useChangePasswordMutation();
-  const [currentPw, setCurrentPw]   = useState('');
-  const [newPw, setNewPw]           = useState('');
-  const [confirmPw, setConfirmPw]   = useState('');
-  const [error, setError]           = useState('');
-  const [success, setSuccess]       = useState(false);
+  const [currentPw, setCurrentPw] = useState('');
+  const [newPw, setNewPw] = useState('');
+  const [confirmPw, setConfirmPw] = useState('');
+  const [error, setError] = useState('');
+  const [success, setSuccess] = useState(false);
 
   const strength = newPw.length === 0 ? 0
     : newPw.length < 8 ? 1
-    : /[A-Z]/.test(newPw) && /[0-9]/.test(newPw) && /[^A-Za-z0-9]/.test(newPw) ? 4
-    : newPw.length >= 12 ? 3 : 2;
+      : /[A-Z]/.test(newPw) && /[0-9]/.test(newPw) && /[^A-Za-z0-9]/.test(newPw) ? 4
+        : newPw.length >= 12 ? 3 : 2;
 
   const strengthLabel = ['', 'Weak', 'Fair', 'Good', 'Strong'];
   const strengthColor = ['', '#ef4444', '#f59e0b', '#3b82f6', '#22c55e'];
@@ -497,9 +528,10 @@ const SecurityTab: React.FC = () => {
       </div>
 
       <Divider />
+
       <SectionHeader title="Active Sessions" />
-      <div style={{ padding: '0.875rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '0.75rem', maxWidth: '26rem' }}>
-        <span style={{ fontSize: '1.25rem' }}>💻</span>
+      <Card hover style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '0.75rem', maxWidth: '26rem' }}>
+        <span style={{ fontSize: '1.25rem', display: 'inline-flex' }}><Icon icon={Laptop} size="md" /></span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>This device</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>Active now · Browser session</div>
@@ -507,7 +539,7 @@ const SecurityTab: React.FC = () => {
         <span style={{ padding: '0.25rem 0.5rem', background: '#dcfce7', color: '#15803d', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600 }}>
           Current
         </span>
-      </div>
+      </Card>
       <Button variant="secondary" size="sm">Sign out all other sessions</Button>
     </div>
   );
@@ -515,11 +547,11 @@ const SecurityTab: React.FC = () => {
 
 // ── Tab nav ──────────────────────────────────────────────────────────────────
 
-const TABS: Array<{ id: SettingsTab; label: string; icon: string }> = [
-  { id: 'profile',       label: 'Profile',       icon: '👤' },
-  { id: 'appearance',    label: 'Appearance',     icon: '🎨' },
-  { id: 'notifications', label: 'Notifications',  icon: '🔔' },
-  { id: 'security',      label: 'Security',       icon: '🔒' },
+const TABS: Array<{ id: SettingsTab; label: string; icon: LucideIcon }> = [
+  { id: 'profile', label: 'Profile', icon: User },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'security', label: 'Security', icon: Shield },
 ];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -559,13 +591,15 @@ export const UserSettingsPage: React.FC = () => {
                   textAlign: 'left', transition: 'background 0.15s',
                 }}
               >
-                <span style={{ fontSize: '0.9375rem', width: 18, textAlign: 'center' }}>{tab.icon}</span>
+                <span style={{ fontSize: '0.9375rem', width: 18, textAlign: 'center' }}>
+                  <Icon icon={tab.icon} size="md" />
+                </span>
                 {tab.label}
               </button>
             ))}
           </Card>
 
-          <div style={{ marginTop: '1rem', padding: '0.875rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-subtle)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', textAlign: 'center' }}>
+          <Card hover padding="0.875rem" style={{ marginTop: '1rem', background: 'var(--color-bg-subtle)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', textAlign: 'center' }}>
             <Avatar name={session?.displayName ?? 'Agent'} size={44} />
             <div>
               <div style={{ fontSize: '0.8125rem', fontWeight: 600 }}>{session?.displayName}</div>
@@ -573,15 +607,15 @@ export const UserSettingsPage: React.FC = () => {
                 {session?.role?.replace(/_/g, ' ').toLowerCase()}
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Content */}
-        <Card>
-          {activeTab === 'profile'       && <ProfileTab session={session} />}
-          {activeTab === 'appearance'    && <AppearanceTab />}
+        <Card hover>
+          {activeTab === 'profile' && <ProfileTab session={session} />}
+          {activeTab === 'appearance' && <AppearanceTab />}
           {activeTab === 'notifications' && <NotificationsTab />}
-          {activeTab === 'security'      && <SecurityTab />}
+          {activeTab === 'security' && <SecurityTab />}
         </Card>
       </div>
     </div>

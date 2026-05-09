@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef, useLayoutEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Button, Card, Avatar, ConfirmDialog, Skeleton, useToast, PermissionGate } from '@3sc/ui';
+import { Button, Card, Avatar, ConfirmDialog, Skeleton, useToast, PermissionGate, MetricCard, MetricGrid, Icon } from '@3sc/ui';
 import { Permission, TicketPriority, SLAState } from '@3sc/types';
 import type { EscalatedTicket } from '@3sc/types';
 import {
@@ -10,6 +10,7 @@ import {
   useAssignEscalationMutation,
   useResolveEscalationMutation,
 } from '@3sc/api';
+import { AlertOctagon, UserX, ShieldAlert, Timer, AlertTriangle } from 'lucide-react';
 
 // ── Helpers ───────────────────────────────────────────────────────
 
@@ -286,24 +287,41 @@ export const EscalationsPage: React.FC = () => {
       </div>
 
       {/* Summary bar */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))', gap: '0.75rem', marginBottom: '1rem' }}>
-        {[
-          { label: 'Total',      value: escalations.length,                                                   color: 'var(--color-text)' },
-          { label: 'Unassigned', value: unassignedCount,                                                      color: unassignedCount > 0 ? '#dc2626' : 'var(--color-success)' },
-          { label: 'Breached',   value: breachedCount,                                                        color: breachedCount > 0 ? '#dc2626' : 'var(--color-success)' },
-          { label: 'At Risk',    value: escalations.filter(e => e.slaState === SLAState.AT_RISK).length,      color: '#d97706' },
-        ].map(m => (
-          <div key={m.label} style={{ background: 'var(--color-bg)', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', padding: '0.625rem 0.875rem', display: 'flex', flexDirection: 'column', gap: '0.125rem' }}>
-            <span style={{ fontSize: '0.625rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--color-text-muted)' }}>{m.label}</span>
-            <span style={{ fontSize: '1.375rem', fontWeight: 700, color: m.color, fontFamily: 'var(--font-mono)', lineHeight: 1 }}>{m.value}</span>
-          </div>
-        ))}
-      </div>
+      <MetricGrid density="compact">
+        <MetricCard
+          title="Total escalations"
+          value={escalations.length}
+          variant="neutral"
+          icon={<Icon icon={AlertOctagon} />}
+          state="ready"
+        />
+        <MetricCard
+          title="Unassigned"
+          value={unassignedCount}
+          variant={unassignedCount > 0 ? 'danger' : 'success'}
+          icon={<Icon icon={UserX} />}
+          state="ready"
+        />
+        <MetricCard
+          title="Breached"
+          value={breachedCount}
+          variant={breachedCount > 0 ? 'danger' : 'success'}
+          icon={<Icon icon={ShieldAlert} />}
+          state="ready"
+        />
+        <MetricCard
+          title="At risk"
+          value={escalations.filter(e => e.slaState === SLAState.AT_RISK).length}
+          variant="warning"
+          icon={<Icon icon={Timer} />}
+          state="ready"
+        />
+      </MetricGrid>
 
       {/* Alert banner */}
       {unassignedCount > 0 && (
         <div style={{ padding: '0.75rem 1rem', background: '#fefce8', border: '1px solid #fde68a', borderRadius: 'var(--radius-md)', marginBottom: '1.25rem', fontSize: '0.8125rem', color: '#92400e', fontWeight: 500, display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
-          <span>⚠️</span>
+          <span style={{ display: 'inline-flex' }}><Icon icon={AlertTriangle} size="sm" /></span>
           <span>{unassignedCount === 1 ? '1 escalated ticket is unassigned. Assign immediately to meet SLA.' : `${unassignedCount} escalated tickets are unassigned. Assign immediately to meet SLA.`}</span>
         </div>
       )}
@@ -333,7 +351,7 @@ export const EscalationsPage: React.FC = () => {
 
       {/* Table */}
       <Card style={{ padding: 0 }}>
-        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.7fr 1.1fr 1.4fr 1.1fr 1.5fr', gap: '0.75rem', padding: '0.625rem 1rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)', borderRadius: 'var(--radius-lg) var(--radius-lg) 0 0' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.7fr 1.1fr 1.4fr 1.1fr 1.5fr', gap: '0.75rem', padding: '0.625rem 1rem', borderBottom: '1px solid var(--color-border)', background: 'var(--color-bg-subtle)' }}>
           {['Ticket', 'Client', 'Severity', 'Escalated By', 'Reason', 'Time in Escalation', 'Actions'].map(h => (
             <span key={h} style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--color-text-muted)' }}>{h}</span>
           ))}
@@ -354,7 +372,7 @@ export const EscalationsPage: React.FC = () => {
             return (
               <div
                 key={escalation.ticketId}
-                style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.7fr 1.1fr 1.4fr 1.1fr 1.5fr', gap: '0.75rem', padding: '0.875rem 1rem', borderBottom: idx === filtered.length - 1 ? 'none' : '1px solid var(--color-border)', borderRadius: idx === filtered.length - 1 ? '0 0 var(--radius-lg) var(--radius-lg)' : undefined, alignItems: 'center', transition: 'background var(--transition-fast)' }}
+                style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 0.7fr 1.1fr 1.4fr 1.1fr 1.5fr', gap: '0.75rem', padding: '0.875rem 1rem', borderBottom: idx === filtered.length - 1 ? 'none' : '1px solid var(--color-border)', alignItems: 'center', transition: 'background var(--transition-fast)' }}
                 onMouseEnter={e => { e.currentTarget.style.background = 'var(--color-bg-subtle)'; }}
                 onMouseLeave={e => { e.currentTarget.style.background = ''; }}
               >

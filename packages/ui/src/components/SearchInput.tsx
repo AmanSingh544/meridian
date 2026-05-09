@@ -1,4 +1,5 @@
 import React from 'react';
+import { Search, X } from 'lucide-react';
 
 export interface SearchInputProps {
   value: string;
@@ -22,8 +23,9 @@ export const SearchInput: React.FC<SearchInputProps> = ({
       color: 'var(--color-text-muted)',
       fontSize: '0.875rem',
       pointerEvents: 'none',
+      display: 'inline-flex',
     }}>
-      🔍
+      <Search size={16} />
     </span>
     <input
       type="text"
@@ -59,7 +61,7 @@ export const SearchInput: React.FC<SearchInputProps> = ({
           padding: '0.125rem',
         }}
       >
-        ✕
+        <X size={14} />
       </button>
     )}
   </div>

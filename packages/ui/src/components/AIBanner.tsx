@@ -1,6 +1,8 @@
 import React from 'react';
+import { Bot } from 'lucide-react';
 import { Button } from './Button';
 import { ConfidenceBar } from './ConfidenceBar';
+import { Icon } from './Icon';
 
 export interface AIBannerProps {
   title: string;
@@ -36,7 +38,7 @@ export const AIBanner: React.FC<AIBannerProps> = ({
         alignItems: 'center',
         gap: '0.5rem',
       }}>
-        <span>🤖</span>
+        <span style={{ display: 'inline-flex' }}><Icon icon={Bot} size="sm" /></span>
         AI suggestions are temporarily unavailable
       </div>
     );
@@ -74,7 +76,7 @@ export const AIBanner: React.FC<AIBannerProps> = ({
       border: '1px solid #c7d2fe',
     }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.75rem' }}>
-        <span style={{ fontSize: '1.25rem', marginTop: '0.125rem' }}>🤖</span>
+        <span style={{ display: 'inline-flex', marginTop: '0.125rem' }}><Icon icon={Bot} size="md" /></span>
         <div style={{ flex: 1 }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
             <span style={{

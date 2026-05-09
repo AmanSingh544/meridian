@@ -1,4 +1,6 @@
 import React from 'react';
+import { Bot } from 'lucide-react';
+import { Icon } from './Icon';
 
 export interface AIChatLauncherProps {
   onClick: () => void;
@@ -32,7 +34,7 @@ export const AIChatLauncher: React.FC<AIChatLauncherProps> = ({ onClick, unreadC
       onMouseLeave={e => { (e.target as HTMLButtonElement).style.transform = 'scale(1)'; }}
       aria-label="Open AI Copilot"
     >
-      <span>🤖</span>
+      <span style={{ display: 'inline-flex' }}><Icon icon={Bot} size="md" /></span>
       {unreadCount > 0 && (
         <span style={{
           position: 'absolute',

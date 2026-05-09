@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Button, Card, useToast, PermissionGate, ErrorState } from '@3sc/ui';
+import { Button, Card, useToast, PermissionGate, ErrorState, Icon } from '@3sc/ui';
+import { Lightbulb } from 'lucide-react';
 import { Permission } from '@3sc/types';
 import { useGetSLAPolicyQuery, useUpdateSLAPolicyMutation } from '@3sc/api';
 
@@ -119,9 +120,8 @@ interface PreviewPanelProps {
 }
 
 const PreviewPanel: React.FC<PreviewPanelProps> = ({ priorities, businessHours }) => (
-  <div style={{
-    background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)',
-    borderRadius: 'var(--radius-md)', padding: '1rem',
+  <Card hover padding="1rem" style={{
+    background: 'var(--color-bg-subtle)',
   }}>
     <div style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.07em', color: 'var(--color-text-muted)', marginBottom: '0.75rem' }}>
       Timeline Preview — S1 Ticket
@@ -156,7 +156,7 @@ const PreviewPanel: React.FC<PreviewPanelProps> = ({ priorities, businessHours }
         </div>
       );
     })()}
-  </div>
+  </Card>
 );
 
 // ── Main page ─────────────────────────────────────────────────────
@@ -395,7 +395,7 @@ export const SLAConfigPage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
 
           {/* Escalation Rules */}
-          <Card>
+          <Card hover>
             {sectionHeader('Escalation Rules')}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
@@ -429,7 +429,7 @@ export const SLAConfigPage: React.FC = () => {
           </Card>
 
           {/* Business Hours */}
-          <Card>
+          <Card hover>
             {sectionHeader('Business Hours')}
             <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
               <div>
@@ -485,14 +485,13 @@ export const SLAConfigPage: React.FC = () => {
       )}
 
       {/* Per-org overrides hint */}
-      <div style={{
-        marginTop: '1rem', padding: '0.75rem 1rem',
-        background: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)',
-        borderRadius: 'var(--radius-md)',
+      <Card hover style={{
+        marginTop: '1rem',
+        background: 'var(--color-bg-subtle)',
         fontSize: '0.8125rem', color: 'var(--color-text-muted)',
         display: 'flex', alignItems: 'center', gap: '0.5rem',
       }}>
-        <span>💡</span>
+        <span style={{ display: 'inline-flex', color: 'var(--color-warning)' }}><Icon icon={Lightbulb} size="sm" /></span>
         <span>
           These are the global default SLA settings. Per-client SLA overrides can be configured from
           the <button
@@ -502,7 +501,7 @@ export const SLAConfigPage: React.FC = () => {
             Organizations
           </button> page.
         </span>
-      </div>
+      </Card>
     </div>
   );
 };

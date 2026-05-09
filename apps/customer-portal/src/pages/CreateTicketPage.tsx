@@ -11,8 +11,9 @@ import {
   useGetSimilarTicketsQuery,
 } from '@3sc/api';
 import { useDocumentTitle, useDebouncedValue, useIsMobile, usePermissions } from '@3sc/hooks';
-import { Button, Input, TextArea, Select, FileUpload, Card, useToast, ConfidenceBar } from '@3sc/ui';
+import { Button, Input, TextArea, Select, FileUpload, Card, useToast, ConfidenceBar, Icon } from '@3sc/ui';
 import { TicketPriority, TicketCategory, Permission } from '@3sc/types';
+import { Bot, Search } from 'lucide-react';
 
 // ── Priority / Category options ───────────────────────────────────────────────
 
@@ -99,7 +100,7 @@ const AIClassifySidebar: React.FC<AIClassifySidebarProps> = ({
     }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.625rem' }}>
         <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem' }}>
-          <span style={{ fontSize: '1rem' }}>🤖</span>
+          <span style={{ fontSize: '1rem', display: 'inline-flex' }}><Icon icon={Bot} size="md" /></span>
           <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#4338ca' }}>
             AI Suggestion
           </span>
@@ -593,7 +594,7 @@ export const CreateTicketPage: React.FC = () => {
               padding: '1rem',
             }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.375rem', marginBottom: '0.625rem' }}>
-                <span style={{ fontSize: '1rem' }}>🔍</span>
+                <span style={{ fontSize: '1rem', display: 'inline-flex' }}><Icon icon={Search} size="md" /></span>
                 <span style={{ fontSize: '0.6875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.06em', color: '#15803d' }}>
                   Similar Resolved Tickets
                 </span>

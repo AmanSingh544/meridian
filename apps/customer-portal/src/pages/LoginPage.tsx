@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useDispatch, useSelector } from 'react-redux';
-import { Button, Input } from '@3sc/ui';
+import { Button, Input, Icon } from '@3sc/ui';
 import { login, clearError } from '../features/auth/authSlice';
 import type { AppDispatch, RootState } from '../store';
 import { useDocumentTitle } from '@3sc/hooks';
 import { MeridianAnimatedLogo } from '../components/MeridianAnimatedLogo';
+import { Zap, Bell, Bot } from 'lucide-react';
 
 export const LoginPage: React.FC = () => {
   useDocumentTitle('Sign In');
@@ -89,9 +90,9 @@ export const LoginPage: React.FC = () => {
 
           <div style={{ marginTop: '2.5rem', display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             {[
-              { icon: '⚡', text: 'Instant ticket tracking & resolution' },
-              { icon: '🔔', text: 'Real-time notifications and updates' },
-              { icon: '🤖', text: 'AI-powered support suggestions' },
+              { icon: Zap, text: 'Instant ticket tracking & resolution' },
+              { icon: Bell, text: 'Real-time notifications and updates' },
+              { icon: Bot, text: 'AI-powered support suggestions' },
             ].map(({ icon, text }) => (
               <div key={text} style={{
                 display: 'flex', alignItems: 'center', gap: '0.75rem',
@@ -101,7 +102,7 @@ export const LoginPage: React.FC = () => {
                 padding: '0.625rem 1rem',
                 textAlign: 'left',
               }}>
-                <span style={{ fontSize: '1rem', flexShrink: 0 }}>{icon}</span>
+                <span style={{ fontSize: '1rem', flexShrink: 0, display: 'inline-flex' }}><Icon icon={icon} size="sm" /></span>
                 <span style={{ fontSize: '0.8125rem', color: '#94a3b8', lineHeight: 1.4 }}>{text}</span>
               </div>
             ))}

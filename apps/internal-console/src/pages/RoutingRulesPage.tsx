@@ -7,7 +7,7 @@ import {
   useGetEscalationAgentsQuery,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Button, Select, Skeleton, useToast, PermissionGate, ConfirmDialog } from '@3sc/ui';
+import { Button, Select, Skeleton, useToast, PermissionGate, ConfirmDialog, Card } from '@3sc/ui';
 import { Permission, TicketPriority, TicketCategory } from '@3sc/types';
 import type { RoutingRule, RoutingCondition } from '@3sc/types';
 
@@ -563,19 +563,16 @@ export const RoutingRulesPage: React.FC = () => {
                   <div
                     draggable={canEdit}
                     onDragStart={() => handleDragStart(idx)}
-                    onDragOver={e => e.preventDefault()}
+                    onDragOver={(e: React.DragEvent) => e.preventDefault()}
                     onDrop={() => handleDrop(idx)}
-                    style={{
-                      background: 'var(--color-bg)', border: '1px solid var(--color-border)',
-                      borderRadius: 'var(--radius-md)',
-                      padding: '0.875rem 1rem',
-                      opacity: rule.isActive ? 1 : 0.55,
-                      cursor: canEdit ? 'grab' : 'default',
-                      transition: 'border-color var(--transition-fast), box-shadow var(--transition-fast)',
-                    }}
-                    onMouseEnter={e => { e.currentTarget.style.borderColor = 'var(--color-brand-500)'; }}
-                    onMouseLeave={e => { e.currentTarget.style.borderColor = 'var(--color-border)'; }}
+                    style={{ opacity: rule.isActive ? 1 : 0.55 }}
                   >
+                    <Card
+                      hover
+                      style={{
+                        cursor: canEdit ? 'grab' : 'default',
+                      }}
+                    >
                     <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
                       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.875rem', flex: 1, minWidth: 0 }}>
                         <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.125rem', flexShrink: 0 }}>
@@ -647,7 +644,8 @@ export const RoutingRulesPage: React.FC = () => {
                         </PermissionGate>
                       </div>
                     </div>
-                  </div>
+                  </Card>
+                </div>
                 )}
               </div>
             );

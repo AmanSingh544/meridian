@@ -57,19 +57,12 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, riskLevel, riskReaso
     .map(c => ({ status: c.status, label: c.label }));
 
   return (
-    <div
-      style={{
-        background: 'var(--color-bg)',
-        border: '1px solid var(--color-border)',
-        borderRadius: '0.5rem',
-        padding: '0.75rem',
-        cursor: 'pointer',
-        position: 'relative',
-        transition: 'box-shadow 0.15s',
-      }}
-      onMouseEnter={e => (e.currentTarget.style.boxShadow = '0 2px 8px rgba(0,0,0,0.12)')}
-      onMouseLeave={e => (e.currentTarget.style.boxShadow = 'none')}
+    <Card
+      hover
       onClick={() => onSelect(feature)}
+      style={{
+        position: 'relative',
+      }}
     >
       {/* category dot + title */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.375rem' }}>
@@ -154,7 +147,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, riskLevel, riskReaso
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 };
 
@@ -309,12 +302,11 @@ const DeliveryBoardPage: React.FC = () => {
         {COLUMNS.map(col => {
           const cards = byStatus(col.status);
           return (
-            <div
+            <Card
               key={col.status}
               style={{
                 minWidth: '13.5rem', flex: '0 0 13.5rem',
                 background: 'var(--color-bg-muted)',
-                borderRadius: '0.625rem',
                 padding: '0.75rem',
                 display: 'flex',
                 flexDirection: 'column',
@@ -362,7 +354,7 @@ const DeliveryBoardPage: React.FC = () => {
                   + Add
                 </button>
               )}
-            </div>
+            </Card>
           );
         })}
       </div>
@@ -388,7 +380,7 @@ const DeliveryBoardPage: React.FC = () => {
               <div><span style={{ color: 'var(--color-text-muted)' }}>Visibility</span><br /><strong>{selectedFeature.isPublic ? 'Public (on roadmap)' : 'Internal only'}</strong></div>
             </div>
             {riskByFeature[selectedFeature.id] && (
-              <Card style={{ padding: '0.75rem', background: RISK_COLORS[riskByFeature[selectedFeature.id].riskLevel]?.bg }}>
+              <Card hover style={{ padding: '0.75rem', background: RISK_COLORS[riskByFeature[selectedFeature.id].riskLevel]?.bg }}>
                 <div style={{ fontWeight: 600, fontSize: '0.8125rem', color: RISK_COLORS[riskByFeature[selectedFeature.id].riskLevel]?.text }}>
                   {riskByFeature[selectedFeature.id].riskLevel} Risk
                 </div>
@@ -470,7 +462,7 @@ const DeliveryBoardPage: React.FC = () => {
               Based on upvotes, client demand, and business value, here are the recommended next moves:
             </p>
             {prioritised.map(p => (
-              <Card key={p.featureId} style={{ padding: '0.875rem' }}>
+              <Card hover key={p.featureId} style={{ padding: '0.875rem' }}>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.375rem' }}>
                   <span style={{ fontWeight: 700, fontSize: '0.875rem' }}>{p.featureTitle}</span>
                   <span style={{ fontSize: '0.6875rem', fontWeight: 700, padding: '0.1rem 0.5rem', borderRadius: 4, background: 'var(--color-brand-100))', color: 'var(--color-brand-600)' }}>Score: {p.score}</span>

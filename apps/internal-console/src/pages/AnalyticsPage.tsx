@@ -8,7 +8,8 @@ import {
   useGetSLAComplianceQuery,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, MetricCard, DataTable, Skeleton, ErrorState, Button, PermissionGate } from '@3sc/ui';
+import { Card, MetricCard, MetricGrid, DataTable, Skeleton, ErrorState, Button, PermissionGate, Icon } from '@3sc/ui';
+import { Download, CheckCircle2, BarChart3, Timer } from 'lucide-react';
 import { Permission } from '@3sc/types';
 import type { AgentPerformance } from '@3sc/types';
 
@@ -130,7 +131,7 @@ const ChartCard: React.FC<{
   loading?: boolean;
   children: React.ReactNode;
 }> = ({ title, subtitle, legend, loading, children }) => (
-  <Card>
+  <Card hover>
     <div style={{ marginBottom: '1rem' }}>
       <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
         <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>{title}</h3>
@@ -246,12 +247,12 @@ export const AnalyticsPage: React.FC = () => {
       </div>
 
       {/* KPI row */}
-      <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(12rem, 1fr))', gap: '0.875rem', marginBottom: '1.5rem' }}>
-        <MetricCard title="Tickets Created"  value={volLoading ? '…' : totalCreated}            icon="📥" color="var(--color-info)" />
-        <MetricCard title="Tickets Resolved" value={volLoading ? '…' : totalResolved}           icon="✅" color="var(--color-success)" />
-        <MetricCard title="SLA Compliance"   value={avgSLA != null ? `${avgSLA}%` : '…'}        icon="📊" color="var(--color-warning)" />
-        <MetricCard title="Avg Resolution"   value={avgResH != null ? `${avgResH}h` : '…'}      icon="⏱" color="var(--color-text-muted)" />
-      </div>
+      <MetricGrid density="compact">
+        <MetricCard title="Tickets created"  value={volLoading ? '…' : totalCreated}            icon={<Icon icon={Download} />} variant="info" />
+        <MetricCard title="Tickets resolved" value={volLoading ? '…' : totalResolved}           icon={<Icon icon={CheckCircle2} />} variant="success" />
+        <MetricCard title="SLA compliance"   value={avgSLA != null ? `${avgSLA}%` : '…'}        icon={<Icon icon={BarChart3} />} variant="warning" />
+        <MetricCard title="Avg resolution"   value={avgResH != null ? `${avgResH}h` : '…'}      icon={<Icon icon={Timer} />} variant="neutral" />
+      </MetricGrid>
 
       {/* 4-chart grid */}
       <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem', marginBottom: '1.5rem' }}>

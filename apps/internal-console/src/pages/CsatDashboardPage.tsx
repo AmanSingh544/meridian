@@ -6,7 +6,8 @@ import {
   useGetFeedbackThemesQuery,
 } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
-import { Card, MetricCard, Skeleton, Button } from '@3sc/ui';
+import { Card, MetricCard, MetricGrid, Skeleton, Button, Icon } from '@3sc/ui';
+import { Star, TrendingUp, MessageSquare, BarChart3, Smile, Flag } from 'lucide-react';
 
 // ── Chart primitives ─────────────────────────────────────────────────────────
 
@@ -389,51 +390,44 @@ export const CsatDashboardPage: React.FC = () => {
       </div>
 
       {/* KPI row */}
-      <div
-        style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fill, minmax(10rem, 1fr))',
-          gap: '0.875rem',
-          marginBottom: '1.5rem',
-        }}
-      >
+      <MetricGrid density="compact">
         <MetricCard
-          title="Average CSAT Score"
+          title="Average CSAT score"
           value={kpiLoading ? '…' : kpiData ? `${kpiData.avgCsat.toFixed(1)}/5` : '—'}
-          icon="⭐"
-          color="#f59e0b"
+          icon={<Icon icon={Star} />}
+          variant="warning"
         />
         <MetricCard
-          title="NPS Score"
+          title="NPS score"
           value={kpiLoading ? '…' : kpiData?.npsScore ?? '—'}
-          icon="📈"
-          color="#22c55e"
+          icon={<Icon icon={TrendingUp} />}
+          variant="success"
         />
         <MetricCard
-          title="Total Responses"
+          title="Total responses"
           value={kpiLoading ? '…' : kpiData?.totalResponses ?? '—'}
-          icon="💬"
-          color="#3b82f6"
+          icon={<Icon icon={MessageSquare} />}
+          variant="info"
         />
         <MetricCard
-          title="Response Rate"
+          title="Response rate"
           value={kpiLoading ? '…' : kpiData ? `${kpiData.responseRate}%` : '—'}
-          icon="📊"
-          color="#8b5cf6"
+          icon={<Icon icon={BarChart3} />}
+          variant="brand"
         />
         <MetricCard
-          title="Positive Sentiment"
+          title="Positive sentiment"
           value={kpiLoading ? '…' : kpiData ? `${kpiData.positiveSentiment}%` : '—'}
-          icon="😊"
-          color="#10b981"
+          icon={<Icon icon={Smile} />}
+          variant="success"
         />
         <MetricCard
-          title="Flagged Issues"
+          title="Flagged issues"
           value={kpiLoading ? '…' : kpiData?.flaggedIssues ?? '—'}
-          icon="🚩"
-          color="#ef4444"
+          icon={<Icon icon={Flag} />}
+          variant="danger"
         />
-      </div>
+      </MetricGrid>
 
       {/* Charts row */}
       <div
@@ -444,7 +438,7 @@ export const CsatDashboardPage: React.FC = () => {
           marginBottom: '1.5rem',
         }}
       >
-        <Card>
+        <Card hover>
           <div style={{ marginBottom: '1rem' }}>
             <div style={{ display: 'flex', alignItems: 'baseline', justifyContent: 'space-between' }}>
               <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
@@ -465,7 +459,7 @@ export const CsatDashboardPage: React.FC = () => {
           {trendLoading ? <Skeleton height="10rem" /> : trendData && <TrendChart data={trendData} />}
         </Card>
 
-        <Card>
+        <Card hover>
           <div style={{ marginBottom: '1rem' }}>
             <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600, fontFamily: 'var(--font-display)' }}>
               NPS Breakdown
@@ -484,7 +478,7 @@ export const CsatDashboardPage: React.FC = () => {
       </div>
 
       {/* Feedback Themes */}
-      <Card>
+      <Card hover>
         <h3
           style={{
             margin: '0 0 1rem',

@@ -2,8 +2,9 @@ import React, { useState, useRef } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { useGetKBArticleQuery, useVoteHelpfulMutation, useSearchKBQuery, useAskKBMutation } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, ErrorState, AIAnswerCard, MarkdownRenderer } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, ErrorState, AIAnswerCard, MarkdownRenderer, Icon } from '@3sc/ui';
 import { formatDate } from '@3sc/utils';
+import { Bot } from 'lucide-react';
 import type { AIKBAnswer } from '@3sc/types';
 
 export const KnowledgeBaseArticlePage: React.FC = () => {
@@ -179,7 +180,7 @@ export const KnowledgeBaseArticlePage: React.FC = () => {
           borderRadius: 'var(--radius-lg)',
         }}>
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem' }}>
-            <span style={{ fontSize: '1.125rem' }}>🤖</span>
+            <span style={{ fontSize: '1.125rem', display: 'inline-flex' }}><Icon icon={Bot} size="md" /></span>
             <h3 style={{ margin: 0, fontSize: '1rem', fontWeight: 700, color: 'var(--color-brand-600)' }}>Ask AI about this topic</h3>
           </div>
           <p style={{ margin: '0 0 1rem', fontSize: '0.8125rem', color: 'var(--color-text-secondary)' }}>
@@ -259,7 +260,7 @@ export const KnowledgeBaseArticlePage: React.FC = () => {
 
         {/* Related articles */}
         {article.relatedArticleIds.length > 0 && (
-          <Card>
+          <Card hover>
             <h3 style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', fontWeight: 700, textTransform: 'uppercase', letterSpacing: '0.04em', color: 'var(--color-text-muted)' }}>
               Related Articles
             </h3>

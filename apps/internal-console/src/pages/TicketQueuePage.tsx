@@ -35,7 +35,7 @@ export const TicketQueuePage: React.FC = () => {
     sortBy,
     sortOrder,
     page,
-    page_size: 25,
+    page_size: 10,
   }), [debouncedSearch, statusFilter, priorityFilter, sortBy, sortOrder, page, view, session?.userId]);
 
   const { data, isLoading } = useGetTicketsQuery(filters);
@@ -51,7 +51,7 @@ export const TicketQueuePage: React.FC = () => {
 
   const columns = [
     {
-      key: 'ticketNumber', header: '#', width: '6rem', sortable: true,
+      key: 'ticketNumber', header: 'Ticket', width: '6rem', sortable: true,
       render: (t: Ticket) => (
         <span style={{ fontFamily: 'var(--font-mono)', fontSize: '0.75rem', color: 'var(--color-brand-600)' }}>
           {t.ticketNumber}
@@ -59,7 +59,7 @@ export const TicketQueuePage: React.FC = () => {
       ),
     },
     {
-      key: 'priority', header: 'P', width: '4rem',
+      key: 'priority', header: 'Priority', width: '4rem',
       render: (t: Ticket) => <PriorityBadge priority={t.priority} />,
     },
     {

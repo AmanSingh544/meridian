@@ -1,6 +1,8 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { useDocumentTitle, useSession, useTheme, applyAccentColor, applyDensity } from '@3sc/hooks';
-import { Card, Button, Avatar } from '@3sc/ui';
+import { Card, Button, Avatar, Icon } from '@3sc/ui';
+import { Laptop, User, Palette, Bell, Shield } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import {
   useGetUserPreferencesQuery,
   useUpdateUserPreferencesMutation,
@@ -109,7 +111,7 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
     if (!me) return;
     setFirstName(me.firstName ?? '');
     setLastName(me.lastName ?? '');
-    setJobTitle((me as any).jobTitle ?? '');
+    setJobTitle((me as any).job_title ?? '');
     setPhone((me as any).phone ?? '');
   }, [me]);
 
@@ -259,11 +261,8 @@ const AppearanceTab: React.FC = () => {
       </div>
 
       {/* Live preview strip */}
-      <div style={{
+      <Card hover style={{
         marginTop: '1rem', marginBottom: '1.5rem',
-        padding: '0.75rem 1rem',
-        borderRadius: 'var(--radius-md)',
-        border: '1px solid var(--color-border)',
         background: 'var(--color-bg-subtle)',
         display: 'flex', alignItems: 'center', gap: '0.75rem',
         fontSize: '0.8125rem',
@@ -281,7 +280,7 @@ const AppearanceTab: React.FC = () => {
         <div style={{ padding: '0.375rem 0.75rem', borderRadius: 'var(--radius-md)', background: selectedAccent.value, color: '#fff', fontSize: '0.75rem', fontWeight: 600 }}>
           {selectedAccent.label}
         </div>
-      </div>
+      </Card>
 
       <Divider />
 
@@ -524,8 +523,8 @@ const SecurityTab: React.FC = () => {
       <Divider />
 
       <SectionHeader title="Active Sessions" description="Devices currently signed in to your account." />
-      <div style={{ padding: '0.875rem 1rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '0.75rem', maxWidth: '28rem' }}>
-        <span style={{ fontSize: '1.25rem' }}>💻</span>
+      <Card hover style={{ display: 'flex', alignItems: 'center', gap: '0.875rem', marginBottom: '0.75rem', maxWidth: '28rem' }}>
+        <span style={{ fontSize: '1.25rem', display: 'inline-flex' }}><Icon icon={Laptop} size="md" /></span>
         <div style={{ flex: 1 }}>
           <div style={{ fontSize: '0.875rem', fontWeight: 500 }}>This device</div>
           <div style={{ fontSize: '0.75rem', color: 'var(--color-text-muted)', marginTop: '0.125rem' }}>
@@ -535,7 +534,7 @@ const SecurityTab: React.FC = () => {
         <span style={{ padding: '0.25rem 0.5rem', background: '#dcfce7', color: '#15803d', borderRadius: 'var(--radius-sm)', fontSize: '0.75rem', fontWeight: 600 }}>
           Current
         </span>
-      </div>
+      </Card>
       <Button variant="secondary" size="sm">Sign out all other sessions</Button>
     </div>
   );
@@ -543,11 +542,11 @@ const SecurityTab: React.FC = () => {
 
 // ── Tab navigation ───────────────────────────────────────────────────────────
 
-const TABS: Array<{ id: SettingsTab; label: string; icon: string }> = [
-  { id: 'profile', label: 'Profile', icon: '👤' },
-  { id: 'appearance', label: 'Appearance', icon: '🎨' },
-  { id: 'notifications', label: 'Notifications', icon: '🔔' },
-  { id: 'security', label: 'Security', icon: '🔒' },
+const TABS: Array<{ id: SettingsTab; label: string; icon: LucideIcon }> = [
+  { id: 'profile', label: 'Profile', icon: User },
+  { id: 'appearance', label: 'Appearance', icon: Palette },
+  { id: 'notifications', label: 'Notifications', icon: Bell },
+  { id: 'security', label: 'Security', icon: Shield },
 ];
 
 // ── Page ─────────────────────────────────────────────────────────────────────
@@ -588,14 +587,16 @@ export const UserSettingsPage: React.FC = () => {
                   textAlign: 'left', transition: 'background 0.15s',
                 }}
               >
-                <span style={{ fontSize: '1rem', width: 20, textAlign: 'center' }}>{tab.icon}</span>
+                <span style={{ fontSize: '1rem', width: 20, textAlign: 'center' }}>
+                  <Icon icon={tab.icon} size="md" />
+                </span>
                 {tab.label}
               </button>
             ))}
           </Card>
 
           {/* User summary */}
-          <div style={{ marginTop: '1rem', padding: '0.875rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-md)', background: 'var(--color-bg-subtle)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', textAlign: 'center' }}>
+          <Card hover padding="0.875rem" style={{ marginTop: '1rem', background: 'var(--color-bg-subtle)', display: 'flex', flexDirection: 'column', alignItems: 'center', gap: '0.5rem', textAlign: 'center' }}>
             <Avatar name={session?.displayName ?? 'User'} size={48} />
             <div>
               <div style={{ fontSize: '0.8125rem', fontWeight: 600, color: 'var(--color-text)' }}>
@@ -605,11 +606,11 @@ export const UserSettingsPage: React.FC = () => {
                 {session?.role?.replace(/_/g, ' ').toLowerCase()}
               </div>
             </div>
-          </div>
+          </Card>
         </div>
 
         {/* Main content area */}
-        <Card>
+        <Card hover>
           {activeTab === 'profile' && <ProfileTab session={session} />}
           {activeTab === 'appearance' && <AppearanceTab />}
           {activeTab === 'notifications' && <NotificationsTab />}

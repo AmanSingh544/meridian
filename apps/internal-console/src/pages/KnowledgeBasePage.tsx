@@ -3,7 +3,8 @@ import { useNavigate } from 'react-router-dom';
 import { useSearchKBQuery, useGetKBCategoriesQuery, useDeleteKBArticleMutation, useGetKBGapsQuery } from '@3sc/api';
 import { formatDate } from '@3sc/utils';
 import { useDocumentTitle, useDebouncedValue, usePermissions } from '@3sc/hooks';
-import { Card, Badge, Button, SearchInput, Skeleton, EmptyState, ConfirmDialog, Tabs, useToast } from '@3sc/ui';
+import { Card, Badge, Button, SearchInput, Skeleton, EmptyState, ConfirmDialog, Tabs, useToast, Icon } from '@3sc/ui';
+import { FileText, FolderTree, CheckCircle2 } from 'lucide-react';
 import { Permission } from '@3sc/types';
 import type { AIKBGap } from '@3sc/types';
 
@@ -85,7 +86,7 @@ export const KnowledgeBasePage: React.FC = () => {
             </div>
           ) : articles.length === 0 ? (
             <EmptyState
-              icon="📄"
+              icon={<Icon icon={FileText} size="xl" />}
               title="No articles found"
               description={debouncedSearch ? 'No articles match your search.' : 'Get started by creating your first article.'}
               action={canManage ? (
@@ -181,7 +182,7 @@ export const KnowledgeBasePage: React.FC = () => {
           ) : categories && categories.length > 0 ? (
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(16rem, 1fr))', gap: '0.75rem' }}>
               {categories.map((cat) => (
-                <Card key={cat.id}>
+                <Card hover key={cat.id}>
                   <h3 style={{ margin: 0, fontSize: '0.9375rem', fontWeight: 600 }}>{cat.name}</h3>
                   {cat.description && (
                     <p style={{ margin: '0.25rem 0 0', fontSize: '0.8125rem', color: 'var(--color-text-secondary)', lineHeight: 1.4 }}>
@@ -195,7 +196,7 @@ export const KnowledgeBasePage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <EmptyState icon="🗂️" title="No categories" description="Categories are created automatically when articles are assigned to them." />
+            <EmptyState icon={<Icon icon={FolderTree} size="xl" />} title="No categories" description="Categories are created automatically when articles are assigned to them." />
           )}
         </div>
       )}
@@ -219,7 +220,7 @@ export const KnowledgeBasePage: React.FC = () => {
           ) : kbGaps && kbGaps.length > 0 ? (
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
               {kbGaps.map((gap: AIKBGap) => (
-                <Card key={gap.id} style={{ borderLeft: `3px solid ${gap.priority === 'high' ? 'var(--color-danger)' : gap.priority === 'medium' ? 'var(--color-warning)' : 'var(--color-border)'}` }}>
+                <Card hover key={gap.id} style={{ borderLeft: `3px solid ${gap.priority === 'high' ? 'var(--color-danger)' : gap.priority === 'medium' ? 'var(--color-warning)' : 'var(--color-border)'}` }}>
                   <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: '1rem' }}>
                     <div style={{ flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
@@ -256,7 +257,7 @@ export const KnowledgeBasePage: React.FC = () => {
               ))}
             </div>
           ) : (
-            <EmptyState icon="✅" title="No gaps detected" description="Your knowledge base covers the topics customers are asking about." />
+            <EmptyState icon={<Icon icon={CheckCircle2} size="xl" />} title="No gaps detected" description="Your knowledge base covers the topics customers are asking about." />
           )}
         </div>
       )}

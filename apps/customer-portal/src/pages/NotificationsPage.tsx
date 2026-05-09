@@ -6,21 +6,26 @@ import {
   useMarkAllNotificationsReadMutation,
 } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
-import { Button, Card, EmptyState, Skeleton, Tabs, TabPanel, Badge } from '@3sc/ui';
+import { Button, Card, EmptyState, Skeleton, Tabs, TabPanel, Badge, Icon } from '@3sc/ui';
+import { Bell, Ticket, Pencil, User, RefreshCw, MessageSquare, AtSign, AlertTriangle, AlertOctagon, FolderOpen, Settings, Pin } from 'lucide-react';
 import { formatRelativeTime } from '@3sc/utils';
 import type { Notification, NotificationType } from '@3sc/types';
 
-const typeIcons: Record<string, string> = {
-  ticket_created: '🎫',
-  ticket_updated: '✏️',
-  ticket_assigned: '👤',
-  ticket_status_changed: '🔄',
-  ticket_comment: '💬',
-  ticket_mention: '@',
-  sla_at_risk: '⚠️',
-  sla_breached: '🚨',
-  project_update: '📁',
-  system: '⚙️',
+const NotificationIcon: React.FC<{ type: string }> = ({ type }) => {
+  const map: Record<string, typeof Ticket> = {
+    ticket_created: Ticket,
+    ticket_updated: Pencil,
+    ticket_assigned: User,
+    ticket_status_changed: RefreshCw,
+    ticket_comment: MessageSquare,
+    ticket_mention: AtSign,
+    sla_at_risk: AlertTriangle,
+    sla_breached: AlertOctagon,
+    project_update: FolderOpen,
+    system: Settings,
+  };
+  const Comp = map[type] || Pin;
+  return <span style={{ display: 'inline-flex', verticalAlign: 'middle' }}><Icon icon={Comp} size="md" /></span>;
 };
 
 export const NotificationsPage: React.FC = () => {
@@ -67,24 +72,22 @@ export const NotificationsPage: React.FC = () => {
           {Array.from({ length: 5 }).map((_, i) => <Skeleton key={i} height="4rem" />)}
         </div>
       ) : data?.data.length === 0 ? (
-        <EmptyState icon="🔔" title="No notifications" description="You're all caught up." />
+        <EmptyState icon={<Icon icon={Bell} size="xl" />} title="No notifications" description="You're all caught up." />
       ) : (
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.375rem' }}>
           {data?.data.map((n) => (
-            <div
+            <Card
+              hover
               key={n.id}
               onClick={() => handleClick(n)}
               style={{
-                display: 'flex', gap: '0.75rem', padding: '0.875rem 1rem',
                 background: n.isRead ? 'var(--color-bg)' : 'var(--color-brand-50)',
-                border: `1px solid ${n.isRead ? 'var(--color-border)' : 'var(--color-brand-200)'}`,
-                borderRadius: 'var(--radius-md)',
+                borderColor: n.isRead ? 'var(--color-border)' : 'var(--color-brand-200)',
                 cursor: 'pointer',
-                transition: 'var(--transition-fast)',
               }}
             >
               <span style={{ fontSize: '1.25rem', flexShrink: 0 }}>
-                {typeIcons[n.type] || '📌'}
+                <NotificationIcon type={n.type} />
               </span>
               <div style={{ flex: 1, minWidth: 0 }}>
                 <p style={{
@@ -113,7 +116,7 @@ export const NotificationsPage: React.FC = () => {
                   flexShrink: 0, marginTop: '0.375rem',
                 }} />
               )}
-            </div>
+            </Card>
           ))}
         </div>
       )}

@@ -1,4 +1,6 @@
 import React from 'react';
+import { ChevronDown } from 'lucide-react';
+import { Icon } from './Icon';
 
 // ── Shared Field Styles ─────────────────────────────────────────
 const fieldBaseStyle: React.CSSProperties = {
@@ -144,29 +146,39 @@ export const Select: React.FC<SelectProps> = ({
     // <div style={{ marginBottom: '1rem' }}>
     <div style={{ }}>
       {label && <label htmlFor={fieldId} style={labelStyle}>{label}</label>}
-      <select
-        id={fieldId}
-        style={{
-          ...fieldBaseStyle,
-          cursor: 'pointer',
-          appearance: 'none',
-          backgroundImage: `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 12 12'%3E%3Cpath fill='%236b7280' d='M6 8L1 3h10z'/%3E%3C/svg%3E")`,
-          backgroundRepeat: 'no-repeat',
-          backgroundPosition: 'right 0.75rem center',
-          paddingRight: '2.5rem',
-          borderColor: error ? 'var(--color-danger)' : undefined,
-          ...style,
-        }}
-        aria-invalid={!!error}
-        {...props}
-      >
+      <div style={{ position: 'relative' }}>
+        <select
+          id={fieldId}
+          style={{
+            ...fieldBaseStyle,
+            cursor: 'pointer',
+            appearance: 'none',
+            paddingRight: '2.5rem',
+            borderColor: error ? 'var(--color-danger)' : undefined,
+            ...style,
+          }}
+          aria-invalid={!!error}
+          {...props}
+        >
         {placeholder && <option value="">{placeholder}</option>}
         {options.map((opt) => (
           <option key={opt.value} value={opt.value} disabled={opt.disabled}>
             {opt.label}
           </option>
         ))}
-      </select>
+        </select>
+        <span style={{
+          position: 'absolute',
+          right: '0.75rem',
+          top: '50%',
+          transform: 'translateY(-50%)',
+          pointerEvents: 'none',
+          color: 'var(--color-text-muted)',
+          display: 'inline-flex',
+        }}>
+          <Icon icon={ChevronDown} size="sm" />
+        </span>
+      </div>
       {error && <p style={errorStyle} role="alert">{error}</p>}
       {hint && !error && <p style={hintStyle}>{hint}</p>}
     </div>

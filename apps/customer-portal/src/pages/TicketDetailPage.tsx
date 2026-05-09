@@ -14,9 +14,10 @@ import {
   ThreadedComments, Timeline, TimelineItem,
   AIBanner, ErrorState, Skeleton, Badge, Drawer,
   ConfirmDialog, Select, Input, TextArea, PermissionGate,
-  AttachmentChip, AttachmentPreviewModal,
+  AttachmentChip, AttachmentPreviewModal, Icon,
 } from '@3sc/ui';
 import { TicketStatus, TicketPriority, TicketCategory, Permission, UserRole } from '@3sc/types';
+import { Bot } from 'lucide-react';
 import { getStatusLabel, formatDateTime, getStatusColor, uploadWithLimit } from '@3sc/utils';
 import type { TicketUpdatePayload } from '@3sc/types';
 
@@ -294,7 +295,7 @@ export const TicketDetailPage: React.FC = () => {
           <div style={{ display: 'flex', gap: '0.5rem', flexWrap: 'wrap' }}>
             {permissions.canUseAI() && (
               <Button variant="ghost" size="sm" onClick={() => setShowSummary(true)}>
-                🤖 AI Summary
+                <span style={{ display: 'inline-flex', marginRight: '0.375rem' }}><Icon icon={Bot} size="sm" /></span> AI Summary
               </Button>
             )}
             <PermissionGate permission={Permission.TICKET_EDIT}>
@@ -323,7 +324,7 @@ export const TicketDetailPage: React.FC = () => {
         <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
 
           {/* Description */}
-          <Card>
+          <Card hover>
             <h3 style={{ margin: '0 0 0.75rem', fontSize: '0.875rem', fontWeight: 600 }}>Description</h3>
             <div style={{
               fontSize: '0.875rem', lineHeight: 1.7, color: 'var(--color-text-secondary)',
@@ -356,7 +357,7 @@ export const TicketDetailPage: React.FC = () => {
           </Card>
 
           {/* Conversation */}
-          <Card>
+          <Card hover>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
               <h3 style={{ margin: 0, fontSize: '0.875rem', fontWeight: 600 }}>
                 Conversation ({visibleComments.filter((c) => !c.isInternal).length})
@@ -394,7 +395,7 @@ export const TicketDetailPage: React.FC = () => {
 
           {/* SLA */}
           {ticket.sla && (
-            <Card padding="0">
+            <Card hover padding="0">
               <div style={{ padding: '0.75rem 1rem', borderBottom: '1px solid var(--color-border)' }}>
                 <h4 style={{ margin: 0, fontSize: '0.8125rem', fontWeight: 600 }}>SLA Status</h4>
               </div>
@@ -405,7 +406,7 @@ export const TicketDetailPage: React.FC = () => {
           )}
 
           {/* Details */}
-          <Card>
+          <Card hover>
             <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.8125rem', fontWeight: 600 }}>Details</h4>
             <div style={{ display: 'flex', flexDirection: 'column', gap: '0.625rem', fontSize: '0.8125rem' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between' }}>
@@ -454,7 +455,7 @@ export const TicketDetailPage: React.FC = () => {
           </Card>
 
           {/* Status Timeline — richer version */}
-          <Card>
+          <Card hover>
             <h4 style={{ margin: '0 0 0.75rem', fontSize: '0.8125rem', fontWeight: 600 }}>Timeline</h4>
             <Timeline>
               {statusHistory.map((event, idx) => (

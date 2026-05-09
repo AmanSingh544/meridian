@@ -2,7 +2,8 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAiSemanticSearchQuery } from '@3sc/api';
 import { useDocumentTitle, useDebouncedValue, usePermissions } from '@3sc/hooks';
-import { Card, SearchInput, EmptyState, Skeleton, Badge, ConfidenceBar, Select } from '@3sc/ui';
+import { Card, SearchInput, EmptyState, Skeleton, Badge, ConfidenceBar, Select, Icon } from '@3sc/ui';
+import { Search } from 'lucide-react';
 
 export const SearchPage: React.FC = () => {
   useDocumentTitle('Search');
@@ -101,7 +102,7 @@ export const SearchPage: React.FC = () => {
           </div>
         ) : (
           <EmptyState
-            icon="🔍"
+            icon={<Icon icon={Search} size="xl" />}
             title="No results found"
             description="Try different keywords or broaden your search scope."
           />
@@ -110,7 +111,7 @@ export const SearchPage: React.FC = () => {
         <div style={{
           textAlign: 'center', padding: '4rem 1rem', color: 'var(--color-text-muted)',
         }}>
-          <div style={{ fontSize: '2.5rem', marginBottom: '0.75rem' }}>🔎</div>
+          <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '0.75rem' }}><Icon icon={Search} size="xl" /></div>
           <p style={{ fontSize: '0.875rem' }}>Start typing to search across all content</p>
         </div>
       )}

@@ -2,8 +2,9 @@ import React, { useState } from 'react';
 import { useGetAuditLogsQuery } from '@3sc/api';
 import { useDocumentTitle } from '@3sc/hooks';
 import {
-  Card, Skeleton, EmptyState, ErrorState, SearchInput, Badge, Pagination,
+  Card, Skeleton, EmptyState, ErrorState, SearchInput, Badge, Pagination, Icon,
 } from '@3sc/ui';
+import { ClipboardList } from 'lucide-react';
 import type { AuditLogEntry } from '@3sc/types';
 import { formatDateTime } from '@3sc/utils';
 
@@ -120,10 +121,7 @@ export const AuditLogPage: React.FC = () => {
   const [search, setSearch] = useState('');
   const [page, setPage] = useState(1);
 
-  // Live query — commented out until API is ready
-  // const { data, isLoading, error, refetch } = useGetAuditLogsQuery({ page, page_size: 20 });
-  const { data, isLoading, error, refetch } = { data: auditMock, isLoading: false, error: null, refetch: () => {} };
-
+   const { data, isLoading, error, refetch } = useGetAuditLogsQuery({ page, page_size: 20 });
   const filtered = (data?.data ?? []).filter((entry) => {
     const q = search.toLowerCase();
     return (
@@ -161,7 +159,7 @@ export const AuditLogPage: React.FC = () => {
           {Array.from({ length: 6 }).map((_, i) => <Skeleton key={i} height="4rem" />)}
         </div>
       ) : filtered.length === 0 ? (
-        <EmptyState icon="📋" title="No audit entries found" description="Try adjusting your search." />
+        <EmptyState icon={<Icon icon={ClipboardList} size="xl" />} title="No audit entries found" description="Try adjusting your search." />
       ) : (
         <Card padding="0">
           {filtered.map((entry, idx) => {
