@@ -389,11 +389,13 @@ export const CreateTicketPage: React.FC = () => {
       }}>
 
         {/* ── Left: Form card ── */}
-        <div style={{
+        {/* <div style={{
           display: 'flex', flexDirection: 'column', gap: '1.5rem',
           maxHeight: '95vh', overflowY: 'auto', scrollbarWidth: 'auto', padding: '1rem', background: 'var(--color-bg)'
-        }}>
-          <Card style={{ padding: '1.5rem' }}>
+        }}> */}
+          <Card style={{ 
+          display: 'flex', flexDirection: 'column', gap: '1.5rem',
+          maxHeight: '85%', overflowY: 'auto', scrollbarWidth: 'auto', padding: '1rem', background: 'var(--color-bg)' }}>
             <form onSubmit={handleSubmit}>
               <Input
                 label="Subject"
@@ -507,7 +509,7 @@ export const CreateTicketPage: React.FC = () => {
               </div>
             </form>
           </Card>
-        </div>
+        {/* </div> */}
 
         {/* ── Right: AI sidebar ── */}
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.75rem' }}>
