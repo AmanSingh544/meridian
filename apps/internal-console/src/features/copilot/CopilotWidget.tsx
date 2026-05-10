@@ -4,7 +4,6 @@ import { AIChatPanel, AIChatLauncher, AIToolCallIndicator } from '@3sc/ui';
 import type { ChatMessage } from '@3sc/ui';
 import {
   useCreateCopilotSessionMutation,
-  useExecuteCopilotDraftMutation,
   useGetCopilotSessionsQuery,
   useGetCopilotHistoryQuery,
   useRenameCopilotSessionMutation,
@@ -61,7 +60,6 @@ export const CopilotWidget: React.FC = () => {
     skip: !conversationId || messages.length > 0,
   });
   const [createSession] = useCreateCopilotSessionMutation();
-  const [executeDraft] = useExecuteCopilotDraftMutation();
   const [renameSession] = useRenameCopilotSessionMutation();
   const [deleteSession] = useDeleteCopilotSessionMutation();
 
@@ -106,7 +104,9 @@ export const CopilotWidget: React.FC = () => {
           setActiveTools(event.tools);
           break;
         case 'tool_end':
-          setActiveTools(null);
+          // Briefly show the done state so the user sees the tool completed
+          setActiveTools((prev) => prev);  // keep label visible
+          setTimeout(() => setActiveTools(null), 800);
           break;
         case 'draft':
           streamingRef.current = false;
@@ -174,18 +174,18 @@ export const CopilotWidget: React.FC = () => {
     });
   }, [ensureSession, pageContext]);
 
-  const handleConfirmDraft = useCallback(async (tool: string, payload: Record<string, unknown>) => {
+  const handleConfirmDraft = useCallback((tool: string, payload: Record<string, unknown>) => {
     if (!conversationId) return;
     setIsLoading(true);
-    try {
-      await executeDraft({ conversationId, tool, payload }).unwrap();
-      setMessages((prev) => [...prev, { role: 'assistant', content: '✅ Action confirmed and executed successfully.' }]);
-    } catch (err: any) {
-      setMessages((prev) => [...prev, { role: 'assistant', content: `❌ Failed: ${err.message ?? 'Unknown error'}` }]);
-    } finally {
-      setIsLoading(false);
-    }
-  }, [conversationId, executeDraft]);
+    // Execute draft and stream the LLM's acknowledgement — all via the socket.
+    // The gateway runs executeDraft then immediately streams a follow-up response.
+    socketRef.current.executeDraft(conversationId, tool, payload, {
+      page: pageContext.page,
+      entityType: pageContext.entityType,
+      entityId: pageContext.entityId,
+    });
+    // isLoading and messages are updated by incoming 'token'/'done'/'error' socket events
+  }, [conversationId, pageContext]);
 
   const handleSelectConversation = useCallback((id: string) => {
     setConversationId(id);
