@@ -337,6 +337,7 @@ function mapRawUser(raw: any): import('@3sc/types').User {
     role: (raw.role ?? 'CLIENT_USER') as import('@3sc/types').UserRole,
     permissions: raw.permissions ?? [],
     organizationId: raw.tenant_id ?? raw.organizationId ?? '',
+    organizationDetail: raw.organizationDetail ?? undefined,
     isActive: raw.is_active ?? raw.isActive ?? true,
     lastLoginAt: raw.last_login_at ?? raw.lastLoginAt ?? undefined,
     created_at: raw.created_at ?? '',
