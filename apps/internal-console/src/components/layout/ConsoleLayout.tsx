@@ -146,7 +146,7 @@ export const ConsoleLayout: React.FC = () => {
           {/* Logo */}
           <div
             style={{
-              padding: '0.875rem 1rem',
+              padding: '0.499rem 1rem',
               borderBottom: '1px solid var(--color-border)',
               display: 'flex',
               alignItems: 'center',
