@@ -518,6 +518,7 @@ export interface User {
   /** Effective permissions — role defaults ± overrides ± revocations. Source of truth from backend. */
   permissions: Permission[];
   organizationId: UUID;
+  organizationDetail? : Organization;  // nested org details, populated in some endpoints for convenience
   isActive: boolean;
   lastLoginAt?: ISO8601;
   created_at: ISO8601;

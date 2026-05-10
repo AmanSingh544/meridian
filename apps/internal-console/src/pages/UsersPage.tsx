@@ -1250,7 +1250,7 @@ export const UsersPage: React.FC = () => {
     const users = (data?.data ?? []).filter(u => clientRoles.includes(u.role));
     const map: Record<string, User[]> = {};
     users.forEach(u => {
-      const org = u.organizationId ?? 'Unknown Org';
+      const org = u.organizationDetail?.name ?? 'Unknown Org';
       if (!map[org]) map[org] = [];
       map[org].push(u);
     });
