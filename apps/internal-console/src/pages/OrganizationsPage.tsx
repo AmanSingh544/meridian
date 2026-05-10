@@ -1,10 +1,157 @@
 import React, { useState } from 'react';
-import { useGetOrganizationsQuery, useUpdateOrganizationMutation } from '@3sc/api';
+import { useGetOrganizationsQuery, useUpdateOrganizationMutation, useCreateOrganizationMutation } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
 import { DataTable, Pagination, Badge, Avatar, Button, Modal, Input, PermissionGate } from '@3sc/ui';
 import { Permission } from '@3sc/types';
 import type { Organization } from '@3sc/types';
 import { formatDateTime } from '@3sc/utils';
+
+// ── Helpers ────────────────────────────────────────────────────────────────────
+
+function toSlug(value: string): string {
+  return value
+    .toLowerCase()
+    .trim()
+    .replace(/[^a-z0-9]+/g, '-')
+    .replace(/^-+|-+$/g, '');
+}
+
+const PLAN_OPTIONS = ['free', 'starter', 'pro', 'business', 'enterprise'];
+
+// ── Create Organization Modal ──────────────────────────────────────────────────
+
+interface CreateModalProps {
+  onClose: () => void;
+  onCreated: () => void;
+}
+
+const CreateOrganizationModal: React.FC<CreateModalProps> = ({ onClose, onCreated }) => {
+  const [createOrg, { isLoading: creating }] = useCreateOrganizationMutation();
+
+  const [name, setName] = useState('');
+  const [slug, setSlug] = useState('');
+  const [slugTouched, setSlugTouched] = useState(false);
+  const [domain, setDomain] = useState('');
+  const [plan, setPlan] = useState('free');
+  const [isActive, setIsActive] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  const handleNameChange = (value: string) => {
+    setName(value);
+    if (!slugTouched) setSlug(toSlug(value));
+  };
+
+  const handleSlugChange = (value: string) => {
+    setSlugTouched(true);
+    setSlug(toSlug(value));
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!name.trim() || !slug.trim()) return;
+    setError(null);
+    try {
+      await createOrg({
+        name: name.trim(),
+        slug: slug.trim(),
+        domain: domain.trim() || undefined,
+        plan,
+        is_active: isActive,
+      }).unwrap();
+      onCreated();
+      onClose();
+    } catch (err: any) {
+      setError(err?.data?.message ?? 'Failed to create organization.');
+    }
+  };
+
+  const isValid = name.trim().length > 0 && slug.trim().length > 0;
+
+  const selectStyle: React.CSSProperties = {
+    width: '100%',
+    padding: '0.625rem 0.75rem',
+    border: '1px solid var(--color-border-strong)',
+    borderRadius: 'var(--radius-md)',
+    fontSize: '0.875rem',
+    background: 'var(--color-bg)',
+    color: 'var(--color-text)',
+    fontFamily: 'var(--font-body)',
+    boxSizing: 'border-box',
+    appearance: 'none',
+    cursor: 'pointer',
+  };
+
+  return (
+    <Modal isOpen onClose={onClose} title="New Organization" width="30rem">
+      <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
+
+        <Input
+          label="Organization Name *"
+          value={name}
+          onChange={(e) => handleNameChange(e.target.value)}
+          placeholder="Acme Corp"
+          autoFocus
+        />
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}>
+            Slug *
+          </label>
+          <Input
+            value={slug}
+            onChange={(e) => handleSlugChange(e.target.value)}
+            placeholder="acme-corp"
+          />
+          <p style={{ margin: '0.25rem 0 0', fontSize: '0.75rem', color: 'var(--color-text-muted)' }}>
+            Unique URL-friendly identifier. Auto-generated from name.
+          </p>
+        </div>
+
+        <Input
+          label="Domain"
+          value={domain}
+          onChange={(e) => setDomain(e.target.value)}
+          placeholder="acme.com"
+        />
+
+        <div>
+          <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}>
+            Plan
+          </label>
+          <select value={plan} onChange={(e) => setPlan(e.target.value)} style={selectStyle}>
+            {PLAN_OPTIONS.map((p) => (
+              <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+            ))}
+          </select>
+        </div>
+
+        <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={isActive}
+            onChange={(e) => setIsActive(e.target.checked)}
+          />
+          Active tenant
+        </label>
+
+        {error && (
+          <p style={{ margin: 0, fontSize: '0.8125rem', color: 'var(--color-danger)', background: 'var(--color-danger-bg, #fef2f2)', padding: '0.625rem 0.75rem', borderRadius: 'var(--radius-md)' }}>
+            {error}
+          </p>
+        )}
+
+        <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end', paddingTop: '0.25rem' }}>
+          <Button variant="ghost" type="button" onClick={onClose}>Cancel</Button>
+          <Button type="submit" loading={creating} disabled={!isValid}>
+            Create Organization
+          </Button>
+        </div>
+      </form>
+    </Modal>
+  );
+};
+
+// ── Page ───────────────────────────────────────────────────────────────────────
 
 export const OrganizationsPage: React.FC = () => {
   useDocumentTitle('Organizations');
@@ -13,6 +160,8 @@ export const OrganizationsPage: React.FC = () => {
 
   const { data, isLoading, refetch } = useGetOrganizationsQuery({ page });
   const [updateOrg, { isLoading: saving }] = useUpdateOrganizationMutation();
+
+  const [showCreate, setShowCreate] = useState(false);
 
   // ── Edit modal state ───────────────────────────────────────────
   const [editOrg, setEditOrg] = useState<Organization | null>(null);
@@ -24,7 +173,7 @@ export const OrganizationsPage: React.FC = () => {
     setEditOrg(org);
     setEditName(org.name);
     setEditDomain(org.domain ?? '');
-    setEditActive(org.isActive);
+    setEditActive(org.is_active);
   };
 
   const handleSave = async () => {
@@ -38,7 +187,7 @@ export const OrganizationsPage: React.FC = () => {
   };
 
   const handleToggleActive = async (org: Organization) => {
-    await updateOrg({ id: org.id, payload: { isActive: !org.isActive } }).unwrap();
+    await updateOrg({ id: org.id, payload: { isActive: !org.is_active } }).unwrap();
     refetch();
   };
 
@@ -71,10 +220,10 @@ export const OrganizationsPage: React.FC = () => {
       key: 'status', header: 'Status', width: '6rem',
       render: (o: Organization) => (
         <Badge
-          color={o.isActive ? 'var(--color-success)' : 'var(--color-text-muted)'}
-          bgColor={o.isActive ? '#dcfce7' : '#f3f4f6'}
+          color={o.is_active ? 'var(--color-success)' : 'var(--color-text-muted)'}
+          bgColor={o.is_active ? '#dcfce7' : '#f3f4f6'}
         >
-          {o.isActive ? 'Active' : 'Inactive'}
+          {o.is_active ? 'Active' : 'Inactive'}
         </Badge>
       ),
     },
@@ -100,9 +249,9 @@ export const OrganizationsPage: React.FC = () => {
             <Button
               variant="ghost" size="sm"
               onClick={(e: React.MouseEvent) => { e.stopPropagation(); handleToggleActive(o); }}
-              style={{ color: o.isActive ? 'var(--color-danger)' : 'var(--color-success)' }}
+              style={{ color: o.is_active ? 'var(--color-danger)' : 'var(--color-success)' }}
             >
-              {o.isActive ? 'Deactivate' : 'Activate'}
+              {o.is_active ? 'Deactivate' : 'Activate'}
             </Button>
           </PermissionGate>
         </div>
@@ -112,7 +261,6 @@ export const OrganizationsPage: React.FC = () => {
 
   return (
     <div>
-      
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.25rem' }}>
         <div>
           <h1 style={{ margin: 0, fontSize: '1.375rem', fontWeight: 700, fontFamily: 'var(--font-display)' }}>
@@ -122,6 +270,11 @@ export const OrganizationsPage: React.FC = () => {
             {data?.total ?? 0} total tenants
           </p>
         </div>
+        <PermissionGate permission={Permission.MEMBER_MANAGE}>
+          <Button onClick={() => setShowCreate(true)}>
+            + New Organization
+          </Button>
+        </PermissionGate>
       </div>
 
       <DataTable
@@ -133,6 +286,14 @@ export const OrganizationsPage: React.FC = () => {
       />
 
       {data && <Pagination page={data.page} total_pages={data.total_pages} onPageChange={setPage} />}
+
+      {/* ── Create Organization Modal ──────────────────────────── */}
+      {showCreate && (
+        <CreateOrganizationModal
+          onClose={() => setShowCreate(false)}
+          onCreated={() => { refetch(); }}
+        />
+      )}
 
       {/* ── Edit Organization Modal ────────────────────────────── */}
       {editOrg && (

@@ -584,7 +584,7 @@ export interface Organization {
   slug: string;
   logoUrl?: string;
   domain?: string;
-  isActive: boolean;
+  is_active: boolean;
   plan?: string;
   created_at: ISO8601;
   updated_at: ISO8601;
@@ -713,7 +713,7 @@ export interface SystemAIFeatureSettings {
   kbDeflectionEnabled: boolean;
   autoGenerateKBArticlesEnabled: boolean;
   weeklyProjectSummariesEnabled: boolean;
-  aiProvider?: 'anthropic' | 'openai' | 'custom';
+  aiProvider?: 'anthropic' | 'openai' | 'cerebras' | 'custom';
   aiModelName?: string;
   aiApiKey?: string;           // write-only — never returned in GET
   aiBaseUrl?: string;          // for custom OpenAI-compatible providers

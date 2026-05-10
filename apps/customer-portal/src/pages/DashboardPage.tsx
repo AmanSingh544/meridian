@@ -15,7 +15,7 @@ import {
   Skeleton, ErrorState, EmptyState,
   AIBanner, PermissionGate, Icon, IconButton,
 } from '@3sc/ui';
-import { Plus, BarChart3, FolderOpen, TrendingUp, Timer, Ticket as TicketImg, AlertTriangle, Bot, Search, X, RefreshCw, MessageSquare, User, CheckCircle2, Pin } from 'lucide-react';
+import { Plus, BarChart3, FolderOpen, TrendingUp, Timer, Ticket as TicketImg, AlertTriangle, Clock, Bot, Search, X, RefreshCw, MessageSquare, User, CheckCircle2, Pin } from 'lucide-react';
 import { Permission, UserRole, TicketStatus, TicketPriority, TicketCategory, SLAState } from '@3sc/types';
 import type { Ticket, Project, DashboardSummary, AIDigest, ActivityItem, SLAComplianceData, ResolutionTrendData } from '@3sc/types';
 import { formatRelativeTime } from '@3sc/utils';
@@ -23,26 +23,26 @@ import { formatRelativeTime } from '@3sc/utils';
 // ── Colour maps ───────────────────────────────────────────────────────────────
 
 const STATUS_COLORS: Record<TicketStatus, string> = {
-  [TicketStatus.OPEN]:         'var(--color-warning)',
+  [TicketStatus.OPEN]: 'var(--color-warning)',
   [TicketStatus.ACKNOWLEDGED]: 'var(--color-info)',
-  [TicketStatus.IN_PROGRESS]:  'var(--color-brand-500)',
-  [TicketStatus.RESOLVED]:     'var(--color-success)',
-  [TicketStatus.CLOSED]:       'var(--color-text-muted)',
+  [TicketStatus.IN_PROGRESS]: 'var(--color-brand-500)',
+  [TicketStatus.RESOLVED]: 'var(--color-success)',
+  [TicketStatus.CLOSED]: 'var(--color-text-muted)',
 };
 
 const PRIORITY_COLORS: Record<TicketPriority, string> = {
-  [TicketPriority.LOW]:      '#22c55e',
-  [TicketPriority.MEDIUM]:   '#f59e0b',
-  [TicketPriority.HIGH]:     '#f97316',
+  [TicketPriority.LOW]: '#22c55e',
+  [TicketPriority.MEDIUM]: '#f59e0b',
+  [TicketPriority.HIGH]: '#f97316',
   [TicketPriority.CRITICAL]: '#ef4444',
 };
 
 const STATUS_LABELS: Record<TicketStatus, string> = {
-  [TicketStatus.OPEN]:         'Open',
+  [TicketStatus.OPEN]: 'Open',
   [TicketStatus.ACKNOWLEDGED]: 'Acknowledged',
-  [TicketStatus.IN_PROGRESS]:  'In Progress',
-  [TicketStatus.RESOLVED]:     'Resolved',
-  [TicketStatus.CLOSED]:       'Closed',
+  [TicketStatus.IN_PROGRESS]: 'In Progress',
+  [TicketStatus.RESOLVED]: 'Resolved',
+  [TicketStatus.CLOSED]: 'Closed',
 };
 
 // ── Shared helpers ────────────────────────────────────────────────────────────
@@ -146,10 +146,10 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
   );
 
   // Pill counters
-  const openCount       = tickets.filter((t) => t.status === TicketStatus.OPEN).length;
+  const openCount = tickets.filter((t) => t.status === TicketStatus.OPEN).length;
   const inProgressCount = tickets.filter((t) => t.status === TicketStatus.IN_PROGRESS || t.status === TicketStatus.ACKNOWLEDGED).length;
-  const resolvedCount   = tickets.filter((t) => t.status === TicketStatus.RESOLVED).length;
-  const closedCount     = tickets.filter((t) => t.status === TicketStatus.CLOSED).length;
+  const resolvedCount = tickets.filter((t) => t.status === TicketStatus.RESOLVED).length;
+  const closedCount = tickets.filter((t) => t.status === TicketStatus.CLOSED).length;
 
   // "Awaiting reply" heuristic: active ticket, last update was > 6 hours ago
   const sixHoursAgo = new Date(Date.now() - 6 * 3_600_000);
@@ -225,12 +225,43 @@ const UserDashboard: React.FC<UserDashboardProps> = ({
           ))}
         </div>
       ) : (
-        <div style={{ display: 'flex', gap: '0.75rem', marginBottom: '1.5rem', flexWrap: 'wrap' }}>
-          <MetricPill label="Open" count={openCount} variant="warning" onClick={() => navigate(`/tickets?status=${TicketStatus.OPEN}`)} />
-          <MetricPill label="Awaiting reply" count={awaitingReplyCount} variant="info" onClick={() => navigate(`/tickets?status=${TicketStatus.OPEN}`)} />
-          <MetricPill label="In progress" count={inProgressCount} variant="brand" onClick={() => navigate(`/tickets?status=${TicketStatus.IN_PROGRESS}`)} />
-          <MetricPill label="Resolved" count={resolvedCount} variant="success" onClick={() => navigate(`/tickets?status=${TicketStatus.RESOLVED}`)} />
-        </div>
+        <MetricGrid >
+          <MetricCard
+            title="Open"
+            value={openCount}
+            icon={<Icon icon={AlertTriangle} />}
+            variant="warning"
+            onClick={() => navigate(`/tickets`)}
+            subtitle="Open tickets"
+          />
+
+          <MetricCard
+            title="Awaiting reply"
+            value={awaitingReplyCount}
+            icon={<Icon icon={Clock} />}
+            variant="info"
+            onClick={() => navigate(`/tickets`)}
+            subtitle="Waiting for your reply"
+          />
+
+          <MetricCard
+            title="In progress"
+            value={inProgressCount}
+            icon={<Icon icon={Timer} />}
+            variant="brand"
+            onClick={() => navigate(`/tickets`)}
+            subtitle="Tickets in progress"
+          />
+
+          <MetricCard
+            title="Resolved"
+            value={resolvedCount}
+            icon={<Icon icon={CheckCircle2} />}
+            variant="success"
+            onClick={() => navigate(`/tickets`)}
+            subtitle="Resolved tickets"
+          />
+        </MetricGrid>
       )}
 
       {/* ── Active Tickets + KB Sidebar ── */}
@@ -450,7 +481,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
 
   // Derived KPI values from tickets
   const ticketsThisWeek = tickets.filter((t) => new Date(t.created_at) >= sevenDaysAgo).length;
-  const stalledTickets  = tickets.filter((t) =>
+  const stalledTickets = tickets.filter((t) =>
     t.status !== TicketStatus.RESOLVED &&
     t.status !== TicketStatus.CLOSED &&
     new Date(t.created_at) < sevenDaysAgo
@@ -505,7 +536,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </div>
 
       {/* ── Zone 1: KPI Metric Grid ── */}
-      <MetricGrid>
+      <MetricGrid density='compact'>
         <MetricCard
           title="Open tickets"
           value={byStatus[TicketStatus.OPEN] ?? 0}
@@ -567,7 +598,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
               <IconButton icon={X} size="sm" label="Dismiss" onClick={() => setDigestDismissed(true)} />
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(18rem, 1fr))', gap: '1rem' }}>
+            <div style={{ display: 'flex', gap: '1rem' }}>
 
               {/* Needs Attention */}
               <Card hover padding="1.25rem" style={{ borderLeft: '3px solid var(--color-warning)' }}>
@@ -736,7 +767,7 @@ const AdminDashboard: React.FC<AdminDashboardProps> = ({
       </PermissionGate>
 
       {/* ── Zone 3: Projects + Activity ── */}
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 20rem', gap: '1.25rem', marginBottom: '1.5rem', alignItems: 'start' }}>
+      <div style={{ display: 'grid', gap: '1.25rem', marginBottom: '1.5rem', alignItems: 'start' }}>
 
         {/* Project Health Grid */}
         <PermissionGate permission={Permission.PROJECT_VIEW}>
@@ -957,7 +988,7 @@ export const DashboardPage: React.FC = () => {
   const { data: resolutionHistory = [] } =
     useGetResolutionTrendsQuery({ dateFrom: sixtyDaysAgo, dateTo: now }, { skip: !isAdmin });
 
-  const tickets  = ticketsResult?.data ?? [];
+  const tickets = ticketsResult?.data ?? [];
   const projects = projectsResult?.data ?? [];
 
   if (dashboardError && isAdmin) {

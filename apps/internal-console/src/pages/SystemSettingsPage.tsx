@@ -175,12 +175,14 @@ const AIModelSection: React.FC<AIModelSectionProps> = ({
   const providerOptions = [
     { value: 'anthropic', label: 'Anthropic Claude' },
     { value: 'openai', label: 'OpenAI' },
+    { value: 'cerebras', label: 'Cerebras' },
     { value: 'custom', label: 'Custom (OpenAI-compatible)' },
   ];
 
   const modelOptions: Record<string, string[]> = {
     anthropic: ['claude-sonnet-4-6', 'claude-opus-4-7', 'claude-haiku-4-5-20251001'],
     openai: ['gpt-4o', 'gpt-4o-mini', 'gpt-4-turbo'],
+    cerebras: ['zai-glm-4.7', 'gpt-oss-120b', 'qwen-3-235b-a22b-instruct-2507', 'llama3.1-8b'],
     custom: [],
   };
 

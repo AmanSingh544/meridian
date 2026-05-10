@@ -1017,6 +1017,12 @@ export const api = createApi({
       providesTags: ['Organization'],
     }),
 
+    createOrganization: builder.mutation<Organization, { name: string; slug: string; domain?: string; plan?: string; is_active?: boolean }>({
+      query: (body) => ({ url: '/organizations', method: 'POST', body }),
+      transformResponse: (response: ApiResponse<Organization>) => response.data,
+      invalidatesTags: ['Organization'],
+    }),
+
     updateOrganization: builder.mutation<Organization, { id: string; payload: Partial<Pick<Organization, 'name' | 'domain' | 'logoUrl' | 'isActive'>> }>({
       query: ({ id, payload }) => {
         const body: Record<string, unknown> = {};
@@ -2027,6 +2033,7 @@ export const {
   useInviteUserMutation,
   // Organizations
   useGetOrganizationsQuery,
+  useCreateOrganizationMutation,
   useUpdateOrganizationMutation,
   // Dashboard
   useGetDashboardQuery,
