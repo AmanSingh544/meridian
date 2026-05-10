@@ -1017,19 +1017,26 @@ export const api = createApi({
       providesTags: ['Organization'],
     }),
 
+    getSingleOrganization: builder.query<Organization, { page?: number; tenantId?: string }>({
+      query: (params) => ({ url: `/organizations/${params?.tenantId}`, params: { page: params?.page } }),
+      providesTags: ['Organization'],
+    }),
+
     createOrganization: builder.mutation<Organization, { name: string; slug: string; domain?: string; plan?: string; is_active?: boolean }>({
       query: (body) => ({ url: '/organizations', method: 'POST', body }),
       transformResponse: (response: ApiResponse<Organization>) => response.data,
       invalidatesTags: ['Organization'],
     }),
 
-    updateOrganization: builder.mutation<Organization, { id: string; payload: Partial<Pick<Organization, 'name' | 'domain' | 'logoUrl' | 'isActive'>> }>({
+    updateOrganization: builder.mutation<Organization, { id: string; payload: { name?: string; slug?: string; domain?: string; plan?: string; branding?: Record<string, unknown>; is_active?: boolean } }>({
       query: ({ id, payload }) => {
         const body: Record<string, unknown> = {};
         if (payload.name !== undefined) body.name = payload.name;
+        if (payload.slug !== undefined) body.slug = payload.slug;
         if (payload.domain !== undefined) body.domain = payload.domain;
-        if (payload.logoUrl !== undefined) body.branding = { logoUrl: payload.logoUrl };
-        if (payload.isActive !== undefined) body.is_active = payload.isActive;
+        if (payload.plan !== undefined) body.plan = payload.plan;
+        if (payload.branding !== undefined) body.branding = payload.branding;
+        if (payload.is_active !== undefined) body.is_active = payload.is_active;
         return { url: `/organizations/${id}`, method: 'PATCH', body };
       },
       transformResponse: (response: ApiResponse<Organization>) => response.data,
@@ -2033,6 +2040,7 @@ export const {
   useInviteUserMutation,
   // Organizations
   useGetOrganizationsQuery,
+  useGetSingleOrganizationQuery,
   useCreateOrganizationMutation,
   useUpdateOrganizationMutation,
   // Dashboard

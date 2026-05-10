@@ -106,7 +106,7 @@ export const CustomerLayout: React.FC = () => {
       {sidebarOpen && (
         <aside
           style={{
-            width: '16rem',
+            width: '15rem',
             background: 'var(--color-bg)',
             borderRight: '1px solid var(--color-border)',
             display: 'flex',
@@ -123,7 +123,7 @@ export const CustomerLayout: React.FC = () => {
           {/* Logo */}
           <div
             style={{
-              padding: '0.875rem 1rem',
+              padding: '0.499rem 1rem',
               borderBottom: '1px solid var(--color-border)',
               display: 'flex',
               alignItems: 'center',

@@ -166,13 +166,17 @@ export const OrganizationsPage: React.FC = () => {
   // ── Edit modal state ───────────────────────────────────────────
   const [editOrg, setEditOrg] = useState<Organization | null>(null);
   const [editName, setEditName] = useState('');
+  const [editSlug, setEditSlug] = useState('');
   const [editDomain, setEditDomain] = useState('');
+  const [editPlan, setEditPlan] = useState('');
   const [editActive, setEditActive] = useState(true);
 
   const openEdit = (org: Organization) => {
     setEditOrg(org);
     setEditName(org.name);
+    setEditSlug(org.slug);
     setEditDomain(org.domain ?? '');
+    setEditPlan(org.plan ?? 'free');
     setEditActive(org.is_active);
   };
 
@@ -180,14 +184,20 @@ export const OrganizationsPage: React.FC = () => {
     if (!editOrg) return;
     await updateOrg({
       id: editOrg.id,
-      payload: { name: editName.trim(), domain: editDomain.trim() || undefined, isActive: editActive },
+      payload: {
+        name: editName.trim(),
+        slug: editSlug.trim(),
+        domain: editDomain.trim() || undefined,
+        plan: editPlan,
+        is_active: editActive,
+      },
     }).unwrap();
     setEditOrg(null);
     refetch();
   };
 
   const handleToggleActive = async (org: Organization) => {
-    await updateOrg({ id: org.id, payload: { isActive: !org.is_active } }).unwrap();
+    await updateOrg({ id: org.id, payload: { is_active: !org.is_active } }).unwrap();
     refetch();
   };
 
@@ -297,7 +307,7 @@ export const OrganizationsPage: React.FC = () => {
 
       {/* ── Edit Organization Modal ────────────────────────────── */}
       {editOrg && (
-        <Modal isOpen onClose={() => setEditOrg(null)} title={`Edit Organization — ${editOrg.name}`}>
+        <Modal isOpen onClose={() => setEditOrg(null)} title={`Edit — ${editOrg.name}`} width="30rem">
           <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
             <Input
               label="Organization Name"
@@ -306,12 +316,42 @@ export const OrganizationsPage: React.FC = () => {
               placeholder="Acme Corp"
               autoFocus
             />
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}>
+                Slug
+              </label>
+              <Input
+                value={editSlug}
+                onChange={(e) => setEditSlug(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, '-'))}
+                placeholder="acme-corp"
+              />
+            </div>
             <Input
               label="Domain"
               value={editDomain}
               onChange={(e) => setEditDomain(e.target.value)}
               placeholder="acme.com"
             />
+            <div>
+              <label style={{ display: 'block', fontSize: '0.8125rem', fontWeight: 600, marginBottom: '0.375rem', color: 'var(--color-text-secondary)' }}>
+                Plan
+              </label>
+              <select
+                value={editPlan}
+                onChange={(e) => setEditPlan(e.target.value)}
+                style={{
+                  width: '100%', padding: '0.625rem 0.75rem',
+                  border: '1px solid var(--color-border-strong)',
+                  borderRadius: 'var(--radius-md)', fontSize: '0.875rem',
+                  background: 'var(--color-bg)', color: 'var(--color-text)',
+                  fontFamily: 'var(--font-body)', boxSizing: 'border-box',
+                }}
+              >
+                {PLAN_OPTIONS.map((p) => (
+                  <option key={p} value={p}>{p.charAt(0).toUpperCase() + p.slice(1)}</option>
+                ))}
+              </select>
+            </div>
             <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.875rem', cursor: 'pointer' }}>
               <input
                 type="checkbox"
@@ -322,7 +362,7 @@ export const OrganizationsPage: React.FC = () => {
             </label>
             <div style={{ display: 'flex', gap: '0.5rem', justifyContent: 'flex-end' }}>
               <Button variant="ghost" onClick={() => setEditOrg(null)}>Cancel</Button>
-              <Button onClick={handleSave} loading={saving} disabled={!editName.trim()}>
+              <Button onClick={handleSave} loading={saving} disabled={!editName.trim() || !editSlug.trim()}>
                 Save Changes
               </Button>
             </div>
