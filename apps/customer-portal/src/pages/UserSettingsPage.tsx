@@ -104,6 +104,7 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
   const [lastName, setLastName] = useState('');
   const [jobTitle, setJobTitle] = useState('');
   const [phone, setPhone] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
 
@@ -113,12 +114,25 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
     setLastName(me.lastName ?? '');
     setJobTitle((me as any).job_title ?? '');
     setPhone((me as any).phone ?? '');
+    setAvatarUrl(me.avatarUrl ?? '');
   }, [me]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveError('Image must be under 2 MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAvatarUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async () => {
     setSaveError('');
     try {
-      await updateMe({ firstName, lastName, jobTitle, phone }).unwrap();
+      await updateMe({ firstName, lastName, jobTitle, phone, avatarUrl: avatarUrl || undefined }).unwrap();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
     } catch {
@@ -132,9 +146,9 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
 
       {/* Avatar picker */}
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-        <Avatar name={session?.displayName ?? 'User'} size={64} />
+        <Avatar name={session?.displayName ?? 'User'} src={avatarUrl || undefined} size={64} />
         <div>
-          <input ref={avatarRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} />
+          <input ref={avatarRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={handleAvatarChange} />
           <Button variant="secondary" size="sm" onClick={() => avatarRef.current?.click()}>
             Change avatar
           </Button>

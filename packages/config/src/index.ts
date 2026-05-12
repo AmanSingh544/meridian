@@ -18,7 +18,7 @@ export const AUTH_CONFIG = {
   refreshPath: '/auth/token/refresh',
   sessionPath: '/auth/session',
   resetPasswordPath: '/auth/reset-password',
-  confirmResetPath: '/auth/confirm-reset',
+  confirmResetPath: '/auth/confirm-reset-password',
   sessionCheckInterval: 5 * 60 * 1_000, // 5 minutes
   sessionWarningThreshold: 2 * 60 * 1_000, // 2 minutes before expiry
 } as const;

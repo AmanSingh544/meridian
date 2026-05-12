@@ -126,12 +126,26 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
 
   const [displayName, setDisplayName] = useState(session?.displayName ?? '');
   const [jobTitle, setJobTitle] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState('');
   const [saved, setSaved] = useState(false);
   const [saveError, setSaveError] = useState('');
 
   useEffect(() => {
     if (meData?.job_title !== undefined) setJobTitle(meData.job_title ?? '');
+    if (meData?.avatarUrl !== undefined) setAvatarUrl(meData.avatarUrl ?? '');
   }, [meData]);
+
+  const handleAvatarChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setSaveError('Image must be under 2 MB');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setAvatarUrl(reader.result as string);
+    reader.readAsDataURL(file);
+  };
 
   const handleSave = async () => {
     setSaveError('');
@@ -140,6 +154,7 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
         firstName: displayName.split(' ')[0] ?? '',
         lastName: displayName.split(' ').slice(1).join(' ') ?? '',
         jobTitle,
+        avatarUrl: avatarUrl || undefined,
       }).unwrap();
       setSaved(true);
       setTimeout(() => setSaved(false), 2500);
@@ -153,9 +168,9 @@ const ProfileTab: React.FC<{ session: ReturnType<typeof useSession> }> = ({ sess
 
       <SectionHeader title="Profile" description="How you appear to customers and teammates." />
       <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '1.5rem' }}>
-        <Avatar name={session?.displayName ?? 'Agent'} size={60} />
+        <Avatar name={session?.displayName ?? 'Agent'} src={avatarUrl || undefined} size={60} />
         <div>
-          <input ref={avatarRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} />
+          <input ref={avatarRef} type="file" accept="image/png,image/jpeg,image/webp" style={{ display: 'none' }} onChange={handleAvatarChange} />
           <Button variant="secondary" size="sm" onClick={() => avatarRef.current?.click()}>
             Change photo
           </Button>
