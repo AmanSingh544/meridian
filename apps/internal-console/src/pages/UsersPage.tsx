@@ -426,8 +426,8 @@ const PermissionModal: React.FC<PermissionModalProps> = ({ user, onClose }) => {
 
 // ── SkillsModal ──────────────────────────────────────────────────────────────
 
-interface SkillsModalProps { user: User; allSkills: Skill[]; onClose: () => void; }
-const SkillsModal: React.FC<SkillsModalProps> = ({ user, allSkills, onClose }) => {
+interface SkillsModalProps { user: User; allSkills: Skill[]; onClose: () => void; onSaved?: () => void; }
+const SkillsModal: React.FC<SkillsModalProps> = ({ user, allSkills, onClose, onSaved }) => {
   const { data: currentSkills = [], isLoading } = useGetUserSkillsQuery(user.id);
   const [updateSkills, { isLoading: saving }] = useUpdateUserSkillsMutation();
   const [suggestSkills, { isLoading: suggesting }] = useSuggestAgentSkillsMutation();
@@ -469,6 +469,7 @@ const SkillsModal: React.FC<SkillsModalProps> = ({ user, allSkills, onClose }) =
       userId: user.id,
       skillIds: draft.map(s => ({ skillId: s.skillId, level: s.level })),
     }).unwrap();
+    onSaved?.();
     onClose();
   };
 
@@ -550,8 +551,8 @@ const SkillsModal: React.FC<SkillsModalProps> = ({ user, allSkills, onClose }) =
 
 // ── WorkloadModal ────────────────────────────────────────────────────────────
 
-interface WorkloadModalProps { user: User; onClose: () => void; }
-const WorkloadModal: React.FC<WorkloadModalProps> = ({ user, onClose }) => {
+interface WorkloadModalProps { user: User; onClose: () => void; onSaved?: () => void; }
+const WorkloadModal: React.FC<WorkloadModalProps> = ({ user, onClose, onSaved }) => {
   const { data: workload, isLoading } = useGetUserWorkloadQuery(user.id);
   const [updateWorkload, { isLoading: saving }] = useUpdateUserWorkloadMutation();
 
@@ -571,6 +572,7 @@ const WorkloadModal: React.FC<WorkloadModalProps> = ({ user, onClose }) => {
       userId: user.id,
       data: { maxCapacity: Number(maxCap), availabilityStatus: status },
     }).unwrap();
+    onSaved?.();
     onClose();
   };
 
@@ -1717,10 +1719,11 @@ export const UsersPage: React.FC = () => {
           user={skillTarget}
           allSkills={allSkills}
           onClose={() => setSkillTarget(null)}
+          onSaved={refetch}
         />
       )}
       {wloadTarget && (
-        <WorkloadModal user={wloadTarget} onClose={() => setWloadTarget(null)} />
+        <WorkloadModal user={wloadTarget} onClose={() => setWloadTarget(null)} onSaved={refetch} />
       )}
       {showInvite && (
         <InviteModal tab={activeTab} onClose={() => setShowInvite(false)} onInvited={refetch} />

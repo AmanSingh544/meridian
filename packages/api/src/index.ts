@@ -356,11 +356,14 @@ function mapRawUser(raw: any): import('@3sc/types').User {
 }
 
 function mapRawRoutingRule(raw: any): import('@3sc/types').RoutingRule {
-  const conditions: import('@3sc/types').RoutingCondition[] = Array.isArray(raw.condition)
-    ? raw.condition
-    : Array.isArray(raw.conditions)
-      ? raw.conditions
-      : [];
+  let conditions: import('@3sc/types').RoutingCondition[] = [];
+  if (Array.isArray(raw.condition)) {
+    conditions = raw.condition;
+  } else if (Array.isArray(raw.conditions)) {
+    conditions = raw.conditions;
+  } else if (raw.condition && typeof raw.condition === 'object') {
+    conditions = [raw.condition];
+  }
   const assignTo: string =
     (raw.action as any)?.assignTo ??
     (raw.action as any)?.assign_to ??
@@ -1128,7 +1131,24 @@ export const api = createApi({
     // ── User Preferences ────────────────────────────────────
     getUserPreferences: builder.query<UserPreferences, void>({
       query: () => '/users/me/preferences',
-      transformResponse: (response: ApiResponse<UserPreferences>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => {
+        const d = response.data ?? response;
+        // Backend returns snake_case; map to camelCase for the frontend
+        return {
+          accentColor: d.accent_color ?? d.accentColor ?? 'cobalt',
+          colorMode: d.color_mode ?? d.colorMode ?? 'system',
+          density: d.density ?? 'comfortable',
+          emailOnNewReply: d.email_on_new_reply ?? d.emailOnNewReply ?? true,
+          emailOnStatusChange: d.email_on_status_change ?? d.emailOnStatusChange ?? true,
+          emailOnMention: d.email_on_mention ?? d.emailOnMention ?? true,
+          emailDigest: d.email_digest ?? d.emailDigest ?? false,
+          browserPush: d.browser_push ?? d.browserPush ?? true,
+          emailOnTicketAssigned: d.email_on_ticket_assigned ?? d.emailOnTicketAssigned ?? true,
+          emailOnSLAWarning: d.email_on_sla_warning ?? d.emailOnSLAWarning ?? true,
+          emailOnEscalation: d.email_on_escalation ?? d.emailOnEscalation ?? true,
+          emailDailyDigest: d.email_daily_digest ?? d.emailDailyDigest ?? false,
+        };
+      },
       providesTags: ['UserPreferences'],
     }),
 
