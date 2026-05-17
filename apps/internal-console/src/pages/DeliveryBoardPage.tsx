@@ -8,7 +8,7 @@ import {
   usePrioritiseDeliveryMutation,
 } from '@3sc/api';
 import { useDocumentTitle, usePermissions } from '@3sc/hooks';
-import { Card, Badge, Button, Skeleton, EmptyState, Modal, Select, useToast } from '@3sc/ui';
+import { Card, Badge, Button, Skeleton, EmptyState, Modal, Select, useToast, DropdownMenu, DropdownItem } from '@3sc/ui';
 import { Permission } from '@3sc/types';
 import type { DeliveryFeature, DeliveryStatus } from '@3sc/types';
 
@@ -49,7 +49,6 @@ interface FeatureCardProps {
 }
 
 const FeatureCard: React.FC<FeatureCardProps> = ({ feature, riskLevel, riskReason, canManage, onMove, onDelete, onSelect }) => {
-  const [menuOpen, setMenuOpen] = useState(false);
   const catColor = feature.category ? (CATEGORY_COLORS[feature.category] ?? '#94a3b8') : '#94a3b8';
 
   const moveOptions = COLUMNS
@@ -62,12 +61,13 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, riskLevel, riskReaso
       onClick={() => onSelect(feature)}
       style={{
         position: 'relative',
+        overflow: 'visible',
       }}
     >
       {/* category dot + title */}
       <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.5rem', marginBottom: '0.375rem' }}>
         <span style={{ width: 8, height: 8, borderRadius: '50%', background: catColor, flexShrink: 0, marginTop: 5 }} />
-        <span style={{ fontSize: '0.8125rem', fontWeight: 600, lineHeight: 1.4, color: 'var(--color-text)' }}>
+        <span style={{ fontSize: '0.8125rem', fontWeight: 600, lineHeight: 1.4, color: 'var(--color-text)', paddingRight: canManage ? '1.25rem' : 0 }}>
           {feature.title}
         </span>
       </div>
@@ -78,7 +78,7 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, riskLevel, riskReaso
           {feature.category}
         </span>
         <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
-          ▲ {feature.upvotes}
+          ▲ {feature.upvotes ?? 0}
         </span>
         {feature.eta && (
           <span style={{ fontSize: '0.6875rem', color: 'var(--color-text-muted)' }}>
@@ -113,38 +113,29 @@ const FeatureCard: React.FC<FeatureCardProps> = ({ feature, riskLevel, riskReaso
 
       {/* move menu */}
       {canManage && (
-        <div style={{ position: 'absolute', top: '0.5rem', right: '0.5rem' }} onClick={e => e.stopPropagation()}>
-          <button
-            onClick={() => setMenuOpen(o => !o)}
-            style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '1rem', lineHeight: 1, padding: '0.1rem 0.3rem' }}
+        <div style={{ position: 'absolute', top: '0.35rem', right: '0.35rem' }} onClick={e => e.stopPropagation()}>
+          <DropdownMenu
+            trigger={
+              <span style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '1rem', lineHeight: 1, padding: '0.1rem 0.3rem' }}>
+                ···
+              </span>
+            }
+            align="right"
           >
-            ···
-          </button>
-          {menuOpen && (
-            <div style={{
-              position: 'absolute', right: 0, top: '100%', zIndex: 20,
-              background: 'var(--color-bg)', border: '1px solid var(--color-border)',
-              borderRadius: '0.375rem', boxShadow: '0 4px 12px rgba(0,0,0,0.15)',
-              minWidth: '10rem', padding: '0.25rem 0',
-            }}>
-              {moveOptions.map(opt => (
-                <button
-                  key={opt.status}
-                  onClick={() => { onMove(feature, opt.status); setMenuOpen(false); }}
-                  style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '0.4rem 0.75rem', fontSize: '0.8125rem', cursor: 'pointer', color: 'var(--color-text)' }}
-                >
-                  Move to {opt.label}
-                </button>
-              ))}
-              <div style={{ height: 1, background: 'var(--color-border)', margin: '0.25rem 0' }} />
-              <button
-                onClick={() => { onDelete(feature.id); setMenuOpen(false); }}
-                style={{ display: 'block', width: '100%', textAlign: 'left', background: 'none', border: 'none', padding: '0.4rem 0.75rem', fontSize: '0.8125rem', cursor: 'pointer', color: 'var(--color-danger)' }}
-              >
-                Delete
-              </button>
-            </div>
-          )}
+            {moveOptions.map(opt => (
+              <DropdownItem
+                key={opt.status}
+                label={`Move to ${opt.label}`}
+                onClick={() => onMove(feature, opt.status)}
+              />
+            ))}
+            <div style={{ height: 1, background: 'var(--color-border)', margin: '0.25rem 0' }} />
+            <DropdownItem
+              label="Delete"
+              danger
+              onClick={() => onDelete(feature.id)}
+            />
+          </DropdownMenu>
         </div>
       )}
     </Card>

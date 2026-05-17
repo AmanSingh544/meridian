@@ -1,9 +1,9 @@
 import React, { useState, useMemo } from 'react';
 import {
-  useGetTeamMembersQuery,
-  useUpdateTeamMemberRoleMutation,
-  useToggleTeamMemberPermissionMutation,
-  useDeactivateTeamMemberMutation,
+  useGetUsersQuery,
+  useUpdateUserMutation,
+  useToggleUserPermissionMutation,
+  useDeleteUserMutation,
   useInviteUserMutation,
   useGetProjectsQuery,
 } from '@3sc/api';
@@ -72,7 +72,7 @@ interface PermissionsModalProps {
 }
 
 const PermissionsModal: React.FC<PermissionsModalProps> = ({ member, actorPermissions, onClose }) => {
-  const [togglePerm, { isLoading: toggling }] = useToggleTeamMemberPermissionMutation();
+  const [togglePerm, { isLoading: toggling }] = useToggleUserPermissionMutation();
   const [confirmPerm, setConfirmPerm] = useState<Permission | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -107,7 +107,7 @@ const PermissionsModal: React.FC<PermissionsModalProps> = ({ member, actorPermis
   const handleToggle = async (perm: Permission) => {
     setError(null);
     try {
-      await togglePerm({ memberId: member.id, permission: perm }).unwrap();
+      await togglePerm({ userId: member.id, permission: perm }).unwrap();
       setConfirmPerm(null);
     } catch (err: unknown) {
       const msg = (err as { data?: { message?: string } })?.data?.message ?? 'Failed to update permission.';
@@ -231,8 +231,8 @@ interface EditMemberModalProps {
 }
 
 const EditMemberModal: React.FC<EditMemberModalProps> = ({ member, onClose, onSaved }) => {
-  const [updateRole,     { isLoading: saving }]      = useUpdateTeamMemberRoleMutation();
-  const [deactivate,     { isLoading: deactivating }] = useDeactivateTeamMemberMutation();
+  const [updateUser,     { isLoading: saving }]      = useUpdateUserMutation();
+  const [deleteUser,     { isLoading: deactivating }] = useDeleteUserMutation();
 
   const [role,      setRole]     = useState<UserRole>(member.role);
   const [isActive,  setIsActive] = useState(member.isActive);
@@ -243,7 +243,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({ member, onClose, onSa
     setError(null);
     try {
       if (role !== member.role) {
-        await updateRole({ memberId: member.id, role }).unwrap();
+        await updateUser({ id: member.id, payload: { role } }).unwrap();
       }
       onSaved();
       onClose();
@@ -255,7 +255,7 @@ const EditMemberModal: React.FC<EditMemberModalProps> = ({ member, onClose, onSa
   const handleDeactivate = async () => {
     setError(null);
     try {
-      await deactivate(member.id).unwrap();
+      await deleteUser(member.id).unwrap();
       onSaved();
       onClose();
     } catch (err: unknown) {
@@ -478,7 +478,7 @@ export const TeamManagementPage: React.FC = () => {
   const [permTarget, setPermTarget]  = useState<User | null>(null);
   const [showInvite, setShowInvite]  = useState(false);
 
-  const { data, isLoading, error, refetch } = useGetTeamMembersQuery({
+  const { data, isLoading, error, refetch } = useGetUsersQuery({
     page,
     role: roleFilter || undefined,
     search: debouncedSearch || undefined,

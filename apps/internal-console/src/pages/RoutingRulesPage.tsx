@@ -58,11 +58,23 @@ const VALUE_OPTIONS: Partial<Record<ConditionField, Array<{ value: string; label
   category: Object.values(TicketCategory).map(v => ({ value: v, label: v.charAt(0) + v.slice(1).toLowerCase().replace('_', ' ') })),
 };
 
+const FIELD_ALIAS: Record<string, ConditionField> = {
+  organizationId: 'organization_id',
+  organization_id: 'organization_id',
+};
+const SUPPORTED_FIELDS = new Set<string>(['priority', 'category', 'organization_id', 'tags', 'keyword']);
+
 function conditionToLocal(c: RoutingCondition): LocalCondition {
+  if (!c || typeof c !== 'object') {
+    return { field: 'priority', operator: 'equals', value: 'CRITICAL' };
+  }
+  const rawField = c.field as string;
+  const field: ConditionField = FIELD_ALIAS[rawField] ?? (SUPPORTED_FIELDS.has(rawField) ? rawField as ConditionField : 'priority');
+  const defaultOp = OPERATOR_OPTIONS[field][0].value;
   return {
-    field: c.field as ConditionField,
-    operator: c.operator as ConditionOperator,
-    value: Array.isArray(c.value) ? c.value.join(',') : c.value,
+    field,
+    operator: (c.operator as ConditionOperator) || defaultOp,
+    value: Array.isArray(c.value) ? c.value.join(',') : (c.value ?? ''),
   };
 }
 
@@ -76,9 +88,10 @@ function localToCondition(c: LocalCondition): RoutingCondition {
 }
 
 function conditionSummary(c: RoutingCondition): string {
-  const fieldLabel = FIELD_OPTIONS.find(f => f.value === c.field)?.label ?? c.field;
-  const opLabel = OPERATOR_OPTIONS[c.field as ConditionField]?.find(o => o.value === c.operator)?.label ?? c.operator;
-  const val = Array.isArray(c.value) ? c.value.join(', ') : c.value;
+  if (!c || typeof c !== 'object') return 'Invalid condition';
+  const fieldLabel = FIELD_OPTIONS.find(f => f.value === c.field)?.label ?? c.field ?? '?';
+  const opLabel = OPERATOR_OPTIONS[(c.field as ConditionField) || 'priority']?.find(o => o.value === c.operator)?.label ?? c.operator ?? '?';
+  const val = Array.isArray(c.value) ? c.value.join(', ') : (c.value ?? '?');
   return `${fieldLabel} ${opLabel} ${val}`;
 }
 
@@ -237,7 +250,7 @@ const RuleForm: React.FC<RuleFormProps> = ({ rule, agents, onSave, onCancel, sav
               <Select
                 value={c.operator}
                 onChange={e => updateCondition(idx, { operator: e.target.value as ConditionOperator })}
-                options={OPERATOR_OPTIONS[c.field]}
+                options={OPERATOR_OPTIONS[c.field] ?? OPERATOR_OPTIONS['priority']}
                 style={{ fontSize: '0.8125rem' }}
               />
 
@@ -295,19 +308,52 @@ const SimulatePanel: React.FC<{ rules: RoutingRule[]; agents: { id: string; disp
   const [priority, setPriority] = useState('CRITICAL');
   const [category, setCategory] = useState('BUG');
   const [keyword, setKeyword] = useState('');
+  const [orgId, setOrgId] = useState('');
+  const [tags, setTags] = useState('');
   const [result, setResult] = useState<{ matched: RoutingRule | null; evaluated: Array<{ rule: RoutingRule; matched: boolean }> } | null>(null);
+
+  const matchCondition = (c: RoutingCondition): boolean => {
+    const condValues = (Array.isArray(c.value) ? c.value : [c.value]).map(v => String(v ?? '').toUpperCase());
+
+    switch (c.field) {
+      case 'priority': {
+        const ticketPriority = priority.toUpperCase();
+        if (c.operator === 'equals') return condValues[0] === ticketPriority;
+        if (c.operator === 'in') return condValues.includes(ticketPriority);
+        if (c.operator === 'not_in') return !condValues.includes(ticketPriority);
+        return false;
+      }
+      case 'category': {
+        const ticketCategory = category.toUpperCase();
+        if (c.operator === 'equals') return condValues[0] === ticketCategory;
+        if (c.operator === 'in') return condValues.includes(ticketCategory);
+        if (c.operator === 'not_in') return !condValues.includes(ticketCategory);
+        return false;
+      }
+      case 'organization_id': {
+        if (!orgId) return false;
+        const ticketOrg = orgId.toUpperCase();
+        if (c.operator === 'equals') return condValues[0] === ticketOrg;
+        if (c.operator === 'in') return condValues.includes(ticketOrg);
+        return false;
+      }
+      case 'tags': {
+        if (c.operator !== 'contains') return false;
+        const needle = String(c.value ?? '').toLowerCase();
+        return tags.split(',').map(t => t.trim().toLowerCase()).includes(needle);
+      }
+      case 'keyword': {
+        if (c.operator !== 'contains') return false;
+        return keyword.toLowerCase().includes(String(c.value ?? '').toLowerCase());
+      }
+      default:
+        return false;
+    }
+  };
 
   const simulate = () => {
     const evaluated = rules.filter(r => r.isActive).map(r => {
-      const matched = r.conditions.every(c => {
-        const val = Array.isArray(c.value) ? c.value : [c.value];
-        if (c.field === 'priority' && c.operator === 'equals') return c.value === priority;
-        if (c.field === 'priority' && c.operator === 'in') return val.includes(priority);
-        if (c.field === 'category' && c.operator === 'equals') return c.value === category;
-        if (c.field === 'category' && c.operator === 'in') return val.includes(category);
-        if (c.field === 'keyword' && c.operator === 'contains') return keyword.toLowerCase().includes(String(c.value).toLowerCase());
-        return true;
-      });
+      const matched = r.conditions.length > 0 && r.conditions.every(matchCondition);
       return { rule: r, matched };
     });
     const first = evaluated.find(e => e.matched);
@@ -332,7 +378,7 @@ const SimulatePanel: React.FC<{ rules: RoutingRule[]; agents: { id: string; disp
         <button onClick={onClose} style={{ background: 'none', border: 'none', cursor: 'pointer', color: 'var(--color-text-muted)', fontSize: '1rem' }}>✕</button>
       </div>
 
-      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 2fr auto', gap: '0.75rem', alignItems: 'end', marginBottom: '1rem' }}>
+      <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr 1fr 1fr auto', gap: '0.75rem', alignItems: 'end', marginBottom: '0.75rem' }}>
         <div>
           <Select
             label="Priority"
@@ -353,7 +399,15 @@ const SimulatePanel: React.FC<{ rules: RoutingRule[]; agents: { id: string; disp
           <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Keyword (optional)</label>
           <input value={keyword} onChange={e => setKeyword(e.target.value)} placeholder="e.g. API timeout" style={{ width: '100%', padding: '0.375rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box' }} />
         </div>
+        <div>
+          <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Tags (comma-separated)</label>
+          <input value={tags} onChange={e => setTags(e.target.value)} placeholder="e.g. urgent,api" style={{ width: '100%', padding: '0.375rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box' }} />
+        </div>
         <Button size="sm" onClick={simulate}>Simulate</Button>
+      </div>
+      <div style={{ marginBottom: '1rem' }}>
+        <label style={{ display: 'block', fontSize: '0.75rem', fontWeight: 600, color: 'var(--color-text-muted)', marginBottom: '0.25rem' }}>Client / Org ID (optional)</label>
+        <input value={orgId} onChange={e => setOrgId(e.target.value)} placeholder="e.g. org_abc123" style={{ width: '100%', padding: '0.375rem 0.5rem', border: '1px solid var(--color-border)', borderRadius: 'var(--radius-sm)', background: 'var(--color-bg)', color: 'var(--color-text)', fontSize: '0.8125rem', outline: 'none', boxSizing: 'border-box' }} />
       </div>
 
       {result && (

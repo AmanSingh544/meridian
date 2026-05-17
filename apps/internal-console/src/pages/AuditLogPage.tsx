@@ -50,7 +50,13 @@ export const AuditLogPage: React.FC = () => {
           {e.changes
             ? Object.entries(e.changes)
                 .slice(0, 2)
-                .map(([key, val]) => `${key}: ${String(val.from)} → ${String(val.to)}`)
+                .map(([key, val]) => {
+                  // Backend stores either raw values or { from, to } diffs
+                  if (val && typeof val === 'object' && 'from' in val && 'to' in val) {
+                    return `${key}: ${String(val.from)} → ${String(val.to)}`;
+                  }
+                  return `${key}: ${JSON.stringify(val)}`;
+                })
                 .join(', ')
             : '—'}
         </div>

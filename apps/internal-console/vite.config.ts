@@ -1,6 +1,17 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { execSync } from 'child_process';
+
+function getGitSha(): string {
+  try {
+    return execSync('git rev-parse HEAD', { encoding: 'utf-8' }).trim();
+  } catch {
+    return `build-${Date.now()}`;
+  }
+}
+
+const RELEASE_SHA = getGitSha();
 
 export default defineConfig({
   plugins: [react()],
@@ -23,6 +34,9 @@ export default defineConfig({
       '/api': { target: 'http://localhost:8080', changeOrigin: true },
       '/ws': { target: 'ws://localhost:8080', ws: true },
     },
+  },
+  define: {
+    'window.__BI_RELEASE__': JSON.stringify(RELEASE_SHA),
   },
   build: {
     outDir: 'dist',
