@@ -1154,7 +1154,23 @@ export const api = createApi({
 
     updateUserPreferences: builder.mutation<UserPreferences, UserPreferencesUpdatePayload>({
       query: (payload) => ({ url: '/users/me/preferences', method: 'PATCH', body: payload }),
-      transformResponse: (response: ApiResponse<UserPreferences>) => response.data,
+      transformResponse: (response: ApiResponse<any>) => {
+        const d = response.data ?? response;
+        return {
+          accentColor: d.accent_color ?? d.accentColor ?? 'cobalt',
+          colorMode: d.color_mode ?? d.colorMode ?? 'system',
+          density: d.density ?? 'comfortable',
+          emailOnNewReply: d.email_on_new_reply ?? d.emailOnNewReply ?? true,
+          emailOnStatusChange: d.email_on_status_change ?? d.emailOnStatusChange ?? true,
+          emailOnMention: d.email_on_mention ?? d.emailOnMention ?? true,
+          emailDigest: d.email_digest ?? d.emailDigest ?? false,
+          browserPush: d.browser_push ?? d.browserPush ?? true,
+          emailOnTicketAssigned: d.email_on_ticket_assigned ?? d.emailOnTicketAssigned ?? true,
+          emailOnSLAWarning: d.email_on_sla_warning ?? d.emailOnSLAWarning ?? true,
+          emailOnEscalation: d.email_on_escalation ?? d.emailOnEscalation ?? true,
+          emailDailyDigest: d.email_daily_digest ?? d.emailDailyDigest ?? false,
+        };
+      },
       invalidatesTags: ['UserPreferences'],
     }),
 
@@ -1796,8 +1812,18 @@ export const api = createApi({
       transformResponse: (response: ApiResponse<{ effective: Permission[]; overrides: PermissionOverride[] }>) => response.data,
       invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
     }),
-    /** CLIENT_ADMIN: toggle a permission on/off for one of their org members (ceiling-enforced server-side) */
-    toggleTeamMemberPermission: builder.mutation<{ effective: Permission[] }, { memberId: string; permission: Permission; enabled: boolean }>({
+    /** Toggle a permission override on/off for any user (works for both internal and client admins) */
+    toggleUserPermission: builder.mutation<{ effective: Permission[] }, { userId: string; permission: Permission }>({
+      query: ({ userId, permission }) => ({
+        url: `/users/${userId}/permissions/toggle`,
+        method: 'PATCH',
+        body: { permission },
+      }),
+      transformResponse: (response: ApiResponse<{ effective: Permission[] }>) => response.data,
+      invalidatesTags: (_result, _error, { userId }) => [{ type: 'User', id: userId }],
+    }),
+    /** DEPRECATED: use toggleUserPermission instead. Kept for backward compat. */
+    toggleTeamMemberPermission: builder.mutation<{ effective: Permission[] }, { memberId: string; permission: Permission; enabled?: boolean }>({
       query: ({ memberId, permission, enabled }) => ({
         url: `/team/members/${memberId}/permissions`,
         method: 'PATCH',
@@ -2164,6 +2190,7 @@ export const {
   // Permission Overrides
   useGetUserPermissionsQuery,
   useUpdateUserPermissionMutation,
+  useToggleUserPermissionMutation,
   useToggleTeamMemberPermissionMutation,
   // Client Team Management
   useGetTeamMembersQuery,
